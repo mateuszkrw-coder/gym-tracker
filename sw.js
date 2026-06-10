@@ -1,6 +1,6 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v1';
+const CACHE = 'gym-tracker-v2';
 const ASSETS = [
   './',
   './index.html',

@@ -1,11 +1,17 @@
 # Gym Tracker
 
+**Live app:** https://mateuszkrw-coder.github.io/gym-tracker/
+
 A tiny offline-first PWA for tracking gym weights. Dark theme, no login, no backend —
 everything is stored in `localStorage` on your phone.
 
 **Features**
 
+- Summary start page with weekly graphs and a **Start workout** button
+- Workout sessions: live timer while you train, **End workout** recap
+  (duration, exercises, sets, volume)
 - Muscle groups → exercises → tap to log weight × reps × sets
+- Just-saved sets listed right under the Save button with ✕ to remove misclicks
 - "Last time" shown on every exercise, with ▲/▼ trend vs the previous session
 - Progress chart and personal best per exercise
 - Full history view with weekly/monthly stats
@@ -41,7 +47,7 @@ everything is stored in `localStorage` on your phone.
 ## Updating the app
 
 1. Edit the files in the repo (GitHub web editor works fine).
-2. **Important:** in `sw.js`, bump the version string, e.g. `gym-tracker-v1` → `gym-tracker-v2`.
+2. **Important:** in `sw.js`, bump the version string, e.g. `gym-tracker-v2` → `gym-tracker-v3`.
 3. Commit. Installed phones pick up the new version next time the app is opened with internet.
 
 ## Your data
