@@ -1,13 +1,15 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v2';
+const CACHE = 'gym-tracker-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './fonts/press-start-2p.woff2',
+  './fonts/vt323.woff2'
 ];
 
 self.addEventListener('install', (e) => {

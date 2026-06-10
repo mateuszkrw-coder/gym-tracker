@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="theme-night">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
@@ -15,205 +15,215 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">
 <style>
+@font-face{font-family:'Press Start 2P';src:url('fonts/press-start-2p.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'VT323';src:url('fonts/vt323.woff2') format('woff2');font-display:swap}
 :root{
-  --bg:#000;
-  --card:#1c1c1e;
-  --card2:#2c2c2e;
-  --xcard:#171c0e;
-  --accent:#b4f63c;
-  --accent-ink:#0c1200;
-  --muted:#9c9ca3;
-  --red:#ff453a;
-  --line:rgba(255,255,255,.08);
-  --radius:18px;
+  --cream:#F8F8D0;
+  --cream2:#EEE8B0;
+  --bord:#585048;
+  --frame:#405068;
+  --boxw:#FFFFFF;
+  --text:#303030;
+  --mut:#787878;
+  --red:#D03028;
+  --gold:#F8B050;
+  --hp:#58C868;
+  --exp:#4890F8;
+  --accent:#2E8B48;
+  --muted:#787878;
+  --radius:6px;
 }
+html.theme-night{--bg:#182028;--ink:#E8F0F8;--inkmut:#8898B0}
+html.theme-day{--bg:#E4E8EE;--ink:#283038;--inkmut:#5A6878}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:#fff;
-  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,'Segoe UI',Roboto,sans-serif;
-  touch-action:manipulation;overscroll-behavior-y:none;-webkit-font-smoothing:antialiased}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:'VT323','Courier New',monospace;
+  touch-action:manipulation;overscroll-behavior-y:none}
 html.lock,html.lock body{overflow:hidden}
 button{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;cursor:pointer}
 #view{padding:calc(env(safe-area-inset-top) + 8px) 0 130px;min-height:100vh}
 
 /* ---------- header ---------- */
-.titlebar{padding:10px 18px 0;display:flex;align-items:center;justify-content:space-between}
-h1{font-size:32px;font-weight:800;margin:0;letter-spacing:-.5px}
-.subtitle{color:var(--muted);font-size:14px;margin:2px 18px 12px;font-weight:500}
-.textbtn{background:none;border:none;color:var(--accent);font-size:16px;font-weight:650;padding:8px 0 8px 16px;font-family:inherit}
+.titlebar{padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between}
+h1{font-family:'Press Start 2P';font-size:16px;font-weight:400;margin:0;color:var(--ink);line-height:1.5}
+.subtitle{color:var(--inkmut);font-size:19px;margin:6px 16px 12px}
+.textbtn{background:none;border:none;color:var(--gold);font-family:'Press Start 2P';font-size:11px;padding:10px 0 10px 16px}
 
 /* ---------- sections & exercise cards ---------- */
-.section{margin:20px 0 0}
-.sechead{display:flex;align-items:center;gap:8px;padding:0 18px;margin:0 0 8px}
-.dot{width:10px;height:10px;border-radius:5px;flex:none}
-.sechead h2{font-size:20px;font-weight:750;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.count{color:var(--muted);font-size:13px;font-weight:600}
-.card{background:var(--xcard);border:1px solid rgba(255,255,255,.04);border-radius:var(--radius);
-  margin:8px 16px;padding:14px 16px;display:flex;align-items:center;gap:12px}
-button.card{width:calc(100% - 32px);text-align:left;font-family:inherit;color:inherit;font-size:inherit;
-  transition:transform .12s ease,filter .12s ease}
-button.card:active{transform:scale(.975);filter:brightness(1.25)}
+.section{margin:18px 0 0}
+.sechead{display:flex;align-items:center;gap:9px;padding:0 16px;margin:0 0 6px}
+.dot{width:10px;height:10px;border-radius:2px;flex:none;border:2px solid rgba(0,0,0,.3)}
+.sechead h2{font-family:'Press Start 2P';font-size:11px;font-weight:400;margin:0;flex:1;min-width:0;
+  color:var(--ink);text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.5}
+.count{color:var(--inkmut);font-size:17px}
+.card{background:var(--cream);border:3px solid var(--bord);border-radius:var(--radius);
+  margin:7px 12px;padding:10px 12px;display:flex;align-items:center;gap:10px;color:var(--text)}
+button.card{width:calc(100% - 24px);text-align:left;font-family:inherit;color:var(--text);font-size:inherit}
+button.card:active{background:var(--cream2)}
 .exinfo{flex:1;min-width:0}
-.exname{font-size:17px;font-weight:650;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.exlast{font-size:13px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.exlast b{color:#dfe5d2;font-weight:700}
-.trend{font-size:12px;font-weight:750}
-.trend.up{color:var(--accent)} .trend.down{color:#ff9f0a}
-.gobtn{width:40px;height:40px;border-radius:20px;background:var(--accent);flex:none;
-  display:flex;align-items:center;justify-content:center}
-.iconbtn{width:34px;height:34px;border-radius:17px;background:var(--card2);border:none;color:#cfd3c6;
-  font-size:15px;flex:none;font-family:inherit;display:flex;align-items:center;justify-content:center}
+.exname{font-size:22px;line-height:1.05;margin-bottom:3px;text-transform:uppercase;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exlast{font-size:17px;color:var(--mut);display:flex;align-items:center;gap:7px;flex-wrap:wrap;line-height:1.1}
+.exlast b{color:var(--text);font-weight:400}
+.trend{font-size:15px}
+.trend.up{color:var(--accent)} .trend.down{color:var(--red)}
+.gobtn{width:34px;height:34px;border-radius:4px;background:var(--boxw);border:2px solid var(--bord);flex:none;
+  display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P';font-size:11px;color:var(--text)}
+.iconbtn{width:34px;height:34px;border-radius:4px;background:var(--boxw);border:2px solid var(--bord);color:var(--text);
+  font-size:16px;flex:none;font-family:inherit;display:flex;align-items:center;justify-content:center}
 .iconbtn.red{color:var(--red)}
-.addcard{justify-content:center;color:var(--accent);font-weight:700;background:transparent;
-  border:1.5px dashed rgba(180,246,60,.35)}
+.addcard{justify-content:center;color:var(--text);background:var(--boxw);border-style:dashed}
 
 /* ---------- install banner ---------- */
-.banner{margin:4px 16px 8px;background:linear-gradient(135deg,#1d2410,#12180a);
-  border:1px solid rgba(180,246,60,.25);border-radius:var(--radius);padding:13px 14px;
-  display:flex;align-items:center;gap:10px}
-.banner .binfo{flex:1;font-size:13px;color:#cfd6c0;line-height:1.5}
-.banner .binfo b{color:#fff}
+.banner{margin:4px 12px 8px;background:var(--boxw);
+  border:3px solid var(--frame);border-radius:var(--radius);padding:11px 12px;
+  display:flex;align-items:center;gap:10px;color:var(--text)}
+.banner .binfo{flex:1;font-size:18px;line-height:1.25}
+.banner .binfo b{color:var(--red);font-weight:400}
 
 /* ---------- bottom tab bar ---------- */
-#tabbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));
-  display:flex;gap:2px;background:rgba(24,24,26,.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
-  border-radius:30px;padding:8px;z-index:50;border:1px solid rgba(255,255,255,.07);
-  box-shadow:0 10px 30px rgba(0,0,0,.55)}
-#tabbar button{width:70px;border:none;background:none;color:var(--muted);display:flex;flex-direction:column;
-  align-items:center;gap:3px;font-size:10px;font-weight:650;font-family:inherit;padding:7px 0;border-radius:22px}
-#tabbar button.on{color:var(--accent);background:rgba(180,246,60,.13)}
-#tabbar svg{width:22px;height:22px}
+#tabbar{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));
+  display:flex;gap:2px;background:var(--boxw);border:3px solid var(--frame);
+  border-radius:8px;padding:4px;z-index:50}
+#tabbar button{flex:1;border:none;background:none;color:var(--mut);
+  font-family:'Press Start 2P';font-size:10px;padding:13px 0 11px;border-radius:4px;line-height:1}
+#tabbar button.on{color:var(--red);background:var(--cream)}
+#tabbar svg{display:none}
 
 /* ---------- exercise sheet ---------- */
-#sheet{position:fixed;inset:0;background:#000;z-index:60;transform:translateY(102%);
+#sheet{position:fixed;inset:0;background:var(--bg);z-index:60;transform:translateY(102%);
   transition:transform .32s cubic-bezier(.32,.72,.3,1);overflow-y:auto;-webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;padding:calc(env(safe-area-inset-top) + 12px) 0 60px;visibility:hidden}
 #sheet.open{transform:none;visibility:visible}
-.sheethead{display:flex;align-items:flex-start;padding:4px 16px 2px;gap:12px}
+.sheethead{display:flex;align-items:flex-start;padding:4px 14px 2px;gap:10px}
 .shtitle{flex:1;min-width:0}
-.shtitle .g{font-size:13px;font-weight:750;text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px}
-.shtitle h1{font-size:25px}
-.roundbtn{width:36px;height:36px;border-radius:18px;background:var(--card);border:none;color:var(--muted);
+.shtitle .g{font-family:'Press Start 2P';font-size:11px;text-transform:uppercase;margin-bottom:6px;line-height:1.4}
+.shtitle h1{font-size:14px;text-transform:uppercase;line-height:1.5}
+.shtitle .lv{font-size:19px;color:var(--inkmut);margin-top:4px}
+.roundbtn{width:36px;height:36px;border-radius:4px;background:var(--boxw);border:2px solid var(--bord);color:var(--text);
   font-size:16px;font-family:inherit;flex:none}
-.panel{background:var(--card);border-radius:var(--radius);margin:14px 16px;padding:16px}
-.panel h3{margin:0 0 14px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;
-  font-weight:750;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.bestchip{background:rgba(180,246,60,.12);border-radius:20px;padding:5px 11px;font-size:12px;font-weight:750;
-  color:var(--accent);letter-spacing:0;text-transform:none}
+.panel{background:var(--cream);border:3px solid var(--bord);border-radius:var(--radius);margin:12px 12px;padding:12px;color:var(--text)}
+.panel h3{margin:0 0 12px;font-family:'Press Start 2P';font-size:11px;color:var(--text);font-weight:400;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;line-height:1.4;text-transform:uppercase}
+.bestchip{background:var(--boxw);border:2px solid var(--bord);border-radius:4px;padding:4px 7px;
+  font-family:'Press Start 2P';font-size:9px;color:var(--text);letter-spacing:0;text-transform:none}
 .bestchip:empty{display:none}
-.steprow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.steprow label{width:58px;color:var(--muted);font-size:13px;font-weight:650;flex:none}
-.step{width:44px;height:44px;border-radius:22px;background:var(--card2);border:none;color:var(--accent);
-  font-size:24px;font-weight:600;font-family:inherit;flex:none;display:flex;align-items:center;justify-content:center;line-height:1}
-.step:active{filter:brightness(1.5)}
-.steprow input{flex:1;min-width:0;background:#101012;border:1px solid var(--line);height:44px;border-radius:12px;
-  color:#fff;font-size:20px;font-weight:750;text-align:center;font-family:inherit;outline:none}
-.steprow input:focus{border-color:rgba(180,246,60,.5)}
-.savebtn{width:100%;height:52px;border-radius:15px;border:none;background:var(--accent);color:var(--accent-ink);
-  font-size:17px;font-weight:800;font-family:inherit;margin-top:8px}
-.savebtn:active{filter:brightness(.85)}
+.steprow{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.steprow label{width:62px;color:var(--mut);font-size:18px;text-transform:uppercase;flex:none}
+.step{width:44px;height:44px;border-radius:4px;background:var(--boxw);border:2px solid var(--bord);color:var(--text);
+  font-family:'Press Start 2P';font-size:13px;flex:none;display:flex;align-items:center;justify-content:center;line-height:1}
+.step:active{background:var(--cream2)}
+.steprow input{flex:1;min-width:0;background:var(--boxw);border:2px solid var(--bord);height:46px;border-radius:4px;
+  color:var(--text);font-size:27px;text-align:center;font-family:inherit;outline:none}
+.steprow input:focus{border-color:var(--exp)}
+.savebtn{width:100%;padding:16px 8px;border-radius:4px;border:3px solid var(--bord);background:var(--boxw);color:var(--text);
+  font-family:'Press Start 2P';font-size:12px;margin-top:8px;line-height:1}
+.savebtn:active{background:var(--cream2)}
 .timerrow{display:flex;gap:8px;margin-top:12px;align-items:center}
-.timerrow .tlab{color:var(--muted);font-size:13px;font-weight:650;flex:none}
-.chip{flex:1;background:var(--card2);border:none;color:#cfd3c6;border-radius:12px;height:40px;font-weight:750;
-  font-family:inherit;font-size:14px;font-variant-numeric:tabular-nums}
-.chip.on{background:var(--accent);color:var(--accent-ink)}
-.notes textarea{width:100%;background:#101012;border:1px solid var(--line);border-radius:12px;color:#eee;
-  font-family:inherit;font-size:16px;padding:10px 12px;min-height:58px;resize:vertical;outline:none}
-.notes textarea:focus{border-color:rgba(180,246,60,.5)}
-.chart-empty{color:var(--muted);font-size:13px;text-align:center;padding:22px 8px;line-height:1.5}
-.cl{fill:var(--muted);font-size:10px;font-weight:650;font-family:inherit}
-.cl.big{fill:#d9ff6b;font-size:12px;font-weight:800}
+.timerrow .tlab{color:var(--mut);font-size:18px;text-transform:uppercase;flex:none}
+.chip{flex:1;background:var(--boxw);border:2px solid var(--bord);color:var(--text);border-radius:4px;height:40px;
+  font-family:inherit;font-size:20px}
+.chip.on{background:var(--bord);color:var(--cream)}
+.notes textarea{width:100%;background:var(--boxw);border:2px solid var(--bord);border-radius:4px;color:var(--text);
+  font-family:inherit;font-size:19px;padding:9px 11px;min-height:58px;resize:vertical;outline:none}
+.notes textarea:focus{border-color:var(--exp)}
+.chart-empty{color:var(--mut);font-size:18px;text-align:center;padding:20px 8px;line-height:1.3}
+.cl{fill:#787878;font-size:15px;font-family:'VT323'}
+.cl.big{fill:#303030;font-size:17px}
 
 /* ---------- history rows ---------- */
-.histday{padding:16px 18px 4px;color:var(--muted);font-size:12px;font-weight:750;
-  text-transform:uppercase;letter-spacing:.7px}
-.hrow{display:flex;align-items:center;gap:10px;background:var(--card);margin:6px 16px;border-radius:14px;padding:12px 14px}
+.histday{padding:16px 16px 4px;color:var(--inkmut);font-family:'Press Start 2P';font-size:10px;line-height:1.5}
+.hrow{display:flex;align-items:center;gap:10px;background:var(--cream);border:3px solid var(--bord);
+  margin:6px 12px;border-radius:var(--radius);padding:8px 12px;color:var(--text)}
 .hrow .meta{flex:1;min-width:0}
-.hrow .hname{font-size:15px;font-weight:650;margin-bottom:2px;display:flex;align-items:center;gap:7px}
-.hrow .hname .dot{width:7px;height:7px}
-.hrow .hsub{color:var(--muted);font-size:12px;font-weight:500}
-.hrow .w{font-size:16px;font-weight:750;white-space:nowrap}
-.hrow .w .xr{color:var(--muted);font-weight:600;font-size:13px}
-.delbtn{width:30px;height:30px;border-radius:15px;background:var(--card2);border:none;color:var(--muted);
+.hrow .hname{font-size:20px;margin-bottom:0;display:flex;align-items:center;gap:7px;text-transform:uppercase;line-height:1.1}
+.hrow .hname .dot{width:8px;height:8px}
+.hrow .hsub{color:var(--mut);font-size:16px}
+.hrow .w{font-size:20px;white-space:nowrap}
+.hrow .w .xr{color:var(--mut);font-size:16px}
+.delbtn{width:30px;height:30px;border-radius:4px;background:var(--boxw);border:2px solid var(--bord);color:var(--text);
   font-size:13px;flex:none;font-family:inherit}
 
 /* ---------- stats ---------- */
-.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:8px 16px}
-.stat{background:var(--card);border-radius:var(--radius);padding:14px 12px}
-.stat .v{font-size:24px;font-weight:800;letter-spacing:-.5px}
-.stat .l{font-size:11px;color:var(--muted);font-weight:650;margin-top:3px;line-height:1.35}
-.empty{color:var(--muted);text-align:center;padding:60px 30px;font-size:15px;line-height:1.6}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:8px 12px}
+.stat{background:var(--cream);border:3px solid var(--bord);border-radius:var(--radius);padding:10px;color:var(--text)}
+.stat .v{font-size:30px;line-height:1}
+.stat .l{font-size:15px;color:var(--mut);margin-top:4px;line-height:1.15}
+.empty{color:var(--inkmut);text-align:center;padding:60px 30px;font-size:20px;line-height:1.4}
 .empty .big{font-size:40px;margin-bottom:10px}
 
 /* ---------- summary / workout sessions ---------- */
-.hero-title{font-size:20px;font-weight:750;margin-bottom:4px}
-.hero .lastline{color:var(--muted);font-size:13px;font-weight:500;margin-bottom:12px;line-height:1.5}
-.hero.live{background:linear-gradient(135deg,#1c2410,#10160a);border:1px solid rgba(180,246,60,.3)}
-.bigtime{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-1px;margin:6px 0 2px}
-.livehead{color:var(--accent);font-size:12px;font-weight:750;text-transform:uppercase;letter-spacing:.7px;display:flex;gap:7px;align-items:center}
-.pulse{width:8px;height:8px;border-radius:4px;background:var(--accent);animation:pulse 1.2s ease-in-out infinite;flex:none}
+.hero-title{font-family:'Press Start 2P';font-size:12px;margin-bottom:8px;line-height:1.6}
+.hero .lastline{color:var(--mut);font-size:18px;margin-bottom:10px;line-height:1.2}
+.hero.live{background:var(--cream)}
+.bigtime{font-size:48px;line-height:1;margin:8px 0 4px}
+.livehead{color:var(--red);font-family:'Press Start 2P';font-size:11px;display:flex;gap:8px;align-items:center;line-height:1.5}
+.pulse{width:9px;height:9px;border-radius:2px;background:var(--red);animation:pulse 1.2s ease-in-out infinite;flex:none}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
 .herobtns{display:flex;gap:8px}
-.herobtns .btn{flex:1;height:46px;font-size:15px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 16px}
-.scard{background:var(--card);border-radius:var(--radius);padding:13px 14px;min-height:92px}
-.scard .t{font-size:13px;font-weight:700;margin-bottom:7px}
-.scard .v{font-size:23px;font-weight:800;letter-spacing:-.4px}
-.scard .u{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:0}
-.wide{margin:8px 16px;background:var(--card);border-radius:var(--radius);padding:14px 14px 10px}
-.wide h3{margin:0 0 10px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-weight:750}
-.livebar{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:16px;right:16px;z-index:40;
-  display:flex;align-items:center;gap:10px;background:rgba(24,30,13,.92);backdrop-filter:blur(20px);
-  -webkit-backdrop-filter:blur(20px);border:1px solid rgba(180,246,60,.3);border-radius:16px;
-  padding:8px 8px 8px 14px;font-variant-numeric:tabular-nums}
-.livebar .elapsed{font-weight:800;font-size:16px}
-.livebar .lb-sets{color:var(--muted);font-size:13px;font-weight:600;flex:1}
-.btn.small{padding:9px 13px;font-size:13px}
-.lvspace{height:54px}
-.todaylist{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
-.tl-h{font-size:11px;color:var(--muted);font-weight:750;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
-.tlrow{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:15px}
-.tlrow b{font-weight:750}
-.tlrow .xr{color:var(--muted);font-size:13px;font-weight:600;flex:1}
-.tlrow .delbtn{width:28px;height:28px;font-size:12px}
+.herobtns .btn{flex:1;padding:13px 6px}
+.trow{display:flex;justify-content:space-between;font-size:20px;padding:2px 0}
+.trow .tv{color:var(--text)}
+.trow .tk{color:var(--mut);text-transform:uppercase}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 12px}
+.scard{background:var(--cream);border:3px solid var(--bord);border-radius:var(--radius);padding:11px 12px;min-height:92px;color:var(--text)}
+.scard .t{font-family:'Press Start 2P';font-size:11px;margin-bottom:8px;line-height:1.4;text-transform:uppercase}
+.scard .v{font-size:30px;line-height:1}
+.scard .u{font-size:16px;color:var(--mut)}
+.wide{margin:8px 12px;background:var(--cream);border:3px solid var(--bord);border-radius:var(--radius);padding:12px;color:var(--text)}
+.wide h3{margin:0 0 10px;font-family:'Press Start 2P';font-size:11px;color:var(--text);font-weight:400;line-height:1.4;text-transform:uppercase}
+.hero-title,.tl-h{text-transform:uppercase}
+.livebar{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:12px;right:12px;z-index:40;
+  display:flex;align-items:center;gap:10px;background:var(--cream);border:3px solid var(--bord);border-radius:6px;
+  padding:7px 7px 7px 12px;color:var(--text)}
+.livebar .elapsed{font-family:'Press Start 2P';font-size:12px}
+.livebar .lb-sets{color:var(--mut);font-size:18px;flex:1}
+.btn.small{padding:9px 10px}
+.lvspace{height:56px}
+.todaylist{margin-top:14px;border-top:2px solid rgba(0,0,0,.15);padding-top:10px}
+.tl-h{font-family:'Press Start 2P';font-size:11px;color:var(--mut);margin-bottom:6px;line-height:1.4}
+.tlrow{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:20px}
+.tlrow .xr{color:var(--mut);font-size:17px;flex:1}
+.tlrow .delbtn{width:28px;height:28px;font-size:13px}
 
 /* ---------- settings ---------- */
-.srow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;
-  background:var(--card);margin:8px 16px;border-radius:var(--radius)}
-.srow .lab{font-size:16px;font-weight:650}
-.srow .sub{font-size:12px;color:var(--muted);margin-top:2px}
-.seg{display:flex;background:var(--card2);border-radius:11px;padding:2px;flex:none}
-.seg button{border:none;background:none;color:var(--muted);font-weight:750;font-size:14px;padding:8px 16px;
-  border-radius:9px;font-family:inherit}
-.seg button.on{background:var(--accent);color:var(--accent-ink)}
-.btn{border:none;border-radius:12px;background:var(--card2);color:#fff;font-weight:700;font-size:14px;
-  padding:11px 15px;font-family:inherit;flex:none}
-.btn.acc{background:var(--accent);color:var(--accent-ink)}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;
+  background:var(--cream);border:3px solid var(--bord);margin:8px 12px;border-radius:var(--radius);color:var(--text)}
+.srow .lab{font-size:21px;text-transform:uppercase;line-height:1.1}
+.srow .sub{font-size:16px;color:var(--mut);margin-top:2px}
+.seg{display:flex;background:var(--boxw);border:2px solid var(--bord);border-radius:4px;padding:2px;flex:none}
+.seg button{border:none;background:none;color:var(--mut);font-family:'Press Start 2P';font-size:10px;padding:9px 10px;
+  border-radius:3px;line-height:1}
+.seg button.on{background:var(--bord);color:var(--cream)}
+.btn{border:2px solid var(--bord);border-radius:4px;background:var(--boxw);color:var(--text);
+  font-family:'Press Start 2P';font-size:10px;padding:11px 10px;flex:none;line-height:1;text-transform:uppercase}
+.btn.acc{background:var(--cream)}
 .btn.danger{color:var(--red)}
-.btn.dangerbg{background:var(--red);color:#fff}
-.about{color:var(--muted);font-size:12px;text-align:center;margin:26px 24px;line-height:1.7}
+.btn.dangerbg{background:var(--red);border-color:#802018;color:#FFF8F0}
+.about{color:var(--inkmut);font-size:17px;text-align:center;margin:26px 20px;line-height:1.45}
 
 /* ---------- modal ---------- */
 #modalwrap{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:24px}
 #modalwrap.open{display:flex}
-.backdrop{position:absolute;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-.modal{position:relative;background:#1f1f22;border:1px solid var(--line);border-radius:20px;padding:20px;
-  width:100%;max-width:340px;box-shadow:0 18px 50px rgba(0,0,0,.6)}
-.modal h3{margin:0 0 6px;font-size:18px;font-weight:750}
-.modal p{color:var(--muted);font-size:14px;margin:0 0 14px;line-height:1.5}
-.modal input[type=text],.modal textarea{width:100%;background:#101012;border:1px solid var(--line);
-  border-radius:12px;color:#fff;font-size:16px;font-family:inherit;padding:12px;outline:none}
-.modal input[type=text]:focus,.modal textarea:focus{border-color:rgba(180,246,60,.5)}
+.backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6)}
+.modal{position:relative;background:var(--frame);border-radius:8px;padding:3px;width:100%;max-width:340px}
+.modal .min{background:var(--boxw);border-radius:5px;padding:16px;color:var(--text)}
+.modal h3{margin:0 0 10px;font-family:'Press Start 2P';font-size:12px;font-weight:400;line-height:1.5}
+.modal p{color:#606060;font-size:19px;margin:0 0 12px;line-height:1.25}
+.modal input[type=text],.modal textarea{width:100%;background:var(--boxw);border:2px solid var(--bord);
+  border-radius:4px;color:var(--text);font-size:21px;font-family:inherit;padding:9px 11px;outline:none}
+.modal input[type=text]:focus,.modal textarea:focus{border-color:var(--exp)}
 .modal textarea{resize:vertical}
 .mbtns{display:flex;gap:8px;margin-top:14px}
-.mbtns .btn{flex:1;height:46px;font-size:15px}
+.mbtns .btn{flex:1;padding:14px 6px}
 
 /* ---------- toast ---------- */
 #toast{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translate(-50%,-16px);
-  opacity:0;transition:.25s ease;z-index:90;background:#26262a;border:1px solid var(--line);
-  box-shadow:0 8px 24px rgba(0,0,0,.55);border-radius:22px;padding:11px 18px;font-weight:650;font-size:14px;
-  display:flex;gap:14px;align-items:center;pointer-events:none;max-width:88vw}
+  opacity:0;transition:.25s ease;z-index:90;background:var(--boxw);border:3px solid var(--frame);
+  border-radius:6px;padding:9px 14px;font-size:20px;color:var(--text);line-height:1.2;
+  display:flex;gap:14px;align-items:center;pointer-events:none;max-width:90vw;width:max-content}
 #toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-#toast button{background:none;border:none;color:var(--accent);font-weight:800;font-size:14px;font-family:inherit;padding:0}
+#toast button{background:none;border:none;color:var(--red);font-family:'Press Start 2P';font-size:11px;padding:0}
 </style>
 </head>
 <body>
@@ -221,22 +231,10 @@ button.card:active{transform:scale(.975);filter:brightness(1.25)}
 <main id="view"></main>
 
 <nav id="tabbar">
-  <button data-action="tab" data-tab="summary" aria-label="Summary">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5" opacity=".4"/><circle cx="12" cy="12" r="4.5"/></svg>
-    <span>Summary</span>
-  </button>
-  <button data-action="tab" data-tab="workout" aria-label="Workout">
-    <svg viewBox="0 0 24 24" fill="currentColor"><rect x="1" y="9.5" width="3" height="5" rx="1.2"/><rect x="20" y="9.5" width="3" height="5" rx="1.2"/><rect x="4.5" y="7" width="3.4" height="10" rx="1.4"/><rect x="16.1" y="7" width="3.4" height="10" rx="1.4"/><rect x="7.9" y="10.6" width="8.2" height="2.8" rx="1.4"/></svg>
-    <span>Workout</span>
-  </button>
-  <button data-action="tab" data-tab="history" aria-label="History">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>
-    <span>History</span>
-  </button>
-  <button data-action="tab" data-tab="settings" aria-label="Settings">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h8M20 7h0M4 17h2M14 17h6"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="9.5" cy="17" r="2.3"/></svg>
-    <span>Settings</span>
-  </button>
+  <button data-action="tab" data-tab="summary" aria-label="Trainer">TRAINER</button>
+  <button data-action="tab" data-tab="workout" aria-label="Gym">GYM</button>
+  <button data-action="tab" data-tab="history" aria-label="History">HISTORY</button>
+  <button data-action="tab" data-tab="settings" aria-label="Options">OPTION</button>
 </nav>
 
 <div id="sheet"></div>
@@ -252,7 +250,7 @@ var KEY='gymtracker.v1';
 function $(s){return document.querySelector(s);}
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
-var GROUP_COLORS=['#fa2d55','#b4f63c','#0ad3f5','#ffd60a','#bf5af2','#ff9f0a'];
+var GROUP_COLORS=['#D03028','#3878C8','#38A058','#B07818','#8040A0','#C86828'];
 var DAY=86400000;
 var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -410,8 +408,15 @@ function endWorkout(){
     '⚖️&nbsp; Volume&nbsp; <b>'+fmtVol(st.volume)+' '+esc(state.unit)+'</b></p>'+
     '<div class="mbtns"><button class="btn acc" data-action="close-modal">Done</button></div>');
 }
+function applyTheme(){
+  var th=state.theme==='day'?'theme-day':'theme-night';
+  document.documentElement.className=th;
+  var meta=document.querySelector('meta[name="theme-color"]');
+  if(meta)meta.setAttribute('content',state.theme==='day'?'#E4E8EE':'#182028');
+}
 function migrateState(){
   var changed=false, note=null;
+  if(state.theme!=='day'&&state.theme!=='night'){state.theme='night';changed=true;}
   if(!Array.isArray(state.sessions)){state.sessions=[];changed=true;}
   if(!('session' in state)||(state.session&&typeof state.session.start!=='number')){state.session=null;changed=true;}
   state.groups.forEach(function(g){g.exercises.forEach(function(e){
@@ -443,8 +448,8 @@ function miniBarsHTML(){
   var bars='';
   pts.forEach(function(p,i){
     var x=i*19, bh=Math.max(2,Math.round(p.v/max*30)), y=34-bh;
-    bars+='<rect x="'+x+'" y="'+y+'" width="13" height="'+bh+'" rx="2" fill="#0ad3f5" opacity="'+(p.v?1:.25)+'"/>'+
-      '<text x="'+(x+6.5)+'" y="44" text-anchor="middle" style="fill:var(--muted);font-size:8px;font-weight:600">'+p.lbl+'</text>';
+    bars+='<rect x="'+x+'" y="'+y+'" width="13" height="'+bh+'" rx="2" fill="#4890F8" opacity="'+(p.v?1:.3)+'"/>'+
+      '<text x="'+(x+6.5)+'" y="45" text-anchor="middle" style="fill:#787878;font-size:11px;font-family:VT323">'+p.lbl+'</text>';
   });
   return '<svg viewBox="0 0 128 46" style="width:100%;max-width:140px;height:auto;display:block;margin-top:8px" aria-hidden="true">'+bars+'</svg>';
 }
@@ -462,30 +467,33 @@ function weeksChartHTML(){
   weeks.forEach(function(w,i){
     var x=i*(bw+gap), bh=Math.max(3,Math.round(w.n/max*56)), y=72-bh;
     var cur=i===weeks.length-1;
-    bars+='<rect x="'+x.toFixed(1)+'" y="'+y+'" width="'+bw+'" height="'+bh+'" rx="4" fill="'+(cur?'#d9ff6b':'var(--accent)')+'" opacity="'+(w.n?1:.22)+'"/>';
-    if(w.n)bars+='<text x="'+(x+bw/2).toFixed(1)+'" y="'+(y-5)+'" text-anchor="middle" style="fill:#d9ff6b;font-size:9.5px;font-weight:700">'+w.n+'</text>';
+    bars+='<rect x="'+x.toFixed(1)+'" y="'+y+'" width="'+bw+'" height="'+bh+'" rx="3" fill="'+(cur?'#E89028':'var(--accent)')+'" opacity="'+(w.n?1:.25)+'"/>';
+    if(w.n)bars+='<text x="'+(x+bw/2).toFixed(1)+'" y="'+(y-5)+'" text-anchor="middle" style="fill:#606060;font-size:13px;font-family:VT323">'+w.n+'</text>';
   });
   var d0=new Date(weeks[0].ws);
-  bars+='<text x="0" y="'+(H-2)+'" style="fill:var(--muted);font-size:9px;font-weight:600">'+MONTHS[d0.getMonth()]+' '+d0.getDate()+'</text>'+
-    '<text x="'+W+'" y="'+(H-2)+'" text-anchor="end" style="fill:var(--muted);font-size:9px;font-weight:600">this week</text>';
+  bars+='<text x="0" y="'+(H-2)+'" style="fill:#787878;font-size:13px;font-family:VT323">'+MONTHS[d0.getMonth()]+' '+d0.getDate()+'</text>'+
+    '<text x="'+W+'" y="'+(H-2)+'" text-anchor="end" style="fill:#787878;font-size:13px;font-family:VT323">this week</text>';
   return '<div class="wide"><h3>Training days per week</h3>'+
     '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" aria-hidden="true">'+bars+'</svg></div>';
 }
 function heroHTML(){
   if(state.session){
     var st=sessionStats(state.session.start,Date.now());
-    return '<div class="panel hero live"><div class="livehead"><span class="pulse"></span>Workout in progress</div>'+
+    return '<div class="panel hero live"><div class="livehead"><span class="pulse"></span>WORKOUT IN PROGRESS</div>'+
       '<div class="bigtime elapsed">'+fmtElapsed(Date.now()-state.session.start)+'</div>'+
       '<div class="lastline">'+st.sets+' sets · '+fmtVol(st.volume)+' '+esc(state.unit)+' so far</div>'+
-      '<div class="herobtns"><button class="btn" data-action="end-workout">End workout</button>'+
-      '<button class="btn acc" data-action="tab" data-tab="workout">Exercises →</button></div></div>';
+      '<div class="herobtns"><button class="btn" data-action="end-workout">END</button>'+
+      '<button class="btn acc" data-action="tab" data-tab="workout">GO TO GYM</button></div></div>';
   }
   var ls=state.sessions&&state.sessions.length?state.sessions[state.sessions.length-1]:null;
-  var sub=ls?'Last workout: '+fmtDayKey(dateKey(ls.end))+' · '+fmtDur(ls.end-ls.start)+' · '+ls.sets+' sets'
-            :'Press start when you hit the gym — the timer keeps track.';
-  return '<div class="panel hero"><div class="hero-title">Time to lift 🏋️</div>'+
-    '<div class="lastline">'+sub+'</div>'+
-    '<button class="savebtn" data-action="start-workout">Start workout</button></div>';
+  var totDur=0;(state.sessions||[]).forEach(function(s){totDur+=s.end-s.start;});
+  var days=Object.keys(daySetsMap()).length;
+  var card='<div class="trow"><span class="tk">Time</span><span class="tv">'+(totDur?fmtDur(totDur):'0m')+'</span></div>'+
+    '<div class="trow"><span class="tk">Gym days</span><span class="tv">'+days+'</span></div>'+
+    '<div class="trow"><span class="tk">Last</span><span class="tv">'+(ls?fmtDayKey(dateKey(ls.end))+' · '+fmtDur(ls.end-ls.start):'—')+'</span></div>'+
+    '<div class="trow"><span class="tk">Badges</span><span class="tv">0 — game coming soon</span></div>';
+  return '<div class="panel hero"><div class="hero-title">TRAINER CARD</div>'+card+
+    '<button class="savebtn" data-action="start-workout" style="margin-top:12px">START WORKOUT</button></div>';
 }
 function summaryHTML(){
   var d=new Date(), m=daySetsMap();
@@ -496,22 +504,22 @@ function summaryHTML(){
   var top=null;
   allLogsFlat().forEach(function(o){if(!top||o.l.w>top.w)top={w:o.l.w,name:o.ex.name};});
   var ls=state.sessions&&state.sessions.length?state.sessions[state.sessions.length-1]:null;
-  return '<div class="titlebar"><h1>Summary</h1></div>'+
+  return '<div class="titlebar"><h1>TRAINER</h1></div>'+
     '<div class="subtitle">'+DAYSF[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate()+'</div>'+
     heroHTML()+
     '<div class="grid2">'+
     '<div class="scard"><div class="t">This week</div><div class="v" style="color:var(--accent)">'+weekDays+'<span class="u"> days</span></div>'+miniBarsHTML()+'</div>'+
-    '<div class="scard"><div class="t">Volume today</div><div class="v" style="color:#bf5af2">'+fmtVol(volToday)+'<span class="u"> '+esc(state.unit)+'</span></div>'+
-      '<div class="u" style="margin-top:8px;line-height:1.5">total weight moved<br>(weight × reps × sets)</div></div>'+
+    '<div class="scard"><div class="t">Volume today</div><div class="v" style="color:#7848B0">'+fmtVol(volToday)+'<span class="u"> '+esc(state.unit)+'</span></div>'+
+      '<div class="u" style="margin-top:8px;line-height:1.2">total weight moved<br>(weight × reps × sets)</div></div>'+
     '</div>'+
     weeksChartHTML()+
     '<div class="grid2">'+
     '<div class="scard"><div class="t">Last session</div>'+
       (ls?'<div class="v" style="color:var(--accent)">'+fmtDur(ls.end-ls.start)+'</div><div class="u" style="margin-top:4px">'+fmtDayKey(dateKey(ls.end))+' · '+ls.sets+' sets</div>'
-         :'<div class="v" style="color:var(--muted)">—</div><div class="u" style="margin-top:4px">no workouts yet</div>')+'</div>'+
+         :'<div class="v" style="color:var(--mut)">—</div><div class="u" style="margin-top:4px">no workouts yet</div>')+'</div>'+
     '<div class="scard"><div class="t">Top lift</div>'+
-      (top?'<div class="v" style="color:#fa2d55">'+fmtW(top.w)+'<span class="u"> '+esc(state.unit)+'</span></div><div class="u" style="margin-top:4px">'+esc(top.name)+'</div>'
-          :'<div class="v" style="color:var(--muted)">—</div><div class="u" style="margin-top:4px">log your first set</div>')+'</div>'+
+      (top?'<div class="v" style="color:#D03028">'+fmtW(top.w)+'<span class="u"> '+esc(state.unit)+'</span></div><div class="u" style="margin-top:4px;text-transform:uppercase">'+esc(top.name)+'</div>'
+          :'<div class="v" style="color:var(--mut)">—</div><div class="u" style="margin-top:4px">log your first set</div>')+'</div>'+
     '</div>';
 }
 function todayRowsHTML(id){
@@ -526,7 +534,7 @@ function todayRowsHTML(id){
   return h+'</div>';
 }
 
-var PLUS_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0c1200" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+var PLUS_SVG='&gt;';
 
 function showInstallBanner(){
   var iOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -560,7 +568,7 @@ function workoutHTML(){
       '<span class="lb-sets">'+sessionSets()+' sets</span>'+
       '<button class="btn small" data-action="end-workout">End</button></div><div class="lvspace"></div>';
   }
-  h+='<div class="titlebar"><h1>Workout</h1><button class="textbtn" data-action="toggle-edit">'+(editMode?'Done':'Edit')+'</button></div>'+
+  h+='<div class="titlebar"><h1>GYM</h1><button class="textbtn" data-action="toggle-edit">'+(editMode?'DONE':'EDIT')+'</button></div>'+
     '<div class="subtitle">'+DAYSF[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate()+'</div>';
   if(!editMode&&showInstallBanner()){
     h+='<div class="banner"><div class="binfo"><b>Install this app:</b> in Safari tap the <b>Share</b> button (square with ↑), then <b>Add to Home Screen</b>.</div>'+
@@ -598,12 +606,12 @@ function historyHTML(){
   var month=Object.keys(dayKeys).filter(function(k){return k.indexOf(monthPrefix)===0;}).length;
   var total=Object.keys(dayKeys).length;
 
-  var h='<div class="titlebar"><h1>History</h1></div>'+
+  var h='<div class="titlebar"><h1>HISTORY</h1></div>'+
     '<div class="subtitle">Every set you’ve logged</div>'+
     '<div class="stats">'+
     '<div class="stat"><div class="v" style="color:var(--accent)">'+week+'</div><div class="l">days<br>this week</div></div>'+
-    '<div class="stat"><div class="v" style="color:#0ad3f5">'+month+'</div><div class="l">days<br>this month</div></div>'+
-    '<div class="stat"><div class="v" style="color:#fa2d55">'+total+'</div><div class="l">sessions<br>all time</div></div>'+
+    '<div class="stat"><div class="v" style="color:#3878C8">'+month+'</div><div class="l">days<br>this month</div></div>'+
+    '<div class="stat"><div class="v" style="color:#D03028">'+total+'</div><div class="l">sessions<br>all time</div></div>'+
     '</div>';
   if(!all.length){
     h+='<div class="empty"><div class="big">🏋️</div>No workouts logged yet.<br>Open an exercise and save your first set!</div>';
@@ -624,11 +632,14 @@ function historyHTML(){
 
 function settingsHTML(){
   var kb=(new Blob([JSON.stringify(state)]).size/1024).toFixed(1);
-  return '<div class="titlebar"><h1>Settings</h1></div>'+
+  return '<div class="titlebar"><h1>OPTION</h1></div>'+
   '<div class="subtitle">Everything stays on this device</div>'+
+  '<div class="srow"><div><div class="lab">Style</div><div class="sub">FireRed day or night look</div></div>'+
+    '<div class="seg"><button data-action="theme" data-th="night" class="'+(state.theme!=='day'?'on':'')+'">NIGHT</button>'+
+    '<button data-action="theme" data-th="day" class="'+(state.theme==='day'?'on':'')+'">DAY</button></div></div>'+
   '<div class="srow"><div><div class="lab">Unit</div><div class="sub">Label for logged weights</div></div>'+
-    '<div class="seg"><button data-action="unit" data-u="kg" class="'+(state.unit==='kg'?'on':'')+'">kg</button>'+
-    '<button data-action="unit" data-u="lb" class="'+(state.unit==='lb'?'on':'')+'">lb</button></div></div>'+
+    '<div class="seg"><button data-action="unit" data-u="kg" class="'+(state.unit==='kg'?'on':'')+'">KG</button>'+
+    '<button data-action="unit" data-u="lb" class="'+(state.unit==='lb'?'on':'')+'">LB</button></div></div>'+
   '<div class="srow"><div><div class="lab">Exercises</div><div class="sub">Add, rename or remove</div></div>'+
     '<button class="btn" data-action="goto-edit">Edit</button></div>'+
   '<div class="srow"><div><div class="lab">Backup</div><div class="sub">Export your data as a file</div></div>'+
@@ -638,7 +649,7 @@ function settingsHTML(){
     '<button class="btn" data-action="import">Import</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v1.1 · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v1.2 · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -674,8 +685,10 @@ window.addEventListener('popstate',function(){if(sheetEx)closeSheet(true);});
 function sheetHTML(ex,group,color){
   var ll=lastLog(ex.id);
   var w=ll?ll.w:20, r=ll?ll.r:10, s=ll?ll.s:3;
+  var lvl=dayTops(ex.id).length;
   return '<div class="sheethead"><div class="shtitle">'+
-    '<div class="g" style="color:'+color+'">'+esc(group.name)+'</div><h1>'+esc(ex.name)+'</h1></div>'+
+    '<div class="g" style="color:'+color+'">'+esc(group.name)+'</div><h1>'+esc(ex.name)+'</h1>'+
+    '<div class="lv">:L'+lvl+' — trained '+lvl+' day'+(lvl===1?'':'s')+'</div></div>'+
     (state.session?'<span class="bestchip elapsed" style="margin:6px 10px 0 0;flex:none">'+fmtElapsed(Date.now()-state.session.start)+'</span>':'')+
     '<button class="roundbtn" data-action="close-sheet" aria-label="Close">✕</button></div>'+
 
@@ -692,7 +705,7 @@ function sheetHTML(ex,group,color){
       '<button class="step" data-action="step" data-t="s" data-d="-1">−</button>'+
       '<input id="in-s" type="text" inputmode="numeric" value="'+s+'" aria-label="Sets">'+
       '<button class="step" data-action="step" data-t="s" data-d="1">＋</button></div>'+
-    '<button class="savebtn" data-action="log">Save set</button>'+
+    '<button class="savebtn" data-action="log">SAVE SET</button>'+
     '<div class="timerrow"><span class="tlab">Rest</span>'+
       '<button class="chip" data-action="timer" data-sec="60">1:00</button>'+
       '<button class="chip" data-action="timer" data-sec="90">1:30</button>'+
@@ -727,7 +740,7 @@ function histListHTML(id){
 function updateBest(id){
   var el=$('#sh-best'); if(!el)return;
   var b=bestW(id);
-  el.textContent=b>0?('★ Best '+fmtW(b)+' '+state.unit):'';
+  el.textContent=b>0?('BEST '+fmtW(b)+state.unit):'';
 }
 
 /* ===== chart ===== */
@@ -750,7 +763,7 @@ function chartHTML(id){
   area+='L '+X(pts.length-1).toFixed(1)+' '+(H-B)+' Z';
   var dots=pts.map(function(p,i){
     var last=i===pts.length-1;
-    return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(p.w).toFixed(1)+'" r="'+(last?4.5:3)+'" fill="'+(last?'#d9ff6b':'var(--accent)')+'"/>';
+    return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(p.w).toFixed(1)+'" r="'+(last?4.5:3)+'" fill="'+(last?'#D03028':'var(--accent)')+'"/>';
   }).join('');
   var lastP=pts[pts.length-1];
   var grid='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(omax).toFixed(1)+'" y2="'+Y(omax).toFixed(1)+'" stroke="rgba(255,255,255,.08)" stroke-dasharray="3 4"/>';
@@ -882,7 +895,7 @@ function toast(msg,opts){
 /* ===== modals ===== */
 var modalOk=null;
 function showModal(html){
-  $('#modalwrap').innerHTML='<div class="backdrop" data-action="close-modal"></div><div class="modal">'+html+'</div>';
+  $('#modalwrap').innerHTML='<div class="backdrop" data-action="close-modal"></div><div class="modal"><div class="min">'+html+'</div></div>';
   $('#modalwrap').classList.add('open');
 }
 function closeModal(){
@@ -1013,6 +1026,7 @@ document.addEventListener('click',function(e){
   else if(a==='close-modal'){closeModal();}
   else if(a==='modal-ok'){if(modalOk)modalOk();}
   else if(a==='unit'){state.unit=b.dataset.u==='lb'?'lb':'kg';save();render(true);}
+  else if(a==='theme'){state.theme=b.dataset.th==='day'?'day':'night';save();applyTheme();render(true);}
   else if(a==='start-workout'){startWorkout();}
   else if(a==='end-workout'){endWorkout();}
   else if(a==='goto-edit'){tab='workout';editMode=true;render();}
@@ -1065,6 +1079,7 @@ document.addEventListener('click',function(e){
 });
 
 /* ===== init ===== */
+applyTheme();
 render();
 ensureTicker();
 if(staleNote)setTimeout(function(){toast(staleNote);},600);
