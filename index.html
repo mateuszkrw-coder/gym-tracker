@@ -226,6 +226,8 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
 .xpplus{font-family:'Press Start 2P';font-size:9px;color:#2E8B48;flex:none}
 @keyframes evof{0%,100%{filter:none}50%{filter:brightness(4) saturate(0)}}
 .evoflash{animation:evof .5s ease-in-out 4}
+@keyframes shk{0%,100%{transform:none}25%{transform:translateX(5px)}75%{transform:translateX(-5px)}}
+.shake{animation:shk .35s ease 2}
 #monsheet{position:fixed;inset:0;background:var(--bg);z-index:60;transform:translateY(102%);
   transition:transform .32s cubic-bezier(.32,.72,.3,1);overflow-y:auto;-webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;padding:calc(env(safe-area-inset-top) + 12px) 0 60px;visibility:hidden}
@@ -346,8 +348,7 @@ function save(){
   try{localStorage.setItem(KEY,JSON.stringify(state));}
   catch(e){toast('⚠️ Could not save — storage full?');}
 }
-var staleNote=migrateState();
-save(); // persist seed (and any migration) on first run
+save(); // persist seed on first run (migrations run at init, after all definitions)
 
 /* ===== model helpers ===== */
 function exById(id){
@@ -435,12 +436,12 @@ function tickElapsed(){
   var t=fmtElapsed(Date.now()-state.session.start);
   document.querySelectorAll('.elapsed').forEach(function(el){el.textContent=t;});
 }
-function startWorkout(){
+function startWorkout(mode){
   if(state.session)return;
-  state.session={start:Date.now()};
+  state.session={start:Date.now(),mode:mode==='boss'?'boss':'train'};
   save();ensureTicker();
   tab='workout';editMode=false;render();
-  toast('Workout started 🔥');
+  toast(mode==='boss'?'Boss battle started! ⚔️':'Workout started 🔥');
 }
 function endWorkout(){
   var ses=state.session;if(!ses)return;
@@ -516,6 +517,10 @@ function migrateState(){
     if(!Array.isArray(state.game.mons))state.game.mons=[];
   }
   if(!(state.version>=4)){state.version=4;changed=true;}
+  // v5: boss ladder + replay flag
+  if(state.game&&!state.game.boss&&!state.game.flags.champion){state.game.boss={idx:0,hp:BOSSES[0].hp};changed=true;}
+  if(state.game&&!state.gamePlayed){state.gamePlayed=1;changed=true;}
+  if(!(state.version>=5)){state.version=5;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -586,7 +591,9 @@ function heroHTML(){
   var card='<div class="trow"><span class="tk">Time</span><span class="tv">'+(totDur?fmtDur(totDur):'0m')+'</span></div>'+
     '<div class="trow"><span class="tk">Gym days</span><span class="tv">'+days+'</span></div>'+
     '<div class="trow"><span class="tk">Last</span><span class="tv">'+(ls?fmtDayKey(dateKey(ls.end))+' · '+fmtDur(ls.end-ls.start):'—')+'</span></div>'+
-    '<div class="trow"><span class="tk">Badges</span><span class="tv">0 / 8 — bosses in phase 3</span></div>';
+    '<div class="trow"><span class="tk">Badges</span><span class="tv">'+
+    (state.game?(badgeCount()+' / 8'+(state.game.flags.champion?' · CHAMPION 🏆':(state.game.boss&&state.game.boss.idx>=8?' · E4 '+(state.game.boss.idx-8)+'/4':''))):'0 / 8')+
+    '</span></div>';
   return '<div class="panel hero"><div class="hero-title">TRAINER CARD</div>'+
     activeMonStripHTML()+card+
     '<button class="savebtn" data-action="start-workout" style="margin-top:12px">START WORKOUT</button></div>';
@@ -603,6 +610,7 @@ function summaryHTML(){
   return '<div class="titlebar"><h1>TRAINER</h1></div>'+
     '<div class="subtitle">'+DAYSF[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate()+'</div>'+
     heroHTML()+
+    bossCardHTML()+
     '<div class="grid2">'+
     '<div class="scard"><div class="t">This week</div><div class="v" style="color:var(--accent)">'+weekDays+'<span class="u"> days</span></div>'+miniBarsHTML()+'</div>'+
     '<div class="scard"><div class="t">Volume today</div><div class="v" style="color:#7848B0">'+fmtVol(volToday)+'<span class="u"> '+esc(state.unit)+'</span></div>'+
@@ -886,7 +894,7 @@ function showChooserThenStart(){
   var g=state.game;
   if(!g||g.mons.length<=1){
     if(g&&g.mons[0])g.active=g.mons[0].uid;
-    startWorkout();return;
+    showModeOrStart();return;
   }
   var h='<h3>Choose a POKéMON.</h3><p>It banks all XP from this workout.</p>';
   g.mons.forEach(function(m){
@@ -998,6 +1006,138 @@ function closeMon(fromPop){
   if(!fromPop){try{if(history.state&&history.state.m)history.back();}catch(e){}}
 }
 
+/* ===== game: bosses ===== */
+var BOSSES=[
+  {n:'BROCK',gym:'PEWTER GYM',badge:'BOULDER BADGE',mon:'ONIX',monId:95,lv:14,type:'Rock',hp:12000},
+  {n:'MISTY',gym:'CERULEAN GYM',badge:'CASCADE BADGE',mon:'STARMIE',monId:121,lv:21,type:'Water',hp:16000},
+  {n:'LT. SURGE',gym:'VERMILION GYM',badge:'THUNDER BADGE',mon:'RAICHU',monId:26,lv:24,type:'Electric',hp:21000},
+  {n:'ERIKA',gym:'CELADON GYM',badge:'RAINBOW BADGE',mon:'VILEPLUME',monId:45,lv:29,type:'Grass',hp:27000},
+  {n:'KOGA',gym:'FUCHSIA GYM',badge:'SOUL BADGE',mon:'WEEZING',monId:110,lv:37,type:'Poison',hp:34000},
+  {n:'SABRINA',gym:'SAFFRON GYM',badge:'MARSH BADGE',mon:'ALAKAZAM',monId:65,lv:43,type:'Psychic',hp:42000},
+  {n:'BLAINE',gym:'CINNABAR GYM',badge:'VOLCANO BADGE',mon:'ARCANINE',monId:59,lv:47,type:'Fire',hp:52000},
+  {n:'GIOVANNI',gym:'VIRIDIAN GYM',badge:'EARTH BADGE',mon:'RHYDON',monId:112,lv:50,type:'Ground',hp:64000},
+  {n:'LORELEI',gym:'ELITE FOUR',badge:'',mon:'LAPRAS',monId:131,lv:54,type:'Ice',hp:78000},
+  {n:'BRUNO',gym:'ELITE FOUR',badge:'',mon:'MACHAMP',monId:68,lv:56,type:'Fighting',hp:94000},
+  {n:'AGATHA',gym:'ELITE FOUR',badge:'',mon:'GENGAR',monId:94,lv:58,type:'Ghost',hp:112000},
+  {n:'LANCE',gym:'ELITE FOUR',badge:'',mon:'DRAGONITE',monId:149,lv:60,type:'Dragon',hp:132000},
+  {n:'CHAMPION',gym:'INDIGO PLATEAU',badge:'HALL OF FAME',mon:null,monId:0,lv:63,type:'',hp:160000}
+];
+var GROUP_MOVE_TYPE={pecs:'Fighting',back:'Flying',shoulders:'Psychic',biceps:'Electric',triceps:'Fire',forearm:'Rock',legs:'Water'};
+var MOVE_EFF={
+  Fighting:{Rock:2,Ice:2,Psychic:0.5,Poison:0.5,Ghost:0.25},
+  Flying:{Fighting:2,Grass:2,Rock:0.5,Electric:0.5},
+  Psychic:{Fighting:2,Poison:2,Psychic:0.5},
+  Electric:{Water:2,Grass:0.5,Dragon:0.5,Electric:0.5,Ground:0.25},
+  Fire:{Grass:2,Ice:2,Fire:0.5,Water:0.5,Rock:0.5,Dragon:0.5},
+  Rock:{Fire:2,Ice:2,Flying:2,Fighting:0.5,Ground:0.5},
+  Water:{Rock:2,Ground:2,Fire:2,Water:0.5,Grass:0.5,Dragon:0.5}
+};
+function backSprPath(m){return 'sprites/back/'+(m.shiny?'shiny/':'')+DEX[m.sp].id+'.png';}
+function bossInfo(){
+  var g=state.game;if(!g||!g.boss)return null;
+  var b=BOSSES[g.boss.idx];if(!b)return null;
+  var mon=b.mon,monId=b.monId,type=b.type;
+  if(!mon){
+    var ch=g.starter==='charmander';
+    mon=ch?'BLASTOISE':'CHARIZARD';monId=ch?9:6;type=ch?'Water':'Fire';
+  }
+  return {n:b.n,gym:b.gym,badge:b.badge,mon:mon,monId:monId,type:type,lv:b.lv,hp:Math.max(0,g.boss.hp),max:b.hp,idx:g.boss.idx};
+}
+function badgeCount(){
+  var g=state.game;if(!g)return 0;
+  if(g.flags.champion)return 8;
+  return Math.min(g.boss?g.boss.idx:0,8);
+}
+function hpColor(pct){return pct>50?'#58C868':(pct>20?'#F8E038':'#F85838');}
+function battlePanelHTML(){
+  if(!(state.session&&state.session.mode==='boss'))return '';
+  var bz=bossInfo();if(!bz)return '';
+  var m=activeMon();if(!m)return '';
+  var pct=Math.round(bz.hp/bz.max*100);
+  return '<div class="panel" style="padding:11px 12px">'+
+    '<div style="display:flex;align-items:center;gap:8px">'+
+      '<div style="flex:1;min-width:0"><div class="pname">'+bz.mon+' <span class="plv">:L'+bz.lv+'</span></div>'+
+      '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
+      '<div class="plv" style="margin-top:3px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg</div></div>'+
+      '<img id="bt-espr" src="sprites/'+bz.monId+'.png" alt="'+bz.mon+'" style="width:76px;height:76px;image-rendering:pixelated;flex:none">'+
+    '</div>'+
+    '<div style="display:flex;align-items:center;gap:8px;margin-top:2px">'+
+      '<img src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;flex:none">'+
+      '<div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+'</div></div>'+
+    '<div class="memo" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
+    esc(state.session.bmsg||(bz.n+' wants to battle! Log a set to attack.'))+'</div></div>';
+}
+function updateBattlePanel(){
+  var w=$('#bt-wrap');if(!w)return;
+  w.innerHTML=battlePanelHTML();
+  var im=$('#bt-espr');
+  if(im){im.classList.remove('shake');void im.offsetWidth;im.classList.add('shake');}
+}
+function bossStripHTML(){
+  if(!(state.session&&state.session.mode==='boss'))return '';
+  var bz=bossInfo();if(!bz)return '';
+  var pct=Math.round(bz.hp/bz.max*100);
+  return '<div class="card" style="margin-top:0"><img class="pspr" style="width:40px;height:40px" src="sprites/'+bz.monId+'.png" alt="">'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+'</div>'+
+    '<div class="gbar" style="margin-top:5px"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
+    '<span class="plv">'+fmtVol(bz.hp)+'</span></div>';
+}
+function bossCardHTML(){
+  if(!state.game)return '';
+  if(state.game.flags.champion){
+    return '<div class="panel"><h3>HALL OF FAME</h3><div class="memo">Every boss is defeated. You are the CHAMPION! 🏆</div></div>';
+  }
+  var bz=bossInfo();if(!bz)return '';
+  var pct=Math.round(bz.hp/bz.max*100);
+  return '<div class="panel"><h3>NEXT BOSS<span class="bestchip">'+(bz.idx<8?('BADGE '+(bz.idx+1)+'/8'):(bz.idx<12?'ELITE FOUR':'FINAL'))+'</span></h3>'+
+    '<div style="display:flex;align-items:center;gap:10px">'+
+    '<img src="sprites/'+bz.monId+'.png" alt="'+bz.mon+'" style="width:56px;height:56px;image-rendering:pixelated;flex:none">'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+' <span class="plv">:L'+bz.lv+'</span></div>'+
+    '<div class="plv" style="margin:1px 0 6px">'+bz.gym+' · '+bz.type+' type</div>'+
+    '<div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div>'+
+    '<div class="plv" style="margin-top:3px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg — start a BOSS workout</div>'+
+    '</div></div></div>';
+}
+function bossDefeated(){
+  var g=state.game;var bz=bossInfo();if(!bz)return;
+  var bonus=Math.round(bz.max/30);
+  g.mons.forEach(function(m){m.xp+=bonus;});
+  var isChamp=bz.idx>=BOSSES.length-1;
+  if(isChamp){g.boss=null;g.flags.champion=1;}
+  else g.boss={idx:bz.idx+1,hp:BOSSES[bz.idx+1].hp};
+  if(state.session)state.session.bmsg='Enemy '+bz.mon+' fainted!'+(isChamp?' You are the CHAMPION!':' '+BOSSES[bz.idx+1].n+' steps up next!');
+  save();
+  queueModal(function(){
+    showModal('<h3>Enemy '+esc(bz.mon)+' fainted!</h3><p>You defeated '+esc(bz.n)+(bz.gym?' of '+esc(bz.gym):'')+'!</p>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+    modalOk=function(){closeModal();};
+  });
+  queueModal(function(){
+    showModal('<h3>'+(bz.badge?esc(bz.badge)+' GET! 🏅':'VICTORY!')+'</h3>'+
+      '<p>Your whole team earned +'+bonus+' XP!'+(isChamp?'':' Next challenger: '+esc(BOSSES[bz.idx+1].n)+'.')+'</p>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+    modalOk=function(){closeModal();render(true);};
+  });
+  if(isChamp){
+    grantMon('mewtwo','mewtwo','A legend stirs…','You are the CHAMPION! MEWTWO acknowledges your strength and joins you!');
+  }
+}
+function showModeModal(){
+  var bz=bossInfo();
+  if(!bz){startWorkout('train');return;}
+  showModal('<h3>Workout mode</h3>'+
+    '<button class="prow" data-action="mode-train"><span style="font-size:28px;flex:none">×1.5</span>'+
+    '<span><span class="pname">TRAINING</span><br><span class="plv">+50% XP for your POKéMON</span></span></button>'+
+    '<button class="prow" data-action="mode-boss"><img class="pspr" src="sprites/'+bz.monId+'.png" alt="">'+
+    '<span><span class="pname">BOSS: '+bz.n+'</span><br><span class="plv">'+bz.mon+' · '+bz.hp.toLocaleString()+' kg HP left</span></span></button>'+
+    '<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button></div>');
+  modalOk=null;
+}
+function showModeOrStart(){
+  if(state.game&&state.game.boss)showModeModal();
+  else startWorkout('train');
+}
+
 var PLUS_SVG='&gt;';
 
 function showInstallBanner(){
@@ -1044,7 +1184,7 @@ function workoutHTML(){
   if(state.session&&!editMode){
     h+='<div class="livebar"><span class="pulse"></span><span class="elapsed">'+fmtElapsed(Date.now()-state.session.start)+'</span>'+
       '<span class="lb-sets">'+sessionSets()+' sets</span>'+
-      '<button class="btn small" data-action="end-workout">End</button></div><div class="lvspace"></div>';
+      '<button class="btn small" data-action="end-workout">End</button></div><div class="lvspace"></div>'+bossStripHTML();
   }
   h+='<div class="titlebar"><h1>GYM</h1><button class="textbtn" data-action="toggle-edit">'+(editMode?'DONE':'EDIT')+'</button></div>'+
     '<div class="subtitle">'+DAYSF[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate()+'</div>';
@@ -1134,9 +1274,11 @@ function settingsHTML(){
     '<button class="btn acc" data-action="export">Export</button></div></div>'+
   '<div class="srow"><div><div class="lab">Restore</div><div class="sub">Import a backup file</div></div>'+
     '<button class="btn" data-action="import">Import</button></div>'+
+  '<div class="srow"><div><div class="lab">Restart adventure</div><div class="sub">Pokémon game only — sets stay</div></div>'+
+    '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v2.0 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v3.0 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -1173,6 +1315,8 @@ function sheetHTML(ex,group,color){
     '<div class="lv">:L'+lvl+' — trained '+lvl+' day'+(lvl===1?'':'s')+'</div></div>'+
     (state.session?'<span class="bestchip elapsed" style="margin:6px 10px 0 0;flex:none">'+fmtElapsed(Date.now()-state.session.start)+'</span>':'')+
     '<button class="roundbtn" data-action="close-sheet" aria-label="Close">✕</button></div>'+
+
+  '<div id="bt-wrap">'+battlePanelHTML()+'</div>'+
 
   '<div class="panel"><h3>Log a set — today</h3>'+
     '<div class="steprow"><label>Weight</label>'+
@@ -1275,6 +1419,7 @@ function refreshSheetData(id){
     if(sc)sc.innerHTML=chartHTML(id);
     if(st)st.innerHTML=todayRowsHTML(id);
     updateBest(id);
+    updateBattlePanel();
   }else{
     render(true);
   }
@@ -1290,11 +1435,27 @@ function saveLogEntry(){
   if(state.game){
     var am=activeMon();
     if(am){
-      var gain=Math.round(entry.w*entry.r*entry.s/10*(state.session?1.5:1));
+      var vol=entry.w*entry.r*entry.s;
+      var gain=Math.round(vol/10*(state.session?(state.session.mode==='boss'?1:1.5):1));
       if(gain>0){
         entry.xpg=gain;entry.mon=am.uid;
         if(state.session)state.session.xpg=(state.session.xpg||0)+gain;
         applyXP(am,gain);
+      }
+      if(state.session&&state.session.mode==='boss'&&state.game.boss){
+        var bz=bossInfo(),exr=exById(id);
+        if(bz&&exr){
+          var gk2=groupKeyOf(exr.group);
+          var mt=gk2?GROUP_MOVE_TYPE[gk2]:null;
+          var eff=(mt&&MOVE_EFF[mt]&&MOVE_EFF[mt][bz.type]!==undefined)?MOVE_EFF[mt][bz.type]:1;
+          var stA=statsAt(am.sp,monLevel(am.xp));
+          var dmg=Math.round(vol*eff*(1+Math.max(stA.atk,stA.spa)/250));
+          state.game.boss.hp-=dmg;
+          entry.dmg=dmg;entry.bidx=bz.idx;
+          var effTxt=eff>=2?" It's super effective!":(eff<=0.3?' It barely affects it…':(eff<1?" It's not very effective…":''));
+          state.session.bmsg=DEX[am.sp].n+' used '+exr.ex.name.toUpperCase()+'!'+effTxt+' '+dmg.toLocaleString()+' dmg.';
+          if(state.game.boss.hp<=0)bossDefeated();
+        }
       }
       // a new record feeds the lead a Rare Candy: jump to the next level
       if(entry.w>prevBest&&prevBest>0){
@@ -1325,6 +1486,9 @@ function delLogEntry(logId){
     if(dm)dm.xp=Math.max(0,dm.xp-gone.xpg);
     if(state.session&&state.session.xpg)state.session.xpg=Math.max(0,state.session.xpg-gone.xpg);
   }
+  if(gone.dmg!==undefined&&state.game&&state.game.boss&&state.game.boss.idx===gone.bidx){
+    state.game.boss.hp=Math.min(BOSSES[gone.bidx].hp,state.game.boss.hp+gone.dmg);
+  }
   save();
   refreshSheetData(id);
   toast('Entry deleted',{action:'Undo',fn:function(){
@@ -1334,6 +1498,9 @@ function delLogEntry(logId){
       var um=findMon(gone.mon);
       if(um)um.xp+=gone.xpg;
       if(state.session)state.session.xpg=(state.session.xpg||0)+gone.xpg;
+    }
+    if(gone.dmg!==undefined&&state.game&&state.game.boss&&state.game.boss.idx===gone.bidx){
+      state.game.boss.hp=Math.max(1,state.game.boss.hp-gone.dmg);
     }
     save();
     refreshSheetData(id);
@@ -1489,8 +1656,14 @@ function applyImport(txt){
       flags:(d.game.flags&&typeof d.game.flags==='object')?d.game.flags:{},
       seen:(d.game.seen&&typeof d.game.seen==='object')?d.game.seen:{},
       dex:(d.game.dex&&typeof d.game.dex==='object')?d.game.dex:{}};
+    gm.boss=null;
+    if(!gm.flags.champion){
+      var bi=(d.game.boss&&isFinite(d.game.boss.idx)&&BOSSES[+d.game.boss.idx])?+d.game.boss.idx:0;
+      var bh=(d.game.boss&&isFinite(d.game.boss.hp))?Math.min(BOSSES[bi].hp,Math.max(1,Math.round(+d.game.boss.hp))):BOSSES[bi].hp;
+      gm.boss={idx:bi,hp:bh};
+    }
   }
-  state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm};
+  state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0};
   save();
   editMode=false;tab='workout';render();
 }
@@ -1558,6 +1731,9 @@ document.addEventListener('click',function(e){
             var dm=findMon(l.mon);
             if(dm)dm.xp=Math.max(0,dm.xp-l.xpg);
           }
+          if(l.ts>=ses.start&&l.ts<=ses.end&&l.dmg&&state.game&&state.game.boss&&state.game.boss.idx===l.bidx){
+            state.game.boss.hp=Math.min(BOSSES[l.bidx].hp,state.game.boss.hp+l.dmg);
+          }
         });
         state.logs[k]=state.logs[k].filter(function(l){return l.ts<ses.start||l.ts>ses.end;});
         if(!state.logs[k].length)delete state.logs[k];
@@ -1584,13 +1760,24 @@ document.addEventListener('click',function(e){
   }
   else if(a==='choose-mon'){
     if(state.game&&findMon(b.dataset.m)){
-      state.game.active=b.dataset.m;save();closeModal();startWorkout();
+      state.game.active=b.dataset.m;save();closeModal();showModeOrStart();
     }
+  }
+  else if(a==='mode-train'){closeModal();startWorkout('train');}
+  else if(a==='mode-boss'){closeModal();startWorkout('boss');}
+  else if(a==='reset-game'){
+    if(!state.game){toast('No adventure to reset');return;}
+    confirmModal('Restart the adventure?','Your team, badges and POKéDEX are wiped and PROF. OAK greets you again. Workout data stays untouched. No retro XP this time — a true fresh start.','Restart',function(){
+      state.game=null;save();
+      tab='summary';render();
+      setTimeout(showStarterModal,350);
+    });
   }
   else if(a==='pick-starter'){
     var ssp=b.dataset.sp==='squirtle'?'squirtle':'charmander';
-    var retro=Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
-    state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{}};
+    var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
+    state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},boss:{idx:0,hp:BOSSES[0].hp}};
+    state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;
     state.game.active=sm.uid;
@@ -1660,6 +1847,7 @@ document.addEventListener('click',function(e){
 });
 
 /* ===== init ===== */
+var staleNote=migrateState();
 applyTheme();
 render();
 ensureTicker();
