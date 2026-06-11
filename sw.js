@@ -1,6 +1,7 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v5';
+const CACHE = 'gym-tracker-v6';
+const MON_IDS = [4,5,6,7,8,9,16,17,18,25,26,58,59,63,64,65,66,67,68,74,75,76,92,93,94,95,129,130,131,133,134,135,136,143,147,148,149,150];
 const ASSETS = [
   './',
   './index.html',
@@ -10,7 +11,9 @@ const ASSETS = [
   './icons/icon-512.png',
   './fonts/press-start-2p.woff2',
   './fonts/vt323.woff2'
-];
+]
+  .concat(MON_IDS.map((i) => './sprites/' + i + '.png'))
+  .concat(MON_IDS.map((i) => './sprites/shiny/' + i + '.png'));
 
 self.addEventListener('install', (e) => {
   e.waitUntil(

@@ -190,6 +190,47 @@ button.card:active{background:var(--cream2)}
 .tlrow .xr{color:var(--mut);font-size:17px;flex:1}
 .tlrow .delbtn{width:28px;height:28px;font-size:13px}
 
+/* ---------- game ---------- */
+.pspr{width:48px;height:48px;image-rendering:pixelated;flex:none}
+.bigspr{width:96px;height:96px;image-rendering:pixelated}
+.prow{display:flex;align-items:center;gap:10px;background:var(--cream);border:3px solid var(--bord);border-radius:6px;
+  margin:7px 12px;padding:8px 12px;color:var(--text);text-align:left;font-family:inherit;font-size:inherit}
+button.prow{width:calc(100% - 24px);cursor:pointer}
+.modal .prow,.modal button.prow{margin:6px 0;width:100%}
+.prow:active{background:var(--cream2)}
+.pname{font-size:20px;text-transform:uppercase;line-height:1.05}
+.plv{color:var(--mut);font-size:16px;text-transform:none}
+.leadchip{font-family:'Press Start 2P';font-size:9px;background:var(--red);color:#FFF8F0;padding:2px 5px;border-radius:3px;vertical-align:2px}
+.barlab{font-family:'Press Start 2P';font-size:9px;color:#F8B050;background:#585048;padding:2px 3px;border-radius:3px;flex:none}
+.barnum{font-size:15px;color:var(--mut);flex:none}
+.gbar{flex:1;background:#585048;border-radius:4px;padding:2px;min-width:40px}
+.gbar>div{height:7px;border-radius:2px;background:#58C868;transition:width .4s}
+.gbar.exp>div{height:5px;background:#4890F8}
+.tchip{display:inline-block;font-family:'Press Start 2P';font-size:9px;padding:3px 6px;border-radius:4px;
+  border:2px solid rgba(0,0,0,.3);color:#FFF8F0}
+.shinystar{color:#E8A010}
+.shinyglow{filter:drop-shadow(0 0 6px rgba(248,200,40,.8))}
+.dexgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 12px}
+.dexcell{background:var(--cream);border:3px solid var(--bord);border-radius:6px;padding:8px 2px 6px;text-align:center;color:var(--text);position:relative}
+.dexcell img{width:44px;height:44px;image-rendering:pixelated}
+.dexcell.unk img{filter:brightness(0);opacity:.5}
+.dexcell .shinystar{position:absolute;top:3px;right:6px}
+.dexname{font-size:13px;text-transform:uppercase;line-height:1.05;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.statrow{display:flex;justify-content:space-between;font-size:21px;padding:4px 0;border-bottom:2px dashed rgba(0,0,0,.12)}
+.statrow:last-child{border-bottom:none}
+.statgain{display:grid;grid-template-columns:1fr 1fr;gap:3px 18px;font-size:20px;color:var(--text);
+  background:var(--cream);border:2px solid var(--bord);border-radius:5px;padding:10px 12px;margin-top:6px}
+.memo{font-size:19px;line-height:1.35}
+.monstrip{display:flex;align-items:center;gap:9px;background:var(--boxw);border:2px solid var(--bord);border-radius:5px;
+  padding:7px 10px;margin-bottom:10px;width:100%;text-align:left;font-family:inherit;font-size:inherit;color:var(--text);cursor:pointer}
+.xpplus{font-family:'Press Start 2P';font-size:9px;color:#2E8B48;flex:none}
+@keyframes evof{0%,100%{filter:none}50%{filter:brightness(4) saturate(0)}}
+.evoflash{animation:evof .5s ease-in-out 4}
+#monsheet{position:fixed;inset:0;background:var(--bg);z-index:60;transform:translateY(102%);
+  transition:transform .32s cubic-bezier(.32,.72,.3,1);overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;padding:calc(env(safe-area-inset-top) + 12px) 0 60px;visibility:hidden}
+#monsheet.open{transform:none;visibility:visible}
+
 /* ---------- settings ---------- */
 .srow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;
   background:var(--cream);border:3px solid var(--bord);margin:8px 12px;border-radius:var(--radius);color:var(--text)}
@@ -237,11 +278,13 @@ button.card:active{background:var(--cream2)}
 <nav id="tabbar">
   <button data-action="tab" data-tab="summary" aria-label="Trainer">TRAINER</button>
   <button data-action="tab" data-tab="workout" aria-label="Gym">GYM</button>
+  <button data-action="tab" data-tab="team" aria-label="Pokemon">TEAM</button>
   <button data-action="tab" data-tab="history" aria-label="History">HISTORY</button>
   <button data-action="tab" data-tab="settings" aria-label="Options">OPTION</button>
 </nav>
 
 <div id="sheet"></div>
+<div id="monsheet"></div>
 <div id="modalwrap"></div>
 <div id="toast"></div>
 
@@ -282,7 +325,7 @@ function fmtW(w){return String(Math.round(w*100)/100);}
 /* ===== state ===== */
 function seedState(){
   function g(name,exs){return {id:uid(),name:name,exercises:exs.map(function(n){return {id:uid(),name:n,note:''};})};}
-  return {version:3,unit:'kg',groups:[
+  return {version:4,unit:'kg',game:null,groups:[
     g('Back',['Lat pull down','Close grip row','Row machine']),
     g('Biceps',['Curl machine','Hammer curl']),
     g('Pecs',['Fly machine','Incline bench','Converging chest press']),
@@ -334,6 +377,7 @@ function render(keepScroll){
   var v=$('#view');
   if(tab==='summary')v.innerHTML=summaryHTML();
   else if(tab==='workout')v.innerHTML=workoutHTML();
+  else if(tab==='team')v.innerHTML=teamHTML();
   else if(tab==='history')v.innerHTML=historyHTML();
   else v.innerHTML=settingsHTML();
   if(!keepScroll)window.scrollTo(0,0);
@@ -408,11 +452,12 @@ function endWorkout(){
   state.sessions.push({id:uid(),start:ses.start,end:end,sets:st.sets,volume:st.volume,exercises:st.exercises});
   save();render();
   showModal('<h3>Workout complete 💪</h3>'+
-    '<p style="line-height:2.1;font-size:15px">⏱&nbsp; Duration&nbsp; <b>'+fmtDur(end-ses.start)+'</b><br>'+
-    '🏋️&nbsp; Exercises&nbsp; <b>'+st.exercises+'</b><br>'+
-    '📈&nbsp; Sets&nbsp; <b>'+st.sets+'</b><br>'+
-    '⚖️&nbsp; Volume&nbsp; <b>'+fmtVol(st.volume)+' '+esc(state.unit)+'</b></p>'+
-    '<div class="mbtns"><button class="btn acc" data-action="close-modal">Done</button></div>');
+    '<p style="line-height:1.6;font-size:20px">Duration <b>'+fmtDur(end-ses.start)+'</b><br>'+
+    'Exercises <b>'+st.exercises+'</b> · Sets <b>'+st.sets+'</b><br>'+
+    'Volume <b>'+fmtVol(st.volume)+' '+esc(state.unit)+'</b>'+
+    (ses.xpg?'<br>XP earned <b>+'+ses.xpg+'</b>':'')+'</p>'+
+    '<div class="mbtns"><button class="btn acc" data-action="close-modal">DONE</button></div>');
+  if(state.game)checkGameEvents();
 }
 function applyTheme(){
   var th=state.theme==='day'?'theme-day':'theme-night';
@@ -461,6 +506,16 @@ function migrateState(){
     });
     state.version=3;changed=true;
   }
+  // v4: game container
+  if(!('game' in state)){state.game=null;changed=true;}
+  if(state.game){
+    if(!state.game.enc)state.game.enc={};
+    if(!state.game.flags)state.game.flags={};
+    if(!state.game.seen)state.game.seen={};
+    if(!state.game.dex)state.game.dex={};
+    if(!Array.isArray(state.game.mons))state.game.mons=[];
+  }
+  if(!(state.version>=4)){state.version=4;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -521,6 +576,7 @@ function heroHTML(){
     return '<div class="panel hero live"><div class="livehead"><span class="pulse"></span>WORKOUT IN PROGRESS</div>'+
       '<div class="bigtime elapsed">'+fmtElapsed(Date.now()-state.session.start)+'</div>'+
       '<div class="lastline">'+st.sets+' sets · '+fmtVol(st.volume)+' '+esc(state.unit)+' so far</div>'+
+      activeMonStripHTML()+
       '<div class="herobtns"><button class="btn" data-action="end-workout">END</button>'+
       '<button class="btn acc" data-action="tab" data-tab="workout">GO TO GYM</button></div></div>';
   }
@@ -530,8 +586,9 @@ function heroHTML(){
   var card='<div class="trow"><span class="tk">Time</span><span class="tv">'+(totDur?fmtDur(totDur):'0m')+'</span></div>'+
     '<div class="trow"><span class="tk">Gym days</span><span class="tv">'+days+'</span></div>'+
     '<div class="trow"><span class="tk">Last</span><span class="tv">'+(ls?fmtDayKey(dateKey(ls.end))+' · '+fmtDur(ls.end-ls.start):'—')+'</span></div>'+
-    '<div class="trow"><span class="tk">Badges</span><span class="tv">0 — game coming soon</span></div>';
-  return '<div class="panel hero"><div class="hero-title">TRAINER CARD</div>'+card+
+    '<div class="trow"><span class="tk">Badges</span><span class="tv">0 / 8 — bosses in phase 3</span></div>';
+  return '<div class="panel hero"><div class="hero-title">TRAINER CARD</div>'+
+    activeMonStripHTML()+card+
     '<button class="savebtn" data-action="start-workout" style="margin-top:12px">START WORKOUT</button></div>';
 }
 function summaryHTML(){
@@ -571,6 +628,374 @@ function todayRowsHTML(id){
       '<button class="delbtn" data-action="del-log" data-log="'+l.id+'" aria-label="Remove">✕</button></div>';
   });
   return h+'</div>';
+}
+
+/* ===== game: species data ===== */
+var DEX={
+  charmander:{n:'CHARMANDER',id:4,t:['Fire'],bs:[39,52,43,60,50,65],evo:{lv:16,to:'charmeleon'}},
+  charmeleon:{n:'CHARMELEON',id:5,t:['Fire'],bs:[58,64,58,80,65,80],evo:{lv:36,to:'charizard'}},
+  charizard:{n:'CHARIZARD',id:6,t:['Fire','Flying'],bs:[78,84,78,109,85,100]},
+  squirtle:{n:'SQUIRTLE',id:7,t:['Water'],bs:[44,48,65,50,64,43],evo:{lv:16,to:'wartortle'}},
+  wartortle:{n:'WARTORTLE',id:8,t:['Water'],bs:[59,63,80,65,80,58],evo:{lv:36,to:'blastoise'}},
+  blastoise:{n:'BLASTOISE',id:9,t:['Water'],bs:[79,83,100,85,105,78]},
+  pidgey:{n:'PIDGEY',id:16,t:['Normal','Flying'],bs:[40,45,40,35,35,56],evo:{lv:18,to:'pidgeotto'}},
+  pidgeotto:{n:'PIDGEOTTO',id:17,t:['Normal','Flying'],bs:[63,60,55,50,50,71],evo:{lv:36,to:'pidgeot'}},
+  pidgeot:{n:'PIDGEOT',id:18,t:['Normal','Flying'],bs:[83,80,75,70,70,91]},
+  pikachu:{n:'PIKACHU',id:25,t:['Electric'],bs:[35,55,30,50,40,90],evo:{lv:30,to:'raichu'}},
+  raichu:{n:'RAICHU',id:26,t:['Electric'],bs:[60,90,55,90,80,110]},
+  growlithe:{n:'GROWLITHE',id:58,t:['Fire'],bs:[55,70,45,70,50,60],evo:{lv:35,to:'arcanine'}},
+  arcanine:{n:'ARCANINE',id:59,t:['Fire'],bs:[90,110,80,100,80,95]},
+  abra:{n:'ABRA',id:63,t:['Psychic'],bs:[25,20,15,105,55,90],evo:{lv:16,to:'kadabra'}},
+  kadabra:{n:'KADABRA',id:64,t:['Psychic'],bs:[40,35,30,120,70,105],evo:{lv:40,to:'alakazam'}},
+  alakazam:{n:'ALAKAZAM',id:65,t:['Psychic'],bs:[55,50,45,135,85,120]},
+  machop:{n:'MACHOP',id:66,t:['Fighting'],bs:[70,80,50,35,35,35],evo:{lv:28,to:'machoke'}},
+  machoke:{n:'MACHOKE',id:67,t:['Fighting'],bs:[80,100,70,50,60,45],evo:{lv:40,to:'machamp'}},
+  machamp:{n:'MACHAMP',id:68,t:['Fighting'],bs:[90,130,80,65,85,55]},
+  geodude:{n:'GEODUDE',id:74,t:['Rock','Ground'],bs:[40,80,100,30,30,20],evo:{lv:25,to:'graveler'}},
+  graveler:{n:'GRAVELER',id:75,t:['Rock','Ground'],bs:[55,95,115,45,45,35],evo:{lv:40,to:'golem'}},
+  golem:{n:'GOLEM',id:76,t:['Rock','Ground'],bs:[80,110,130,55,65,45]},
+  gastly:{n:'GASTLY',id:92,t:['Ghost','Poison'],bs:[30,35,30,100,35,80],evo:{lv:25,to:'haunter'}},
+  haunter:{n:'HAUNTER',id:93,t:['Ghost','Poison'],bs:[45,50,45,115,55,95],evo:{lv:45,to:'gengar'}},
+  gengar:{n:'GENGAR',id:94,t:['Ghost','Poison'],bs:[60,65,60,130,75,110]},
+  onix:{n:'ONIX',id:95,t:['Rock','Ground'],bs:[35,45,160,30,45,70]},
+  magikarp:{n:'MAGIKARP',id:129,t:['Water'],bs:[20,10,55,15,20,80],evo:{lv:20,to:'gyarados'}},
+  gyarados:{n:'GYARADOS',id:130,t:['Water','Flying'],bs:[95,125,79,60,100,81]},
+  lapras:{n:'LAPRAS',id:131,t:['Water','Ice'],bs:[130,85,80,85,95,60]},
+  eevee:{n:'EEVEE',id:133,t:['Normal'],bs:[55,55,50,45,65,55],evo:{lv:25,choice:['vaporeon','jolteon','flareon']}},
+  vaporeon:{n:'VAPOREON',id:134,t:['Water'],bs:[130,65,60,110,95,65]},
+  jolteon:{n:'JOLTEON',id:135,t:['Electric'],bs:[65,65,60,110,95,130]},
+  flareon:{n:'FLAREON',id:136,t:['Fire'],bs:[65,130,60,95,110,65]},
+  snorlax:{n:'SNORLAX',id:143,t:['Normal'],bs:[160,110,65,65,110,30]},
+  dratini:{n:'DRATINI',id:147,t:['Dragon'],bs:[41,64,45,50,50,50],evo:{lv:30,to:'dragonair'}},
+  dragonair:{n:'DRAGONAIR',id:148,t:['Dragon'],bs:[61,84,65,70,70,70],evo:{lv:55,to:'dragonite'}},
+  dragonite:{n:'DRAGONITE',id:149,t:['Dragon','Flying'],bs:[91,134,95,100,100,80]},
+  mewtwo:{n:'MEWTWO',id:150,t:['Psychic'],bs:[106,110,90,154,90,130]}
+};
+var DEX_ORDER=['charmander','charmeleon','charizard','squirtle','wartortle','blastoise','pidgey','pidgeotto','pidgeot','pikachu','raichu','growlithe','arcanine','abra','kadabra','alakazam','machop','machoke','machamp','geodude','graveler','golem','gastly','haunter','gengar','onix','magikarp','gyarados','lapras','eevee','vaporeon','jolteon','flareon','snorlax','dratini','dragonair','dragonite','mewtwo'];
+var TYPE_COLORS={Fire:'#E07028',Water:'#5880E0',Electric:'#C89818',Fighting:'#C03028',Psychic:'#E84880',Rock:'#A89038',Ground:'#C8A858',Flying:'#9080D8',Normal:'#909078',Dragon:'#7038F8',Ghost:'#705898',Poison:'#A040A0',Ice:'#48A8B8'};
+var GROUP_TYPE_KEYS=[['pecs',/pec|chest/i],['back',/back/i],['shoulders',/shoulder/i],['biceps',/bicep/i],['triceps',/tricep/i],['forearm',/fore\s?arm/i],['legs',/leg/i]];
+var CATCH_QUEUES={
+  pecs:[['machop',2000]],
+  back:[['pidgey',1500],['dratini',8000]],
+  shoulders:[['abra',2000]],
+  biceps:[['pikachu',2000]],
+  triceps:[['growlithe',2000]],
+  forearm:[['geodude',1500],['onix',5000]],
+  legs:[['magikarp',1000],['lapras',8000]]
+};
+
+/* ===== game: engine ===== */
+var teamView='party', monOpen=null, modalQueue=[];
+function sprPath(sp,shiny){return 'sprites/'+(shiny?'shiny/':'')+DEX[sp].id+'.png';}
+function xpFloor(l){return 25*l*(l-1);}
+function monLevel(xp){var l=1;while(l<100&&xp>=xpFloor(l+1))l++;return l;}
+function statsAt(sp,l){
+  var b=DEX[sp].bs;
+  return {hp:Math.floor(2*b[0]*l/100)+l+10,
+    atk:Math.floor(2*b[1]*l/100)+5,def:Math.floor(2*b[2]*l/100)+5,
+    spa:Math.floor(2*b[3]*l/100)+5,spd:Math.floor(2*b[4]*l/100)+5,
+    spe:Math.floor(2*b[5]*l/100)+5};
+}
+function findMon(u){if(!state.game)return null;for(var i=0;i<state.game.mons.length;i++)if(state.game.mons[i].uid===u)return state.game.mons[i];return null;}
+function activeMon(){if(!state.game)return null;return findMon(state.game.active)||state.game.mons[0]||null;}
+function registerDex(sp,shiny){if(!state.game)return;var d=state.game.dex[sp]||{};d.c=1;if(shiny)d.s=1;state.game.dex[sp]=d;}
+function addMon(sp,shiny){
+  var m={uid:uid(),sp:sp,xp:0,shiny:!!shiny,ts:Date.now()};
+  state.game.mons.push(m);
+  registerDex(sp,shiny);
+  return m;
+}
+function totalVolumeAll(){var v=0;allLogsFlat().forEach(function(o){v+=o.l.w*o.l.r*o.l.s;});return v;}
+function queueModal(f){
+  if($('#modalwrap').classList.contains('open'))modalQueue.push(f);
+  else f();
+}
+function applyXP(mon,gain){
+  if(!mon||gain<=0)return;
+  var before=monLevel(mon.xp);
+  mon.xp+=gain;
+  var after=monLevel(mon.xp);
+  if(after>before)queueLevelUp(mon,before,after);
+}
+function statGainGrid(s0,s1){
+  function row(lbl,a,b){return '<div>'+lbl+'<span style="float:right">+'+(b-a)+'</span></div>';}
+  return '<div class="statgain">'+row('MAX. HP',s0.hp,s1.hp)+row('SP. ATK',s0.spa,s1.spa)+
+    row('ATTACK',s0.atk,s1.atk)+row('SP. DEF',s0.spd,s1.spd)+
+    row('DEFENSE',s0.def,s1.def)+row('SPEED',s0.spe,s1.spe)+'</div>';
+}
+function queueLevelUp(mon,before,after){
+  var s0=statsAt(mon.sp,before),s1=statsAt(mon.sp,after),nm=DEX[mon.sp].n;
+  queueModal(function(){
+    showModal('<h3>'+esc(nm)+' grew to LV '+after+'!</h3>'+statGainGrid(s0,s1)+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+    modalOk=function(){closeModal();};
+  });
+  maybeEvolve(mon);
+}
+function maybeEvolve(mon){
+  var d=DEX[mon.sp];if(!d.evo)return;
+  if(monLevel(mon.xp)<d.evo.lv)return;
+  if(d.evo.choice){
+    queueModal(function(){
+      var h='<h3>EEVEE is ready to evolve!</h3><p>Choose its evolution:</p>';
+      d.evo.choice.forEach(function(c){
+        h+='<button class="prow" data-action="evo-choice" data-m="'+mon.uid+'" data-to="'+c+'">'+
+          '<img class="pspr" src="'+sprPath(c,mon.shiny)+'" alt=""><span class="pname">'+DEX[c].n+'</span></button>';
+      });
+      h+='<div class="mbtns"><button class="btn" data-action="modal-ok">NOT NOW</button></div>';
+      showModal(h,true);
+      modalOk=function(){closeModal();};
+    });
+    return;
+  }
+  var to=d.evo.to;
+  queueModal(function(){
+    showModal('<h3>What?</h3><p>'+esc(DEX[mon.sp].n)+' is evolving!</p>'+
+      '<div style="text-align:center;padding:8px 0"><img class="bigspr evoflash" src="'+sprPath(mon.sp,mon.shiny)+'" alt=""></div>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">. . .</button></div>',true);
+    modalOk=function(){closeModal();doEvolve(mon,to);};
+  });
+}
+function doEvolve(mon,to){
+  var fromN=DEX[mon.sp].n;
+  mon.sp=to;
+  registerDex(to,mon.shiny);
+  save();
+  queueModal(function(){
+    showModal('<h3>Congratulations!</h3><p>Your '+esc(fromN)+' evolved into '+esc(DEX[to].n)+'!</p>'+
+      '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(mon.shiny?' shinyglow':'')+'" src="'+sprPath(to,mon.shiny)+'" alt=""></div>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+    modalOk=function(){closeModal();render(true);};
+  });
+  maybeEvolve(mon);
+}
+
+/* ===== game: catching & grants ===== */
+function groupKeyOf(group){
+  for(var i=0;i<GROUP_TYPE_KEYS.length;i++)if(GROUP_TYPE_KEYS[i][1].test(group.name))return GROUP_TYPE_KEYS[i][0];
+  return null;
+}
+function groupVolumeSince(gk,ts){
+  var v=0;
+  state.groups.forEach(function(g){
+    if(groupKeyOf(g)!==gk)return;
+    g.exercises.forEach(function(e){
+      logsOf(e.id).forEach(function(l){if(l.ts>=ts)v+=l.w*l.r*l.s;});
+    });
+  });
+  return Math.round(v);
+}
+function groupDaysSince(gk,ts){
+  var m={};
+  state.groups.forEach(function(g){
+    if(groupKeyOf(g)!==gk)return;
+    g.exercises.forEach(function(e){
+      logsOf(e.id).forEach(function(l){if(l.ts>=ts)m[dateKey(l.ts)]=1;});
+    });
+  });
+  return Object.keys(m).length;
+}
+function daysSinceGameStart(){
+  var m={};
+  allLogsFlat().forEach(function(o){if(o.l.ts>=state.game.startTs)m[dateKey(o.l.ts)]=1;});
+  return Object.keys(m).length;
+}
+function announceEncounter(gk,sp,target){
+  queueModal(function(){
+    showModal('<h3>A wild '+esc(DEX[sp].n)+' appeared!</h3>'+
+      '<div style="text-align:center;padding:8px 0"><img class="bigspr" src="'+sprPath(sp,false)+'" alt=""></div>'+
+      '<p>Catch it by moving '+fmtVol(target)+' '+esc(state.unit)+' of '+gk.toUpperCase()+' volume. Track it in the POKéDEX — it can’t run away.</p>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+    modalOk=function(){closeModal();};
+  });
+}
+function announceCatch(sp,shiny){
+  queueModal(function(){
+    showModal('<h3>Gotcha!</h3><p>'+esc(DEX[sp].n)+' was caught!'+(shiny?' ✨ It’s SHINY!':'')+'</p>'+
+      '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(shiny?' shinyglow':'')+'" src="'+sprPath(sp,shiny)+'" alt=""></div>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+    modalOk=function(){closeModal();render(true);};
+  });
+}
+function grantMon(flag,sp,title,msg){
+  var g=state.game;
+  if(g.flags[flag])return false;
+  g.flags[flag]=1;
+  var shiny=Math.random()<0.1;
+  addMon(sp,shiny);
+  queueModal(function(){
+    showModal('<h3>'+esc(title)+'</h3><p>'+esc(msg)+(shiny?' ✨ It’s SHINY!':'')+'</p>'+
+      '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(shiny?' shinyglow':'')+'" src="'+sprPath(sp,shiny)+'" alt=""></div>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+    modalOk=function(){closeModal();render(true);};
+  });
+  return true;
+}
+function caughtFromQueue(gk){
+  var q=CATCH_QUEUES[gk],n=0;
+  q.forEach(function(it){if(state.game.dex[it[0]]&&state.game.dex[it[0]].c)n++;});
+  return n;
+}
+function checkGameEvents(){
+  var g=state.game;if(!g)return;
+  var changed=false;
+  Object.keys(CATCH_QUEUES).forEach(function(gk){
+    if(g.enc[gk])return;
+    var k=caughtFromQueue(gk),q=CATCH_QUEUES[gk];
+    if(k>=q.length)return;
+    if(groupDaysSince(gk,g.startTs)>=2+3*k){
+      g.enc[gk]={sp:q[k][0],target:q[k][1],startTs:Date.now()};
+      g.seen[q[k][0]]=1;changed=true;
+      announceEncounter(gk,q[k][0],q[k][1]);
+    }
+  });
+  Object.keys(g.enc).forEach(function(gk){
+    var e=g.enc[gk];
+    if(groupVolumeSince(gk,e.startTs)>=e.target){
+      delete g.enc[gk];
+      var shiny=Math.random()<0.1;
+      addMon(e.sp,shiny);
+      changed=true;
+      announceCatch(e.sp,shiny);
+    }
+  });
+  var days=daysSinceGameStart();
+  if(days>=10&&grantMon('eevee','eevee','A friend appears!','EEVEE was impressed by your 10 training days and joined your team!'))changed=true;
+  if(days>=15&&grantMon('rival',g.starter==='charmander'?'squirtle':'charmander','Your rival gave up!','15 training days! Your rival quit the gym and left their partner with you.'))changed=true;
+  if(days>=50&&grantMon('snorlax','snorlax','Something heavy arrived…','50 training days! SNORLAX respects your consistency and joined you.'))changed=true;
+  if(!g.flags.gastly){
+    var night=allLogsFlat().some(function(o){
+      if(o.l.ts<g.startTs)return false;
+      var hh=new Date(o.l.ts).getHours();return hh>=21||hh<5;
+    });
+    if(night&&grantMon('gastly','gastly','Something stirs in the dark…','You trained at night. GASTLY slipped out of the shadows and joined you!'))changed=true;
+  }
+  if(changed)save();
+}
+
+/* ===== game: screens ===== */
+function showStarterModal(){
+  showModal('<h3>PROF. OAK</h3><p>Welcome to the world of POKéMON! Your gym adventure is about to unfold. Choose your partner:</p>'+
+    '<button class="prow" data-action="pick-starter" data-sp="charmander"><img class="pspr" src="sprites/4.png" alt="">'+
+    '<span><span class="pname">CHARMANDER</span><br><span class="plv">the Fire type</span></span></button>'+
+    '<button class="prow" data-action="pick-starter" data-sp="squirtle"><img class="pspr" src="sprites/7.png" alt="">'+
+    '<span><span class="pname">SQUIRTLE</span><br><span class="plv">the Water type</span></span></button>',true);
+  modalOk=null;
+}
+function showChooserThenStart(){
+  var g=state.game;
+  if(!g||g.mons.length<=1){
+    if(g&&g.mons[0])g.active=g.mons[0].uid;
+    startWorkout();return;
+  }
+  var h='<h3>Choose a POKéMON.</h3><p>It banks all XP from this workout.</p>';
+  g.mons.forEach(function(m){
+    h+='<button class="prow" data-action="choose-mon" data-m="'+m.uid+'">'+
+      '<img class="pspr" src="'+sprPath(m.sp,m.shiny)+'" alt=""><span class="pname">'+DEX[m.sp].n+(m.shiny?' <span class="shinystar">★</span>':'')+'</span>'+
+      '<span class="plv" style="margin-left:auto">:L'+monLevel(m.xp)+'</span></button>';
+  });
+  h+='<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button></div>';
+  showModal(h);
+  modalOk=null;
+}
+function activeMonStripHTML(){
+  if(!state.game)return '';
+  var m=activeMon();if(!m)return '';
+  var l=monLevel(m.xp);
+  var into=m.xp-xpFloor(l),span=Math.max(1,xpFloor(l+1)-xpFloor(l));
+  var xtra=(state.session&&state.session.xpg)?'<span class="xpplus">+'+state.session.xpg+' XP</span>':'';
+  return '<button class="monstrip" data-action="open-mon" data-m="'+m.uid+'">'+
+    '<img class="pspr" style="width:40px;height:40px" src="'+sprPath(m.sp,m.shiny)+'" alt="">'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+DEX[m.sp].n+(m.shiny?' <span class="shinystar">★</span>':'')+' <span class="plv">:L'+l+'</span></div>'+
+    '<div class="gbar exp" style="margin-top:5px"><div style="width:'+Math.min(100,Math.round(into/span*100))+'%"></div></div></div>'+xtra+'</button>';
+}
+function teamHTML(){
+  var h='<div class="titlebar"><h1>POKéMON</h1></div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  h+='<div class="subtitle">Your partners, powered by your sets</div>'+
+    '<div style="margin:0 12px 4px"><div class="seg" style="display:inline-flex">'+
+    '<button data-action="team-view" data-v="party" class="'+(teamView==='party'?'on':'')+'">TEAM</button>'+
+    '<button data-action="team-view" data-v="dex" class="'+(teamView==='dex'?'on':'')+'">POKéDEX</button></div></div>';
+  if(teamView==='party'){
+    state.game.mons.forEach(function(m){
+      var l=monLevel(m.xp),st=statsAt(m.sp,l);
+      var into=m.xp-xpFloor(l),span=Math.max(1,xpFloor(l+1)-xpFloor(l));
+      h+='<button class="prow" data-action="open-mon" data-m="'+m.uid+'">'+
+        '<img class="pspr" src="'+sprPath(m.sp,m.shiny)+'" alt="">'+
+        '<div style="flex:1;min-width:0">'+
+        '<div class="pname">'+DEX[m.sp].n+(m.shiny?' <span class="shinystar">★</span>':'')+' <span class="plv">:L'+l+'</span>'+
+        (state.game.active===m.uid?' <span class="leadchip">LEAD</span>':'')+'</div>'+
+        '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div style="width:100%"></div></div><span class="barnum">'+st.hp+'/'+st.hp+'</span></div>'+
+        '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div style="width:'+Math.min(100,Math.round(into/span*100))+'%"></div></div></div>'+
+        '</div></button>';
+    });
+    h+='<div class="about">XP goes to the POKéMON you pick at workout start.<br>New ones are caught by training — check the POKéDEX.</div>';
+  }else{
+    h+=dexHTML();
+  }
+  return h;
+}
+function dexHTML(){
+  var g=state.game,h='';
+  var ek=Object.keys(g.enc);
+  if(ek.length){
+    h+='<div class="histday">WILD · FILL THE BAR TO CATCH</div>';
+    ek.forEach(function(gk){
+      var e=g.enc[gk];
+      var prog=Math.min(e.target,groupVolumeSince(gk,e.startTs));
+      h+='<div class="card"><img class="pspr" src="'+sprPath(e.sp,false)+'" alt="">'+
+        '<div style="flex:1;min-width:0"><div class="pname">'+DEX[e.sp].n+'</div>'+
+        '<div class="plv" style="margin:2px 0 6px">'+gk.toUpperCase()+': '+fmtVol(prog)+' / '+fmtVol(e.target)+' '+esc(state.unit)+'</div>'+
+        '<div class="gbar"><div style="width:'+Math.round(prog/e.target*100)+'%"></div></div></div></div>';
+    });
+  }
+  h+='<div class="dexgrid">';
+  var c=0;
+  DEX_ORDER.forEach(function(sp){
+    var d=g.dex[sp];
+    if(d&&d.c){
+      c++;
+      h+='<div class="dexcell"><img src="'+sprPath(sp,!!d.s)+'" alt="'+DEX[sp].n+'">'+(d.s?'<div class="shinystar">★</div>':'')+'<div class="dexname">'+DEX[sp].n+'</div></div>';
+    }else{
+      h+='<div class="dexcell unk"><img src="'+sprPath(sp,false)+'" alt="Unknown"><div class="dexname">'+(g.seen[sp]?DEX[sp].n:'?????')+'</div></div>';
+    }
+  });
+  h+='</div><div class="about">CAUGHT '+c+' / '+DEX_ORDER.length+'</div>';
+  return h;
+}
+function openMon(u){
+  var m=findMon(u);if(!m)return;
+  monOpen=u;
+  var l=monLevel(m.xp),st=statsAt(m.sp,l),d=DEX[m.sp];
+  var into=m.xp-xpFloor(l),span=Math.max(1,xpFloor(l+1)-xpFloor(l));
+  var chips='';
+  d.t.forEach(function(t){chips+='<span class="tchip" style="background:'+(TYPE_COLORS[t]||'#888')+'">'+t.toUpperCase()+'</span> ';});
+  var rows=[['MAX. HP',st.hp],['ATTACK',st.atk],['DEFENSE',st.def],['SP. ATK',st.spa],['SP. DEF',st.spd],['SPEED',st.spe]];
+  var srows='';
+  rows.forEach(function(r){srows+='<div class="statrow"><span style="color:var(--mut)">'+r[0]+'</span><b style="font-weight:400">'+r[1]+'</b></div>';});
+  $('#monsheet').innerHTML='<div class="sheethead"><div class="shtitle">'+
+    '<div class="g" style="color:#D03028">POKéMON INFO</div>'+
+    '<h1>'+d.n+(m.shiny?' <span class="shinystar">★</span>':'')+'</h1>'+
+    '<div class="lv">:L'+l+' · '+chips+'</div></div>'+
+    '<button class="roundbtn" data-action="close-mon" aria-label="Close">✕</button></div>'+
+    '<div class="panel" style="text-align:center"><img class="bigspr'+(m.shiny?' shinyglow':'')+'" src="'+sprPath(m.sp,m.shiny)+'" alt="">'+
+    '<div style="display:flex;align-items:center;gap:6px;margin-top:10px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div style="width:'+Math.min(100,Math.round(into/span*100))+'%"></div></div><span class="barnum">'+into+'/'+span+'</span></div>'+
+    '<div class="plv" style="margin-top:5px;text-align:left">'+(l<100?(span-into)+' XP to LV '+(l+1):'MAX LEVEL')+'</div></div>'+
+    '<div class="panel"><h3>STATS</h3>'+srows+'</div>'+
+    '<div class="panel"><h3>TRAINER MEMO</h3><div class="memo">Met on '+fmtDayKey(dateKey(m.ts))+'.<br>'+m.xp+' XP banked in total.'+(m.shiny?'<br>✨ A shiny one!':'')+'</div></div>'+
+    (state.game.active===m.uid?'':'<div style="margin:12px"><button class="savebtn" data-action="make-lead" data-m="'+m.uid+'">MAKE LEAD</button></div>');
+  $('#monsheet').scrollTop=0;
+  $('#monsheet').classList.add('open');
+  document.documentElement.classList.add('lock');
+  try{history.pushState({m:1},'');}catch(e){}
+}
+function closeMon(fromPop){
+  if(!monOpen)return;
+  monOpen=null;
+  $('#monsheet').classList.remove('open');
+  document.documentElement.classList.remove('lock');
+  render(true);
+  if(!fromPop){try{if(history.state&&history.state.m)history.back();}catch(e){}}
 }
 
 var PLUS_SVG='&gt;';
@@ -711,7 +1136,7 @@ function settingsHTML(){
     '<button class="btn" data-action="import">Import</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v1.4 · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v2.0 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -737,7 +1162,7 @@ function closeSheet(fromPop){
   window.scrollTo(0,openScrollY);
   if(!fromPop){try{if(history.state&&history.state.s)history.back();}catch(e){}}
 }
-window.addEventListener('popstate',function(){if(sheetEx)closeSheet(true);});
+window.addEventListener('popstate',function(){if(monOpen)closeMon(true);else if(sheetEx)closeSheet(true);});
 
 function sheetHTML(ex,group,color){
   var ll=lastLog(ex.id);
@@ -862,11 +1287,31 @@ function saveLogEntry(){
   if(!(w>0)){toast('Enter a weight first');$('#in-w').focus();return;}
   var prevBest=bestW(id);
   var entry={id:uid(),ts:Date.now(),w:Math.round(w*100)/100,r:r,s:s};
+  if(state.game){
+    var am=activeMon();
+    if(am){
+      var gain=Math.round(entry.w*entry.r*entry.s/10*(state.session?1.5:1));
+      if(gain>0){
+        entry.xpg=gain;entry.mon=am.uid;
+        if(state.session)state.session.xpg=(state.session.xpg||0)+gain;
+        applyXP(am,gain);
+      }
+      // a new record feeds the lead a Rare Candy: jump to the next level
+      if(entry.w>prevBest&&prevBest>0){
+        var clv=monLevel(am.xp);
+        if(clv<100&&am.xp<xpFloor(clv+1)){
+          am.xp=xpFloor(clv+1);
+          queueLevelUp(am,clv,clv+1);
+        }
+      }
+    }
+  }
   (state.logs[id]=state.logs[id]||[]).push(entry);
   state.logs[id].sort(function(a,b){return a.ts-b.ts;});
   save();
   refreshSheetData(id);
-  toast(entry.w>prevBest&&prevBest>0?('New record — '+fmtW(entry.w)+' '+state.unit+'! 🎉'):'Logged ✓');
+  toast(entry.w>prevBest&&prevBest>0?('New record — '+fmtW(entry.w)+' '+state.unit+'! 🎉 RARE CANDY!'):'Logged ✓'+(entry.xpg?' +'+entry.xpg+' XP':''));
+  if(state.game)checkGameEvents();
 }
 function delLogEntry(logId){
   var id=sheetEx; if(!id)return;
@@ -875,11 +1320,21 @@ function delLogEntry(logId){
   if(i<0)return;
   var gone=arr.splice(i,1)[0];
   if(!arr.length)delete state.logs[id];
+  if(gone.xpg&&gone.mon&&state.game){
+    var dm=findMon(gone.mon);
+    if(dm)dm.xp=Math.max(0,dm.xp-gone.xpg);
+    if(state.session&&state.session.xpg)state.session.xpg=Math.max(0,state.session.xpg-gone.xpg);
+  }
   save();
   refreshSheetData(id);
   toast('Entry deleted',{action:'Undo',fn:function(){
     (state.logs[id]=state.logs[id]||[]).push(gone);
     state.logs[id].sort(function(a,b){return a.ts-b.ts;});
+    if(gone.xpg&&gone.mon&&state.game){
+      var um=findMon(gone.mon);
+      if(um)um.xp+=gone.xpg;
+      if(state.session)state.session.xpg=(state.session.xpg||0)+gone.xpg;
+    }
     save();
     refreshSheetData(id);
   }});
@@ -944,14 +1399,15 @@ function toast(msg,opts){
 
 /* ===== modals ===== */
 var modalOk=null;
-function showModal(html){
-  $('#modalwrap').innerHTML='<div class="backdrop" data-action="close-modal"></div><div class="modal"><div class="min">'+html+'</div></div>';
+function showModal(html,blocking){
+  $('#modalwrap').innerHTML='<div class="backdrop"'+(blocking?'':' data-action="close-modal"')+'></div><div class="modal"><div class="min">'+html+'</div></div>';
   $('#modalwrap').classList.add('open');
 }
 function closeModal(){
   $('#modalwrap').classList.remove('open');
   $('#modalwrap').innerHTML='';
   modalOk=null;
+  if(modalQueue.length){var f=modalQueue.shift();setTimeout(f,180);}
 }
 function promptModal(title,initial,cb,okText){
   showModal('<h3>'+esc(title)+'</h3>'+
@@ -1021,7 +1477,20 @@ function applyImport(txt){
       sets:Math.max(0,parseInt(s.sets,10)||0),volume:Math.max(0,Math.round(+s.volume)||0),
       exercises:Math.max(0,parseInt(s.exercises,10)||0)};})
     .sort(function(a,b){return a.start-b.start;}):[];
-  state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night'};
+  var gm=null;
+  if(d.game&&Array.isArray(d.game.mons)){
+    gm={startTs:+d.game.startTs||Date.now(),
+      starter:d.game.starter==='squirtle'?'squirtle':'charmander',
+      mons:d.game.mons.filter(function(m){return m&&DEX[m.sp];}).map(function(m){
+        return {uid:m.uid||uid(),sp:m.sp,xp:Math.max(0,Math.round(+m.xp)||0),shiny:!!m.shiny,ts:+m.ts||Date.now()};
+      }),
+      active:typeof d.game.active==='string'?d.game.active:null,
+      enc:(d.game.enc&&typeof d.game.enc==='object')?d.game.enc:{},
+      flags:(d.game.flags&&typeof d.game.flags==='object')?d.game.flags:{},
+      seen:(d.game.seen&&typeof d.game.seen==='object')?d.game.seen:{},
+      dex:(d.game.dex&&typeof d.game.dex==='object')?d.game.dex:{}};
+  }
+  state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm};
   save();
   editMode=false;tab='workout';render();
 }
@@ -1084,6 +1553,12 @@ document.addEventListener('click',function(e){
       (n?('Its '+n+' logged entr'+(n===1?'y':'ies')+' will be deleted too.'):'No logged entries belong to it.'),
       'Delete',function(){
       Object.keys(state.logs).forEach(function(k){
+        state.logs[k].forEach(function(l){
+          if(l.ts>=ses.start&&l.ts<=ses.end&&l.xpg&&l.mon&&state.game){
+            var dm=findMon(l.mon);
+            if(dm)dm.xp=Math.max(0,dm.xp-l.xpg);
+          }
+        });
         state.logs[k]=state.logs[k].filter(function(l){return l.ts<ses.start||l.ts>ses.end;});
         if(!state.logs[k].length)delete state.logs[k];
       });
@@ -1097,8 +1572,44 @@ document.addEventListener('click',function(e){
   else if(a==='modal-ok'){if(modalOk)modalOk();}
   else if(a==='unit'){state.unit=b.dataset.u==='lb'?'lb':'kg';save();render(true);}
   else if(a==='theme'){state.theme=b.dataset.th==='day'?'day':'night';save();applyTheme();render(true);}
-  else if(a==='start-workout'){startWorkout();}
+  else if(a==='start-workout'){if(state.game)showChooserThenStart();else startWorkout();}
   else if(a==='end-workout'){endWorkout();}
+  else if(a==='team-view'){teamView=b.dataset.v==='dex'?'dex':'party';render(true);}
+  else if(a==='open-mon'){openMon(b.dataset.m);}
+  else if(a==='close-mon'){closeMon();}
+  else if(a==='make-lead'){
+    if(state.game&&findMon(b.dataset.m)){
+      state.game.active=b.dataset.m;save();closeMon();toast('New lead ✓');
+    }
+  }
+  else if(a==='choose-mon'){
+    if(state.game&&findMon(b.dataset.m)){
+      state.game.active=b.dataset.m;save();closeModal();startWorkout();
+    }
+  }
+  else if(a==='pick-starter'){
+    var ssp=b.dataset.sp==='squirtle'?'squirtle':'charmander';
+    var retro=Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
+    state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{}};
+    var sm=addMon(ssp,false);
+    sm.xp=retro;
+    state.game.active=sm.uid;
+    save();
+    closeModal();
+    var slv=monLevel(sm.xp);
+    queueModal(function(){
+      showModal('<h3>'+esc(DEX[ssp].n)+' joined you!</h3><p>'+
+        (retro>0?('Your past training counts: +'+retro+' XP — it’s already LV '+slv+'! '):'')+
+        'Every set you log earns it XP. You pick who trains at each workout start.</p>'+
+        '<div style="text-align:center;padding:8px 0"><img class="bigspr" src="'+sprPath(ssp,false)+'" alt=""></div>'+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">LET’S GO</button></div>',true);
+      modalOk=function(){closeModal();tab='team';render();checkGameEvents();};
+    });
+  }
+  else if(a==='evo-choice'){
+    var em=findMon(b.dataset.m);
+    if(em&&DEX[b.dataset.to]){closeModal();doEvolve(em,b.dataset.to);}
+  }
   else if(a==='goto-edit'){tab='workout';editMode=true;render();}
   else if(a==='export'){exportData();}
   else if(a==='copy'){copyData();}
@@ -1153,6 +1664,8 @@ applyTheme();
 render();
 ensureTicker();
 if(staleNote)setTimeout(function(){toast(staleNote);},600);
+if(!state.game)setTimeout(showStarterModal,450);
+else setTimeout(checkGameEvents,450);
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('./sw.js').catch(function(){});
