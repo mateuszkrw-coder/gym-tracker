@@ -73,6 +73,10 @@ button.card:active{background:var(--cream2)}
   font-size:16px;flex:none;font-family:inherit;display:flex;align-items:center;justify-content:center}
 .iconbtn.red{color:var(--red)}
 .addcard{justify-content:center;color:var(--text);background:var(--boxw);border-style:dashed}
+.card.done{background:#CFC796;border-color:#6A6248}
+.card.done .exname{color:#5F5638}
+.card.done .exlast{color:#7E764F}
+.card.done .gobtn{color:#2E8B48;background:#E8E2B8;border-color:#6A6248;font-size:9px}
 
 /* ---------- install banner ---------- */
 .banner{margin:4px 12px 8px;background:var(--boxw);
@@ -278,13 +282,13 @@ function fmtW(w){return String(Math.round(w*100)/100);}
 /* ===== state ===== */
 function seedState(){
   function g(name,exs){return {id:uid(),name:name,exercises:exs.map(function(n){return {id:uid(),name:n,note:''};})};}
-  return {version:2,unit:'kg',groups:[
-    g('Back',['Rear delts','Lat pull down','Close grip row','Row machine']),
+  return {version:3,unit:'kg',groups:[
+    g('Back',['Lat pull down','Close grip row','Row machine']),
     g('Biceps',['Curl machine','Hammer curl']),
-    g('Pecs',['Fly machine','Side delts','Machine delts','Incline bench','Converging chest press']),
+    g('Pecs',['Fly machine','Incline bench','Converging chest press']),
     g('Triceps',['Triceps pull down','Triceps pull up','Tricep isolate']),
     g('Fore arm',['Curl','Extension']),
-    g('Shoulders',[]),
+    g('Shoulders',['Rear delts','Side delts','Machine delts']),
     g('Legs',['Leg extension','Seated leg curl','Calf raises','Cable crunch'])
   ],logs:{},sessions:[],session:null};
 }
@@ -439,6 +443,24 @@ function migrateState(){
     });
     state.version=2;changed=true;
   }
+  // v3: move the delt machines into Shoulders, history (same ids) comes along
+  if(!(state.version>=3)){
+    var sh=null;
+    state.groups.forEach(function(g){if(!sh&&/shoulder/i.test(g.name))sh=g;});
+    if(!sh){sh={id:uid(),name:'Shoulders',exercises:[]};state.groups.push(sh);}
+    ['Rear delts','Side delts','Machine delts'].forEach(function(n){
+      state.groups.forEach(function(g){
+        if(g===sh)return;
+        for(var i=0;i<g.exercises.length;i++){
+          if(g.exercises[i].name.toLowerCase()===n.toLowerCase()){
+            sh.exercises.push(g.exercises.splice(i,1)[0]);
+            return;
+          }
+        }
+      });
+    });
+    state.version=3;changed=true;
+  }
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -559,17 +581,31 @@ function showInstallBanner(){
   return iOS&&!standalone&&!localStorage.getItem('gym.bannerOff');
 }
 
+function doneInSession(id){
+  if(!state.session)return false;
+  var st=state.session.start;
+  return logsOf(id).some(function(l){return l.ts>=st;});
+}
 function exCard(ex){
   var ll=lastLog(ex.id), t=trendOf(ex.id), inner;
-  if(ll){
+  var done=doneInSession(ex.id);
+  if(done){
+    inner='DONE — '+sessionSetsOf(ex.id)+' set(s) this workout';
+  }else if(ll){
     inner='Last: <b>'+fmtW(ll.w)+' '+state.unit+'</b> × '+ll.r+(ll.s>1?' × '+ll.s:'')+' · '+rel(ll.ts);
     if(t!==0)inner+=' <span class="trend '+(t>0?'up':'down')+'">'+(t>0?'▲':'▼')+' '+fmtW(Math.abs(t))+'</span>';
   }else{
     inner='No entries yet — tap to log';
   }
-  return '<button class="card" data-action="open" data-ex="'+ex.id+'">'+
+  return '<button class="card'+(done?' done':'')+'" data-action="open" data-ex="'+ex.id+'">'+
     '<div class="exinfo"><div class="exname">'+esc(ex.name)+'</div><div class="exlast">'+inner+'</div></div>'+
-    '<div class="gobtn">'+PLUS_SVG+'</div></button>';
+    '<div class="gobtn">'+(done?'OK':PLUS_SVG)+'</div></button>';
+}
+function sessionSetsOf(id){
+  if(!state.session)return 0;
+  var st=state.session.start,n=0;
+  logsOf(id).forEach(function(l){if(l.ts>=st)n+=l.s;});
+  return n;
 }
 function editExRow(ex){
   return '<div class="card"><div class="exinfo"><div class="exname">'+esc(ex.name)+'</div></div>'+
@@ -675,7 +711,7 @@ function settingsHTML(){
     '<button class="btn" data-action="import">Import</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v1.3 · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v1.4 · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -689,11 +725,6 @@ function openSheet(exId){
   $('#sheet').classList.add('open');
   document.documentElement.classList.add('lock');
   try{history.pushState({s:1},'');}catch(e){}
-  var nt=$('#in-note'), noteT=null;
-  if(nt)nt.addEventListener('input',function(){
-    clearTimeout(noteT);
-    noteT=setTimeout(function(){var rr=exById(sheetEx);if(rr){rr.ex.note=nt.value.slice(0,500);save();}},400);
-  });
   updateBest(exId);
 }
 function closeSheet(fromPop){
@@ -710,7 +741,7 @@ window.addEventListener('popstate',function(){if(sheetEx)closeSheet(true);});
 
 function sheetHTML(ex,group,color){
   var ll=lastLog(ex.id);
-  var w=ll?ll.w:20, r=ll?ll.r:10, s=ll?ll.s:3;
+  var w=ll?ll.w:20, r=ll?ll.r:10, s=1;
   var lvl=dayTops(ex.id).length;
   return '<div class="sheethead"><div class="shtitle">'+
     '<div class="g" style="color:'+color+'">'+esc(group.name)+'</div><h1>'+esc(ex.name)+'</h1>'+
@@ -732,18 +763,11 @@ function sheetHTML(ex,group,color){
       '<input id="in-s" type="text" inputmode="numeric" value="'+s+'" aria-label="Sets">'+
       '<button class="step" data-action="step" data-t="s" data-d="1">＋</button></div>'+
     '<button class="savebtn" data-action="log">SAVE SET</button>'+
-    '<div class="timerrow"><span class="tlab">Rest</span>'+
-      '<button class="chip" data-action="timer" data-sec="60">1:00</button>'+
-      '<button class="chip" data-action="timer" data-sec="90">1:30</button>'+
-      '<button class="chip" data-action="timer" data-sec="120">2:00</button></div>'+
     '<div id="sh-today">'+todayRowsHTML(ex.id)+'</div>'+
   '</div>'+
 
   '<div class="panel"><h3>Progress <span class="bestchip" id="sh-best"></span></h3>'+
     '<div id="sh-chart">'+chartHTML(ex.id)+'</div></div>'+
-
-  '<div class="panel notes"><h3>Notes</h3>'+
-    '<textarea id="in-note" placeholder="Seat height, grip, machine settings…">'+esc(ex.note||'')+'</textarea></div>'+
 
   '<div id="sh-hist">'+histListHTML(ex.id)+'</div>';
 }
@@ -813,7 +837,7 @@ function chartHTML(id){
 function stepInput(t,d){
   var inp=$('#in-'+t); if(!inp)return;
   var v=parseFloat((inp.value||'').replace(',','.'));
-  if(isNaN(v))v=(t==='w')?20:(t==='r'?10:3);
+  if(isNaN(v))v=(t==='w')?20:(t==='r'?10:1);
   var st=(t==='w')?(state.unit==='kg'?2.5:5):1;
   v=v+d*st;
   v=Math.max(t==='w'?0:1,Math.round(v*100)/100);
