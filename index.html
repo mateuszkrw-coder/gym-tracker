@@ -278,12 +278,14 @@ function fmtW(w){return String(Math.round(w*100)/100);}
 /* ===== state ===== */
 function seedState(){
   function g(name,exs){return {id:uid(),name:name,exercises:exs.map(function(n){return {id:uid(),name:n,note:''};})};}
-  return {version:1,unit:'kg',groups:[
+  return {version:2,unit:'kg',groups:[
     g('Back',['Rear delts','Lat pull down','Close grip row','Row machine']),
     g('Biceps',['Curl machine','Hammer curl']),
     g('Pecs',['Fly machine','Side delts','Machine delts','Incline bench','Converging chest press']),
     g('Triceps',['Triceps pull down','Triceps pull up','Tricep isolate']),
-    g('Fore arm',['Curl','Extension'])
+    g('Fore arm',['Curl','Extension']),
+    g('Shoulders',[]),
+    g('Legs',['Leg extension','Seated leg curl','Calf raises','Cable crunch'])
   ],logs:{},sessions:[],session:null};
 }
 function load(){
@@ -422,6 +424,21 @@ function migrateState(){
   state.groups.forEach(function(g){g.exercises.forEach(function(e){
     if(e.name==='Dear delts'){e.name='Rear delts';changed=true;}
   });});
+  // v2: add Shoulders + Legs groups to existing installs (one time)
+  if(!(state.version>=2)){
+    if(!state.groups.some(function(g){return /shoulder/i.test(g.name);})){
+      state.groups.push({id:uid(),name:'Shoulders',exercises:[]});
+    }
+    var lg=null;
+    state.groups.forEach(function(g){if(!lg&&/^leg/i.test(g.name))lg=g;});
+    if(!lg){lg={id:uid(),name:'Legs',exercises:[]};state.groups.push(lg);}
+    ['Leg extension','Seated leg curl','Calf raises','Cable crunch'].forEach(function(n){
+      if(!lg.exercises.some(function(e){return e.name.toLowerCase()===n.toLowerCase();})){
+        lg.exercises.push({id:uid(),name:n,note:''});
+      }
+    });
+    state.version=2;changed=true;
+  }
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -613,6 +630,15 @@ function historyHTML(){
     '<div class="stat"><div class="v" style="color:#3878C8">'+month+'</div><div class="l">days<br>this month</div></div>'+
     '<div class="stat"><div class="v" style="color:#D03028">'+total+'</div><div class="l">sessions<br>all time</div></div>'+
     '</div>';
+  var sess=(state.sessions||[]).slice().reverse().slice(0,20);
+  if(sess.length){
+    h+='<div class="histday">WORKOUTS · TAP ✕ TO DELETE</div>';
+    sess.forEach(function(s){
+      h+='<div class="hrow"><div class="meta"><div class="hname">'+fmtDayKey(dateKey(s.end))+'</div>'+
+        '<div class="hsub">'+fmtDur(s.end-s.start)+' · '+s.sets+' sets · '+fmtVol(s.volume)+' '+esc(state.unit)+'</div></div>'+
+        '<button class="delbtn" data-action="del-session" data-s="'+s.id+'" aria-label="Delete workout">✕</button></div>';
+    });
+  }
   if(!all.length){
     h+='<div class="empty"><div class="big">🏋️</div>No workouts logged yet.<br>Open an exercise and save your first set!</div>';
     return h;
@@ -649,7 +675,7 @@ function settingsHTML(){
     '<button class="btn" data-action="import">Import</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v1.2 · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v1.3 · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -971,7 +997,7 @@ function applyImport(txt){
       sets:Math.max(0,parseInt(s.sets,10)||0),volume:Math.max(0,Math.round(+s.volume)||0),
       exercises:Math.max(0,parseInt(s.exercises,10)||0)};})
     .sort(function(a,b){return a.start-b.start;}):[];
-  state={version:1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null};
+  state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night'};
   save();
   editMode=false;tab='workout';render();
 }
@@ -1021,6 +1047,26 @@ document.addEventListener('click',function(e){
   else if(a==='step'){stepInput(b.dataset.t,+b.dataset.d);}
   else if(a==='log'){saveLogEntry();}
   else if(a==='del-log'){delLogEntry(b.dataset.log);}
+  else if(a==='del-session'){
+    var sid=b.dataset.s;
+    var ses=(state.sessions||[]).filter(function(x){return x.id===sid;})[0];
+    if(!ses)return;
+    var n=0;
+    Object.keys(state.logs).forEach(function(k){
+      n+=state.logs[k].filter(function(l){return l.ts>=ses.start&&l.ts<=ses.end;}).length;
+    });
+    confirmModal('Delete this workout?',
+      fmtDayKey(dateKey(ses.end))+' · '+fmtDur(ses.end-ses.start)+' · '+ses.sets+' sets. '+
+      (n?('Its '+n+' logged entr'+(n===1?'y':'ies')+' will be deleted too.'):'No logged entries belong to it.'),
+      'Delete',function(){
+      Object.keys(state.logs).forEach(function(k){
+        state.logs[k]=state.logs[k].filter(function(l){return l.ts<ses.start||l.ts>ses.end;});
+        if(!state.logs[k].length)delete state.logs[k];
+      });
+      state.sessions=state.sessions.filter(function(x){return x.id!==sid;});
+      save();render(true);toast('Workout deleted');
+    });
+  }
   else if(a==='timer'){startTimer(+b.dataset.sec,b);}
   else if(a==='dismiss-banner'){localStorage.setItem('gym.bannerOff','1');render(true);}
   else if(a==='close-modal'){closeModal();}
