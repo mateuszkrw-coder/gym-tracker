@@ -1,8 +1,9 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v7';
+const CACHE = 'gym-tracker-v8';
 const MON_IDS = [4,5,6,7,8,9,16,17,18,25,26,58,59,63,64,65,66,67,68,74,75,76,92,93,94,95,129,130,131,133,134,135,136,143,147,148,149,150];
 const BOSS_IDS = [45,110,112,121];
+const TRAINERS = ['red','leaf','oak','brock','misty','ltsurge','erika','koga','sabrina','blaine','giovanni','lorelei','bruno','agatha','lance','blue'];
 const ASSETS = [
   './',
   './index.html',
@@ -17,7 +18,8 @@ const ASSETS = [
   .concat(MON_IDS.map((i) => './sprites/shiny/' + i + '.png'))
   .concat(MON_IDS.map((i) => './sprites/back/' + i + '.png'))
   .concat(MON_IDS.map((i) => './sprites/back/shiny/' + i + '.png'))
-  .concat(BOSS_IDS.map((i) => './sprites/' + i + '.png'));
+  .concat(BOSS_IDS.map((i) => './sprites/' + i + '.png'))
+  .concat(TRAINERS.map((t) => './sprites/trainers/' + t + '.png'));
 
 self.addEventListener('install', (e) => {
   e.waitUntil(

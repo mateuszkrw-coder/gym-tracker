@@ -441,6 +441,7 @@ function startWorkout(mode){
   state.session={start:Date.now(),mode:mode==='boss'?'boss':'train'};
   save();ensureTicker();
   tab='workout';editMode=false;render();
+  sfx(mode==='boss'?'battlestart':'save');
   toast(mode==='boss'?'Boss battle started! ⚔️':'Workout started 🔥');
 }
 function endWorkout(){
@@ -521,6 +522,10 @@ function migrateState(){
   if(state.game&&!state.game.boss&&!state.game.flags.champion){state.game.boss={idx:0,hp:BOSSES[0].hp};changed=true;}
   if(state.game&&!state.gamePlayed){state.gamePlayed=1;changed=true;}
   if(!(state.version>=5)){state.version=5;changed=true;}
+  // v6: sound + hero
+  if(state.sound===undefined){state.sound=true;changed=true;}
+  if(state.game&&state.game.player===undefined){state.game.player=null;changed=true;}
+  if(!(state.version>=6)){state.version=6;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -594,7 +599,10 @@ function heroHTML(){
     '<div class="trow"><span class="tk">Badges</span><span class="tv">'+
     (state.game?(badgeCount()+' / 8'+(state.game.flags.champion?' · CHAMPION 🏆':(state.game.boss&&state.game.boss.idx>=8?' · E4 '+(state.game.boss.idx-8)+'/4':''))):'0 / 8')+
     '</span></div>';
-  return '<div class="panel hero"><div class="hero-title">TRAINER CARD</div>'+
+  return '<div class="panel hero">'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+
+    '<img src="sprites/trainers/'+playerSpr()+'.png" alt="" style="width:46px;height:46px;image-rendering:pixelated;flex:none">'+
+    '<div class="hero-title" style="margin:0">'+esc(playerName())+'</div></div>'+
     activeMonStripHTML()+card+
     '<button class="savebtn" data-action="start-workout" style="margin-top:12px">START WORKOUT</button></div>';
 }
@@ -734,6 +742,7 @@ function statGainGrid(s0,s1){
 function queueLevelUp(mon,before,after){
   var s0=statsAt(mon.sp,before),s1=statsAt(mon.sp,after),nm=DEX[mon.sp].n;
   queueModal(function(){
+    sfx('levelup');
     showModal('<h3>'+esc(nm)+' grew to LV '+after+'!</h3>'+statGainGrid(s0,s1)+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
     modalOk=function(){closeModal();};
@@ -770,6 +779,7 @@ function doEvolve(mon,to){
   registerDex(to,mon.shiny);
   save();
   queueModal(function(){
+    sfx('evolve');
     showModal('<h3>Congratulations!</h3><p>Your '+esc(fromN)+' evolved into '+esc(DEX[to].n)+'!</p>'+
       '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(mon.shiny?' shinyglow':'')+'" src="'+sprPath(to,mon.shiny)+'" alt=""></div>'+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
@@ -819,6 +829,8 @@ function announceEncounter(gk,sp,target){
 }
 function announceCatch(sp,shiny){
   queueModal(function(){
+    sfx('catch');
+    if(shiny)setTimeout(function(){sfx('shiny');},600);
     showModal('<h3>Gotcha!</h3><p>'+esc(DEX[sp].n)+' was caught!'+(shiny?' ✨ It’s SHINY!':'')+'</p>'+
       '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(shiny?' shinyglow':'')+'" src="'+sprPath(sp,shiny)+'" alt=""></div>'+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
@@ -832,6 +844,8 @@ function grantMon(flag,sp,title,msg){
   var shiny=Math.random()<0.1;
   addMon(sp,shiny);
   queueModal(function(){
+    sfx('catch');
+    if(shiny)setTimeout(function(){sfx('shiny');},600);
     showModal('<h3>'+esc(title)+'</h3><p>'+esc(msg)+(shiny?' ✨ It’s SHINY!':'')+'</p>'+
       '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(shiny?' shinyglow':'')+'" src="'+sprPath(sp,shiny)+'" alt=""></div>'+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
@@ -883,7 +897,8 @@ function checkGameEvents(){
 
 /* ===== game: screens ===== */
 function showStarterModal(){
-  showModal('<h3>PROF. OAK</h3><p>Welcome to the world of POKéMON! Your gym adventure is about to unfold. Choose your partner:</p>'+
+  showModal('<div style="text-align:center;padding-bottom:4px"><img src="sprites/trainers/oak.png" alt="Prof. Oak" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
+    '<h3>PROF. OAK</h3><p>'+(pendingName?esc(pendingName)+'! ':'')+'Welcome to the world of POKéMON! Your gym adventure is about to unfold. Choose your partner:</p>'+
     '<button class="prow" data-action="pick-starter" data-sp="charmander"><img class="pspr" src="sprites/4.png" alt="">'+
     '<span><span class="pname">CHARMANDER</span><br><span class="plv">the Fire type</span></span></button>'+
     '<button class="prow" data-action="pick-starter" data-sp="squirtle"><img class="pspr" src="sprites/7.png" alt="">'+
@@ -1008,19 +1023,19 @@ function closeMon(fromPop){
 
 /* ===== game: bosses ===== */
 var BOSSES=[
-  {n:'BROCK',gym:'PEWTER GYM',badge:'BOULDER BADGE',mon:'ONIX',monId:95,lv:14,type:'Rock',hp:12000},
-  {n:'MISTY',gym:'CERULEAN GYM',badge:'CASCADE BADGE',mon:'STARMIE',monId:121,lv:21,type:'Water',hp:16000},
-  {n:'LT. SURGE',gym:'VERMILION GYM',badge:'THUNDER BADGE',mon:'RAICHU',monId:26,lv:24,type:'Electric',hp:21000},
-  {n:'ERIKA',gym:'CELADON GYM',badge:'RAINBOW BADGE',mon:'VILEPLUME',monId:45,lv:29,type:'Grass',hp:27000},
-  {n:'KOGA',gym:'FUCHSIA GYM',badge:'SOUL BADGE',mon:'WEEZING',monId:110,lv:37,type:'Poison',hp:34000},
-  {n:'SABRINA',gym:'SAFFRON GYM',badge:'MARSH BADGE',mon:'ALAKAZAM',monId:65,lv:43,type:'Psychic',hp:42000},
-  {n:'BLAINE',gym:'CINNABAR GYM',badge:'VOLCANO BADGE',mon:'ARCANINE',monId:59,lv:47,type:'Fire',hp:52000},
-  {n:'GIOVANNI',gym:'VIRIDIAN GYM',badge:'EARTH BADGE',mon:'RHYDON',monId:112,lv:50,type:'Ground',hp:64000},
-  {n:'LORELEI',gym:'ELITE FOUR',badge:'',mon:'LAPRAS',monId:131,lv:54,type:'Ice',hp:78000},
-  {n:'BRUNO',gym:'ELITE FOUR',badge:'',mon:'MACHAMP',monId:68,lv:56,type:'Fighting',hp:94000},
-  {n:'AGATHA',gym:'ELITE FOUR',badge:'',mon:'GENGAR',monId:94,lv:58,type:'Ghost',hp:112000},
-  {n:'LANCE',gym:'ELITE FOUR',badge:'',mon:'DRAGONITE',monId:149,lv:60,type:'Dragon',hp:132000},
-  {n:'CHAMPION',gym:'INDIGO PLATEAU',badge:'HALL OF FAME',mon:null,monId:0,lv:63,type:'',hp:160000}
+  {n:'BROCK',tr:'brock',gym:'PEWTER GYM',badge:'BOULDER BADGE',mon:'ONIX',monId:95,lv:14,type:'Rock',hp:12000},
+  {n:'MISTY',tr:'misty',gym:'CERULEAN GYM',badge:'CASCADE BADGE',mon:'STARMIE',monId:121,lv:21,type:'Water',hp:16000},
+  {n:'LT. SURGE',tr:'ltsurge',gym:'VERMILION GYM',badge:'THUNDER BADGE',mon:'RAICHU',monId:26,lv:24,type:'Electric',hp:21000},
+  {n:'ERIKA',tr:'erika',gym:'CELADON GYM',badge:'RAINBOW BADGE',mon:'VILEPLUME',monId:45,lv:29,type:'Grass',hp:27000},
+  {n:'KOGA',tr:'koga',gym:'FUCHSIA GYM',badge:'SOUL BADGE',mon:'WEEZING',monId:110,lv:37,type:'Poison',hp:34000},
+  {n:'SABRINA',tr:'sabrina',gym:'SAFFRON GYM',badge:'MARSH BADGE',mon:'ALAKAZAM',monId:65,lv:43,type:'Psychic',hp:42000},
+  {n:'BLAINE',tr:'blaine',gym:'CINNABAR GYM',badge:'VOLCANO BADGE',mon:'ARCANINE',monId:59,lv:47,type:'Fire',hp:52000},
+  {n:'GIOVANNI',tr:'giovanni',gym:'VIRIDIAN GYM',badge:'EARTH BADGE',mon:'RHYDON',monId:112,lv:50,type:'Ground',hp:64000},
+  {n:'LORELEI',tr:'lorelei',gym:'ELITE FOUR',badge:'',mon:'LAPRAS',monId:131,lv:54,type:'Ice',hp:78000},
+  {n:'BRUNO',tr:'bruno',gym:'ELITE FOUR',badge:'',mon:'MACHAMP',monId:68,lv:56,type:'Fighting',hp:94000},
+  {n:'AGATHA',tr:'agatha',gym:'ELITE FOUR',badge:'',mon:'GENGAR',monId:94,lv:58,type:'Ghost',hp:112000},
+  {n:'LANCE',tr:'lance',gym:'ELITE FOUR',badge:'',mon:'DRAGONITE',monId:149,lv:60,type:'Dragon',hp:132000},
+  {n:'CHAMPION BLUE',tr:'blue',gym:'INDIGO PLATEAU',badge:'HALL OF FAME',mon:null,monId:0,lv:63,type:'',hp:160000}
 ];
 var GROUP_MOVE_TYPE={pecs:'Fighting',back:'Flying',shoulders:'Psychic',biceps:'Electric',triceps:'Fire',forearm:'Rock',legs:'Water'};
 var MOVE_EFF={
@@ -1041,7 +1056,7 @@ function bossInfo(){
     var ch=g.starter==='charmander';
     mon=ch?'BLASTOISE':'CHARIZARD';monId=ch?9:6;type=ch?'Water':'Fire';
   }
-  return {n:b.n,gym:b.gym,badge:b.badge,mon:mon,monId:monId,type:type,lv:b.lv,hp:Math.max(0,g.boss.hp),max:b.hp,idx:g.boss.idx};
+  return {n:b.n,tr:b.tr,gym:b.gym,badge:b.badge,mon:mon,monId:monId,type:type,lv:b.lv,hp:Math.max(0,g.boss.hp),max:b.hp,idx:g.boss.idx};
 }
 function badgeCount(){
   var g=state.game;if(!g)return 0;
@@ -1091,7 +1106,7 @@ function bossCardHTML(){
   var pct=Math.round(bz.hp/bz.max*100);
   return '<div class="panel"><h3>NEXT BOSS<span class="bestchip">'+(bz.idx<8?('BADGE '+(bz.idx+1)+'/8'):(bz.idx<12?'ELITE FOUR':'FINAL'))+'</span></h3>'+
     '<div style="display:flex;align-items:center;gap:10px">'+
-    '<img src="sprites/'+bz.monId+'.png" alt="'+bz.mon+'" style="width:56px;height:56px;image-rendering:pixelated;flex:none">'+
+    '<img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:56px;height:56px;image-rendering:pixelated;flex:none">'+
     '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+' <span class="plv">:L'+bz.lv+'</span></div>'+
     '<div class="plv" style="margin:1px 0 6px">'+bz.gym+' · '+bz.type+' type</div>'+
     '<div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div>'+
@@ -1108,11 +1123,16 @@ function bossDefeated(){
   if(state.session)state.session.bmsg='Enemy '+bz.mon+' fainted!'+(isChamp?' You are the CHAMPION!':' '+BOSSES[bz.idx+1].n+' steps up next!');
   save();
   queueModal(function(){
-    showModal('<h3>Enemy '+esc(bz.mon)+' fainted!</h3><p>You defeated '+esc(bz.n)+(bz.gym?' of '+esc(bz.gym):'')+'!</p>'+
+    sfx('faint');
+    showModal('<h3>Enemy '+esc(bz.mon)+' fainted!</h3>'+
+      '<div style="display:flex;align-items:center;gap:12px;margin:4px 0">'+
+      '<img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:60px;height:60px;image-rendering:pixelated;flex:none">'+
+      '<p style="margin:0">'+esc(playerName())+' defeated '+esc(bz.n)+(bz.gym?' of '+esc(bz.gym):'')+'!</p></div>'+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
     modalOk=function(){closeModal();};
   });
   queueModal(function(){
+    sfx('badge');
     showModal('<h3>'+(bz.badge?esc(bz.badge)+' GET! 🏅':'VICTORY!')+'</h3>'+
       '<p>Your whole team earned +'+bonus+' XP!'+(isChamp?'':' Next challenger: '+esc(BOSSES[bz.idx+1].n)+'.')+'</p>'+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
@@ -1136,6 +1156,68 @@ function showModeModal(){
 function showModeOrStart(){
   if(state.game&&state.game.boss)showModeModal();
   else startWorkout('train');
+}
+
+/* ===== game: hero ===== */
+var pendingGender=null,pendingName=null;
+function playerName(){return (state.game&&state.game.player&&state.game.player.name)?state.game.player.name:'TRAINER';}
+function playerSpr(){return (state.game&&state.game.player&&state.game.player.spr==='leaf')?'leaf':'red';}
+function showGenderModal(){
+  showModal('<div style="text-align:center;padding-bottom:4px"><img src="sprites/trainers/oak.png" alt="Prof. Oak" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
+    '<h3>PROF. OAK</h3><p>'+(state.game?'Ah, trainer! I forgot to register you. ':'')+'Are you a boy? Or are you a girl?</p>'+
+    '<button class="prow" data-action="pick-gender" data-g="red"><img class="pspr" src="sprites/trainers/red.png" alt=""><span class="pname">BOY</span></button>'+
+    '<button class="prow" data-action="pick-gender" data-g="leaf"><img class="pspr" src="sprites/trainers/leaf.png" alt=""><span class="pname">GIRL</span></button>',true);
+  modalOk=null;
+}
+function afterNamePicked(){
+  if(state.game){
+    state.game.player={name:pendingName||'RED',spr:pendingGender||'red'};
+    save();render(true);
+    toast('Registered, '+playerName()+'!');
+  }else{
+    showStarterModal();
+  }
+}
+
+/* ===== game: sound ===== */
+function ac(){
+  try{
+    audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended')audioCtx.resume();
+  }catch(e){return null;}
+  return audioCtx;
+}
+function tone(t0,freq,dur,type,vol,endFreq){
+  var c=audioCtx;if(!c)return;
+  var o=c.createOscillator(),g=c.createGain();
+  o.type=type||'square';
+  o.frequency.setValueAtTime(freq,t0);
+  if(endFreq)o.frequency.exponentialRampToValueAtTime(Math.max(20,endFreq),t0+dur);
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(vol||0.05,t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  o.connect(g);g.connect(c.destination);
+  o.start(t0);o.stop(t0+dur+0.03);
+}
+function sfx(name){
+  if(state.sound===false)return;
+  if(!ac())return;
+  var t=audioCtx.currentTime;
+  try{
+    if(name==='click')tone(t,920,0.05,'square',0.03);
+    else if(name==='save'){tone(t,660,0.07,'square',0.05);tone(t+0.08,880,0.1,'square',0.05);}
+    else if(name==='hit')tone(t,210,0.11,'square',0.09,110);
+    else if(name==='superhit'){tone(t,280,0.09,'square',0.11,90);tone(t+0.1,170,0.13,'square',0.1,60);}
+    else if(name==='weakhit')tone(t,150,0.12,'sine',0.07,90);
+    else if(name==='faint')tone(t,420,0.5,'square',0.08,55);
+    else if(name==='levelup')[523,659,784,1047].forEach(function(f,i){tone(t+i*0.09,f,0.1,'square',0.055);});
+    else if(name==='badge'){[392,523,659,784,1047].forEach(function(f,i){tone(t+i*0.11,f,0.13,'square',0.06);});tone(t+0.56,1319,0.28,'square',0.05);}
+    else if(name==='catch'){tone(t,980,0.06,'square',0.06);tone(t+0.07,740,0.06,'square',0.06);tone(t+0.22,523,0.09,'square',0.05);tone(t+0.32,659,0.09,'square',0.05);tone(t+0.42,784,0.16,'square',0.06);}
+    else if(name==='shiny')[1568,1865,2093,2637].forEach(function(f,i){tone(t+i*0.07,f,0.09,'triangle',0.05);});
+    else if(name==='evolve'){tone(t,300,0.55,'square',0.05,1200);[784,1047,1319].forEach(function(f,i){tone(t+0.6+i*0.1,f,0.12,'square',0.06);});}
+    else if(name==='battlestart'){tone(t,392,0.08,'square',0.07);tone(t+0.09,330,0.08,'square',0.07);tone(t+0.18,392,0.08,'square',0.07);tone(t+0.27,494,0.18,'square',0.08);}
+    else if(name==='pr')[880,1109,1319,1760].forEach(function(f,i){tone(t+i*0.06,f,0.08,'triangle',0.06);});
+  }catch(e){}
 }
 
 var PLUS_SVG='&gt;';
@@ -1264,6 +1346,11 @@ function settingsHTML(){
   '<div class="srow"><div><div class="lab">Style</div><div class="sub">FireRed day or night look</div></div>'+
     '<div class="seg"><button data-action="theme" data-th="night" class="'+(state.theme!=='day'?'on':'')+'">NIGHT</button>'+
     '<button data-action="theme" data-th="day" class="'+(state.theme==='day'?'on':'')+'">DAY</button></div></div>'+
+  '<div class="srow"><div><div class="lab">Sound</div><div class="sub">GBA-style beeps and jingles</div></div>'+
+    '<div class="seg"><button data-action="sound" data-s="on" class="'+(state.sound!==false?'on':'')+'">ON</button>'+
+    '<button data-action="sound" data-s="off" class="'+(state.sound===false?'on':'')+'">OFF</button></div></div>'+
+  '<div class="srow"><div><div class="lab">Trainer name</div><div class="sub">'+esc(playerName())+'</div></div>'+
+    '<button class="btn" data-action="rename-trainer">Edit</button></div>'+
   '<div class="srow"><div><div class="lab">Unit</div><div class="sub">Label for logged weights</div></div>'+
     '<div class="seg"><button data-action="unit" data-u="kg" class="'+(state.unit==='kg'?'on':'')+'">KG</button>'+
     '<button data-action="unit" data-u="lb" class="'+(state.unit==='lb'?'on':'')+'">LB</button></div></div>'+
@@ -1278,7 +1365,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v3.0 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v3.1 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -1454,17 +1541,20 @@ function saveLogEntry(){
           entry.dmg=dmg;entry.bidx=bz.idx;
           var effTxt=eff>=2?" It's super effective!":(eff<=0.3?' It barely affects it…':(eff<1?" It's not very effective…":''));
           state.session.bmsg=DEX[am.sp].n+' used '+exr.ex.name.toUpperCase()+'!'+effTxt+' '+dmg.toLocaleString()+' dmg.';
+          sfx(eff>=2?'superhit':(eff<=0.3?'weakhit':'hit'));
           if(state.game.boss.hp<=0)bossDefeated();
         }
       }
       // a new record feeds the lead a Rare Candy: jump to the next level
       if(entry.w>prevBest&&prevBest>0){
+        sfx('pr');
         var clv=monLevel(am.xp);
         if(clv<100&&am.xp<xpFloor(clv+1)){
           am.xp=xpFloor(clv+1);
           queueLevelUp(am,clv,clv+1);
         }
       }
+      else if(!(state.session&&state.session.mode==='boss')){sfx('save');}
     }
   }
   (state.logs[id]=state.logs[id]||[]).push(entry);
@@ -1662,8 +1752,10 @@ function applyImport(txt){
       var bh=(d.game.boss&&isFinite(d.game.boss.hp))?Math.min(BOSSES[bi].hp,Math.max(1,Math.round(+d.game.boss.hp))):BOSSES[bi].hp;
       gm.boss={idx:bi,hp:bh};
     }
+    gm.player=(d.game.player&&typeof d.game.player.name==='string')?
+      {name:String(d.game.player.name).slice(0,10),spr:d.game.player.spr==='leaf'?'leaf':'red'}:null;
   }
-  state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0};
+  state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0,sound:d.sound!==false};
   save();
   editMode=false;tab='workout';render();
 }
@@ -1705,6 +1797,7 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-action]');
   if(!b)return;
   var a=b.dataset.action;
+  sfx('click');
 
   if(a==='tab'){tab=b.dataset.tab;editMode=false;render();}
   else if(a==='toggle-edit'){editMode=!editMode;render(true);}
@@ -1776,7 +1869,8 @@ document.addEventListener('click',function(e){
   else if(a==='pick-starter'){
     var ssp=b.dataset.sp==='squirtle'?'squirtle':'charmander';
     var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
-    state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},boss:{idx:0,hp:BOSSES[0].hp}};
+    state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},
+      boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'}};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;
@@ -1796,6 +1890,27 @@ document.addEventListener('click',function(e){
   else if(a==='evo-choice'){
     var em=findMon(b.dataset.m);
     if(em&&DEX[b.dataset.to]){closeModal();doEvolve(em,b.dataset.to);}
+  }
+  else if(a==='pick-gender'){
+    pendingGender=b.dataset.g==='leaf'?'leaf':'red';
+    closeModal();
+    promptModal('And your name is…?',state.game&&state.game.player?state.game.player.name:'',function(v){
+      pendingName=v.toUpperCase().slice(0,10);
+      afterNamePicked();
+    },'OK');
+  }
+  else if(a==='rename-trainer'){
+    if(!state.game)return;
+    promptModal('Trainer name',playerName(),function(v){
+      if(!state.game.player)state.game.player={name:'RED',spr:'red'};
+      state.game.player.name=v.toUpperCase().slice(0,10);
+      save();render(true);
+    });
+  }
+  else if(a==='sound'){
+    state.sound=b.dataset.s==='on';
+    save();render(true);
+    if(state.sound)sfx('save');
   }
   else if(a==='goto-edit'){tab='workout';editMode=true;render();}
   else if(a==='export'){exportData();}
@@ -1852,8 +1967,11 @@ applyTheme();
 render();
 ensureTicker();
 if(staleNote)setTimeout(function(){toast(staleNote);},600);
-if(!state.game)setTimeout(showStarterModal,450);
-else setTimeout(checkGameEvents,450);
+if(!state.game)setTimeout(showGenderModal,450);
+else{
+  if(!state.game.player)setTimeout(showGenderModal,450);
+  setTimeout(checkGameEvents,900);
+}
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('./sw.js').catch(function(){});
