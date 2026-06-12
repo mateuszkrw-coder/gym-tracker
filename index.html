@@ -90,7 +90,10 @@ button.card:active{background:var(--cream2)}
   display:flex;gap:2px;background:var(--boxw);border:3px solid var(--frame);
   border-radius:8px;padding:4px;z-index:50}
 #tabbar button{flex:1;border:none;background:none;color:var(--mut);
-  font-family:'Press Start 2P';font-size:10px;padding:13px 0 11px;border-radius:4px;line-height:1}
+  font-family:'Press Start 2P';font-size:11px;padding:13px 0 11px;border-radius:4px;line-height:1}
+#view svg g[data-action]:active{opacity:.7}
+.slab{font-family:'VT323';font-size:14px;fill:#14380E;paint-order:stroke;stroke:#A8E090;stroke-width:3px}
+.slab.dark{fill:#D8E8C0;stroke:#1A2A1E}
 #tabbar button.on{color:var(--red);background:var(--cream)}
 #tabbar svg{display:none}
 
@@ -286,9 +289,8 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
 <main id="view"></main>
 
 <nav id="tabbar">
-  <button data-action="tab" data-tab="summary" aria-label="Trainer">TRAINER</button>
+  <button data-action="tab" data-tab="map" aria-label="Town map">MAP</button>
   <button data-action="tab" data-tab="workout" aria-label="Gym">GYM</button>
-  <button data-action="tab" data-tab="team" aria-label="Pokemon">TEAM</button>
   <button data-action="tab" data-tab="history" aria-label="History">HISTORY</button>
   <button data-action="tab" data-tab="settings" aria-label="Options">OPTION</button>
 </nav>
@@ -385,6 +387,7 @@ function render(keepScroll){
   document.querySelectorAll('#tabbar button').forEach(function(b){b.classList.toggle('on',b.dataset.tab===tab);});
   var v=$('#view');
   if(tab==='summary')v.innerHTML=summaryHTML();
+  else if(tab==='map')v.innerHTML=mapHTML();
   else if(tab==='workout')v.innerHTML=workoutHTML();
   else if(tab==='team')v.innerHTML=teamHTML();
   else if(tab==='history')v.innerHTML=historyHTML();
@@ -629,7 +632,7 @@ function summaryHTML(){
   var top=null;
   allLogsFlat().forEach(function(o){if(!top||o.l.w>top.w)top={w:o.l.w,name:o.ex.name};});
   var ls=state.sessions&&state.sessions.length?state.sessions[state.sessions.length-1]:null;
-  return '<div class="titlebar"><h1>TRAINER</h1></div>'+
+  return '<div class="titlebar"><h1>TRAINER</h1><button class="textbtn" data-action="tab" data-tab="map">MAP</button></div>'+
     '<div class="subtitle">'+DAYSF[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate()+'</div>'+
     heroHTML()+
     bossCardHTML()+
@@ -919,11 +922,13 @@ function showStarterModal(){
     '<span><span class="pname">SQUIRTLE</span><br><span class="plv">the Water type</span></span></button>',true);
   modalOk=null;
 }
-function showChooserThenStart(){
+var pendingMode='train';
+function showChooserThenStart(mode){
+  pendingMode=mode==='boss'?'boss':'train';
   var g=state.game;
   if(!g||g.mons.length<=1){
     if(g&&g.mons[0])g.active=g.mons[0].uid;
-    showModeOrStart();return;
+    startWorkout(pendingMode);return;
   }
   var h='<h3>Choose a POKéMON.</h3><p>It banks all XP from this workout.</p>';
   g.mons.forEach(function(m){
@@ -947,7 +952,7 @@ function activeMonStripHTML(){
     '<div class="gbar exp" style="margin-top:5px"><div style="width:'+Math.min(100,Math.round(into/span*100))+'%"></div></div></div>'+xtra+'</button>';
 }
 function teamHTML(){
-  var h='<div class="titlebar"><h1>POKéMON</h1></div>';
+  var h='<div class="titlebar"><h1>POKéMON</h1><button class="textbtn" data-action="tab" data-tab="map">MAP</button></div>';
   if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
   h+='<div class="subtitle">Your partners, powered by your sets</div>'+
     '<div style="margin:0 12px 4px"><div class="seg" style="display:inline-flex">'+
@@ -1168,13 +1173,13 @@ function bossCardHTML(){
   }
   var bz=bossInfo();if(!bz)return '';
   var pct=Math.round(bz.hp/bz.max*100);
-  return '<div class="panel"><h3>NEXT BOSS<span class="bestchip">'+(bz.round>1?'R'+bz.round+' · ':'')+(bz.idx<8?('BADGE '+(bz.idx+1)+'/8'):(bz.idx<12?'ELITE FOUR':'FINAL'))+'</span></h3>'+
+  return '<div class="panel" data-action="bld" data-b="stadium" style="cursor:pointer"><h3>NEXT BOSS<span class="bestchip">'+(bz.round>1?'R'+bz.round+' · ':'')+(bz.idx<8?('BADGE '+(bz.idx+1)+'/8'):(bz.idx<12?'ELITE FOUR':'FINAL'))+'</span></h3>'+
     '<div style="display:flex;align-items:center;gap:10px">'+
     '<img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:56px;height:56px;image-rendering:pixelated;flex:none">'+
     '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+' <span class="plv">:L'+bz.lv+'</span></div>'+
     '<div class="plv" style="margin:1px 0 6px">'+bz.gym+' · '+bz.type+' type</div>'+
     '<div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div>'+
-    '<div class="plv" style="margin-top:3px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg — start a BOSS workout</div>'+
+    '<div class="plv" style="margin-top:3px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg — tap to challenge</div>'+
     '</div></div></div>';
 }
 function bossDefeated(){
@@ -1216,20 +1221,95 @@ function bossDefeated(){
     grantMon('mewtwo','mewtwo','A legend stirs…','You are the CHAMPION! MEWTWO acknowledges your strength and joins you!');
   }
 }
-function showModeModal(){
+function showStadiumModal(){
   var bz=bossInfo();
-  if(!bz){startWorkout('train');return;}
-  showModal('<h3>Workout mode</h3>'+
-    '<button class="prow" data-action="mode-train"><span style="font-size:28px;flex:none">×1.5</span>'+
-    '<span><span class="pname">TRAINING</span><br><span class="plv">+50% XP for your POKéMON</span></span></button>'+
-    '<button class="prow" data-action="mode-boss"><img class="pspr" src="sprites/'+bz.monId+'.png" alt="">'+
-    '<span><span class="pname">BOSS: '+bz.n+'</span><br><span class="plv">'+bz.mon+' · '+bz.hp.toLocaleString()+' kg HP left</span></span></button>'+
-    '<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button></div>');
+  if(!bz){toast('The league is quiet… for now.');return;}
+  var pct=Math.round(bz.hp/bz.max*100);
+  showModal('<div style="text-align:center;padding-bottom:4px"><img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
+    '<h3>'+esc(bz.n)+'</h3>'+
+    '<p style="margin-bottom:8px">'+esc(bz.gym)+' · '+esc(bz.mon)+' :L'+bz.lv+(bz.round>1?' · ROUND '+bz.round:'')+'</p>'+
+    '<div style="display:flex;align-items:center;gap:5px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
+    '<p style="margin-top:8px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg left. Your sets are the attacks!</p>'+
+    '<div class="mbtns"><button class="btn" data-action="close-modal">LEAVE</button>'+
+    '<button class="btn acc" data-action="stadium-go">CHALLENGE</button></div>');
   modalOk=null;
 }
-function showModeOrStart(){
-  if(state.game&&state.game.boss)showModeModal();
-  else startWorkout('train');
+function mapHTML(){
+  var night=state.theme!=='day';
+  var C={grass:night?'#22382C':'#78C850',path:night?'#8A8060':'#E8D8A0',
+    tt:night?'#1B2E22':'#3C8038',tb:night?'#2E2418':'#705030',
+    win:night?'#F8E038':'#A8D8F0'};
+  var slab='slab'+(night?' dark':'');
+  var trees='',i;
+  function tree(x,y){
+    trees+='<rect x="'+x+'" y="'+y+'" width="18" height="14" fill="'+C.tt+'"/>'+
+      '<rect x="'+(x+3)+'" y="'+(y-8)+'" width="12" height="10" fill="'+C.tt+'"/>'+
+      '<rect x="'+(x+7)+'" y="'+(y+14)+'" width="5" height="6" fill="'+C.tb+'"/>';
+  }
+  for(i=0;i<10;i++)tree(4,12+i*31);
+  for(i=0;i<10;i++)tree(298,12+i*31);
+  for(i=0;i<7;i++)tree(34+i*38,300);
+  var encAlert=(state.game&&state.game.enc&&Object.keys(state.game.enc).length>0)
+    ?'<rect x="268" y="94" width="16" height="20" fill="#F8F8D0" stroke="#585048" stroke-width="2"/>'+
+     '<text x="276" y="110" text-anchor="middle" style="font-family:VT323;font-size:17px" fill="#D03028">!</text>':'';
+  var cap=playerSpr()==='leaf'?'#F0F0E8':'#D03028';
+  var h='<div class="titlebar"><h1>POCKET TOWN</h1></div>'+
+    '<div class="subtitle">Tap a building to walk in</div>'+
+    '<div style="margin:6px 12px;border:3px solid var(--bord);border-radius:8px;overflow:hidden;line-height:0">'+
+    '<svg viewBox="0 0 320 330" style="width:100%;display:block" shape-rendering="crispEdges">'+
+    '<rect width="320" height="330" fill="'+C.grass+'"/>'+trees+
+    '<rect x="40" y="86" width="240" height="18" fill="'+C.path+'"/>'+
+    '<rect x="148" y="86" width="20" height="220" fill="'+C.path+'"/>'+
+    '<rect x="40" y="196" width="240" height="18" fill="'+C.path+'"/>'+
+    '<g data-action="bld" data-b="gym" style="cursor:pointer">'+
+    '<rect x="38" y="26" width="92" height="46" fill="#8898B8" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="38" y="16" width="92" height="16" fill="#4868A8" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="72" y="50" width="20" height="22" fill="#283048"/>'+
+    '<rect x="48" y="34" width="68" height="12" fill="#F8F8D0"/>'+
+    '<text x="82" y="44" text-anchor="middle" style="font-family:VT323;font-size:12px" fill="#283048">GYM</text>'+
+    '<rect x="48" y="54" width="10" height="10" fill="'+C.win+'"/>'+
+    '<rect x="106" y="54" width="10" height="10" fill="'+C.win+'"/></g>'+
+    '<g data-action="bld" data-b="stadium" style="cursor:pointer">'+
+    '<rect x="186" y="22" width="96" height="50" fill="#D8C878" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="186" y="14" width="96" height="14" fill="#B89838" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="224" y="50" width="20" height="22" fill="#584838"/>'+
+    '<rect x="196" y="34" width="76" height="12" fill="#F8F8D0"/>'+
+    '<text x="234" y="44" text-anchor="middle" style="font-family:VT323;font-size:12px" fill="#A03028">LEAGUE</text>'+
+    '<rect x="198" y="56" width="10" height="10" fill="'+C.win+'"/>'+
+    '<rect x="262" y="56" width="10" height="10" fill="'+C.win+'"/></g>'+
+    '<g data-action="bld" data-b="center" style="cursor:pointer">'+
+    '<rect x="38" y="124" width="86" height="44" fill="#F0F0E8" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="34" y="112" width="94" height="16" fill="#D03028" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="70" y="146" width="20" height="22" fill="#903028"/>'+
+    '<circle cx="58" cy="136" r="7" fill="#D03028"/>'+
+    '<text x="58" y="140" text-anchor="middle" style="font-family:VT323;font-size:11px" fill="#FFF8F0">P</text>'+
+    '<rect x="98" y="132" width="12" height="10" fill="'+C.win+'"/></g>'+
+    '<g data-action="bld" data-b="lab" style="cursor:pointer">'+
+    '<rect x="196" y="124" width="86" height="44" fill="#E8E8E0" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="192" y="112" width="94" height="16" fill="#888078" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="228" y="146" width="20" height="22" fill="#504840"/>'+
+    '<rect x="204" y="132" width="40" height="10" fill="#F8F8D0"/>'+
+    '<text x="224" y="141" text-anchor="middle" style="font-family:VT323;font-size:11px" fill="#303030">LAB</text>'+
+    encAlert+'</g>'+
+    '<g data-action="bld" data-b="house" style="cursor:pointer">'+
+    '<rect x="52" y="232" width="72" height="42" fill="#E8D0B0" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="46" y="220" width="84" height="16" fill="#C86828" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="78" y="252" width="18" height="22" fill="#705030"/>'+
+    '<rect x="60" y="240" width="12" height="10" fill="'+C.win+'"/>'+
+    '<rect x="104" y="240" width="12" height="10" fill="'+C.win+'"/></g>'+
+    '<g><rect x="156" y="216" width="8" height="6" fill="'+cap+'"/>'+
+    '<rect x="156" y="222" width="8" height="5" fill="#F0C8A0"/>'+
+    '<rect x="154" y="227" width="12" height="9" fill="#3858A8"/>'+
+    '<rect x="156" y="236" width="3" height="5" fill="#283048"/>'+
+    '<rect x="161" y="236" width="3" height="5" fill="#283048"/></g>'+
+    '<text x="82" y="84" text-anchor="middle" class="'+slab+'">TRAIN</text>'+
+    '<text x="234" y="84" text-anchor="middle" class="'+slab+'">BOSS</text>'+
+    '<text x="81" y="182" text-anchor="middle" class="'+slab+'">TEAM</text>'+
+    '<text x="239" y="182" text-anchor="middle" class="'+slab+'">POKéDEX</text>'+
+    '<text x="88" y="288" text-anchor="middle" class="'+slab+'">TRAINER</text>'+
+    '</svg></div>';
+  if(state.session)h+=heroHTML();
+  return h;
 }
 
 /* ===== game: hero ===== */
@@ -1450,7 +1530,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v3.2 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v3.3 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -1938,7 +2018,7 @@ document.addEventListener('click',function(e){
   else if(a==='modal-ok'){if(modalOk)modalOk();}
   else if(a==='unit'){state.unit=b.dataset.u==='lb'?'lb':'kg';save();render(true);}
   else if(a==='theme'){state.theme=b.dataset.th==='day'?'day':'night';save();applyTheme();render(true);}
-  else if(a==='start-workout'){if(state.game)showChooserThenStart();else startWorkout();}
+  else if(a==='start-workout'){if(state.game)showChooserThenStart('train');else startWorkout('train');}
   else if(a==='end-workout'){endWorkout();}
   else if(a==='team-view'){teamView=b.dataset.v==='dex'?'dex':'party';render(true);}
   else if(a==='open-mon'){openMon(b.dataset.m);}
@@ -1950,11 +2030,18 @@ document.addEventListener('click',function(e){
   }
   else if(a==='choose-mon'){
     if(state.game&&findMon(b.dataset.m)){
-      state.game.active=b.dataset.m;save();closeModal();showModeOrStart();
+      state.game.active=b.dataset.m;save();closeModal();startWorkout(pendingMode);
     }
   }
-  else if(a==='mode-train'){closeModal();startWorkout('train');}
-  else if(a==='mode-boss'){closeModal();startWorkout('boss');}
+  else if(a==='stadium-go'){closeModal();showChooserThenStart('boss');}
+  else if(a==='bld'){
+    var bid=b.dataset.b;
+    if(bid==='gym'){if(state.session){tab='workout';render();}else showChooserThenStart('train');}
+    else if(bid==='stadium'){if(state.session){tab='workout';render();}else showStadiumModal();}
+    else if(bid==='center'){teamView='party';tab='team';render();}
+    else if(bid==='lab'){teamView='dex';tab='team';render();}
+    else if(bid==='house'){tab='summary';render();}
+  }
   else if(a==='use-xatk'){
     if(state.session&&state.session.mode==='boss'&&!state.session.xatkUsed&&!state.session.xatkArmed){
       state.session.xatkArmed=true;
