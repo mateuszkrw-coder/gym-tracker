@@ -104,6 +104,21 @@ html.theme-night .mapwrap img{filter:brightness(.62) saturate(.85)}
   border:2px solid #585048;border-radius:3px;padding:0 4px;color:#D03028;line-height:1.15}
 @keyframes bob{0%,100%{transform:none}50%{transform:translateY(-3px)}}
 .monstrip img{animation:bob 1.6s ease-in-out infinite}
+html.theme-night .maptag{background:#222A34;color:#E0E8F0;border-color:#10161E}
+html.theme-night .mapalert{background:#222A34;border-color:#10161E}
+.pstripbtn{background:none;border:none;padding:0;text-align:center;flex:none;font-family:inherit;color:var(--text);cursor:pointer}
+#fx{position:fixed;inset:0;z-index:200;pointer-events:none;background:transparent}
+#fx.go{animation:fxflash .9s steps(1) forwards}
+@keyframes fxflash{0%{background:rgba(248,248,240,.95)}12%{background:transparent}24%{background:rgba(248,248,240,.95)}36%{background:transparent}48%{background:#10141A}100%{background:transparent}}
+@keyframes pagein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#view.pagein{animation:pagein .22s ease-out}
+@keyframes modalin{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+.modal{animation:modalin .18s ease-out}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.backdrop{animation:fadein .2s ease-out}
+.dexcell:active{transform:scale(.95)}
+.prow:active,.card:active{transition:transform .08s}
+button.card:active,button.prow:active{transform:scale(.98)}
 #tabbar button.on{color:var(--red);background:var(--cream)}
 #tabbar svg{display:none}
 
@@ -311,6 +326,7 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
 <div id="monsheet"></div>
 <div id="modalwrap"></div>
 <div id="toast"></div>
+<div id="fx"></div>
 
 <script>
 (function(){
@@ -395,6 +411,7 @@ function trendOf(id){var t=dayTops(id);if(t.length<2)return 0;return t[t.length-
 var tab='summary', editMode=false, sheetEx=null, openScrollY=0;
 
 /* ===== render: tabs ===== */
+var lastRenderedTab=null;
 function render(keepScroll){
   document.querySelectorAll('#tabbar button').forEach(function(b){b.classList.toggle('on',b.dataset.tab===tab);});
   var v=$('#view');
@@ -404,6 +421,10 @@ function render(keepScroll){
   else if(tab==='team')v.innerHTML=teamHTML();
   else if(tab==='history')v.innerHTML=historyHTML();
   else v.innerHTML=settingsHTML();
+  if(tab!==lastRenderedTab){
+    v.classList.remove('pagein');void v.offsetWidth;v.classList.add('pagein');
+    lastRenderedTab=tab;
+  }
   if(!keepScroll)window.scrollTo(0,0);
 }
 
@@ -468,6 +489,8 @@ function startWorkout(mode){
   }
   save();ensureTicker();
   tab='workout';editMode=false;render();
+  var fx=$('#fx');
+  if(fx){fx.classList.remove('go');void fx.offsetWidth;fx.classList.add('go');setTimeout(function(){fx.classList.remove('go');},950);}
   sfx(state.game?'battlestart':'save');
   toast(mode==='boss'?'Boss battle started! ⚔️':'Training battle started! 🔥');
 }
@@ -480,6 +503,7 @@ function endWorkout(){
   state.sessions=state.sessions||[];
   state.sessions.push({id:uid(),start:ses.start,end:end,sets:st.sets,volume:st.volume,exercises:st.exercises});
   save();render();
+  sfx('victory');
   showModal('<h3>Workout complete 💪</h3>'+
     '<p style="line-height:1.6;font-size:20px">Duration <b>'+fmtDur(end-ses.start)+'</b><br>'+
     'Exercises <b>'+st.exercises+'</b> · Sets <b>'+st.sets+'</b><br>'+
@@ -1451,6 +1475,20 @@ function showStadiumModal(){
     '<button class="btn acc" data-action="stadium-go">CHALLENGE</button></div>');
   modalOk=null;
 }
+function partyStripHTML(){
+  if(!state.game||!state.game.mons.length)return '';
+  var top=state.game.mons.slice().sort(function(a,b){return monLevel(b.xp)-monLevel(a.xp);}).slice(0,3);
+  var h='<div class="panel" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-top:10px">'+
+    '<img src="sprites/trainers/'+playerSpr()+'.png" alt="" style="width:44px;height:44px;image-rendering:pixelated;flex:none">'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+esc(playerName())+'</div>'+
+    '<div class="plv">'+state.game.mons.length+' POKéMON · '+badgeCount()+'/8 badges</div></div>';
+  top.forEach(function(m){
+    h+='<button class="pstripbtn" data-action="open-mon" data-m="'+m.uid+'">'+
+      '<img src="'+sprPath(m.sp,m.shiny)+'" alt="'+DEX[m.sp].n+'" style="width:40px;height:40px;image-rendering:pixelated'+(m.shiny?';filter:drop-shadow(0 0 4px rgba(248,200,40,.8))':'')+'">'+
+      '<div class="plv" style="font-size:14px;line-height:1">:L'+monLevel(m.xp)+'</div></button>';
+  });
+  return h+'</div>';
+}
 function mapHTML(){
   var encAlert=(state.game&&state.game.enc&&Object.keys(state.game.enc).length>0);
   var h='<div class="titlebar"><h1>VIRIDIAN CITY</h1></div>'+
@@ -1460,7 +1498,8 @@ function mapHTML(){
     '<button class="hotspot" data-action="bld" data-b="boss" style="left:64%;top:13%;width:22%;height:19%" aria-label="Gym boss challenge"><span class="maptag">BOSS</span></button>'+
     '<button class="hotspot" data-action="bld" data-b="mart" style="left:67%;top:37.5%;width:16%;height:14.5%" aria-label="Mart"><span class="maptag">SHOP</span></button>'+
     '<button class="hotspot" data-action="bld" data-b="train" style="left:64%;top:53.5%;width:21%;height:16.5%" aria-label="Wild grass training">'+(encAlert?'<span class="mapalert">!</span>':'')+'<span class="maptag">TRAIN</span></button>'+
-    '</div>';
+    '</div>'+
+    partyStripHTML();
   if(state.session)h+=heroHTML();
   return h;
 }
@@ -1525,7 +1564,8 @@ function sfx(name){
     else if(name==='battlestart'){tone(t,392,0.08,'square',0.07);tone(t+0.09,330,0.08,'square',0.07);tone(t+0.18,392,0.08,'square',0.07);tone(t+0.27,494,0.18,'square',0.08);}
     else if(name==='pr')[880,1109,1319,1760].forEach(function(f,i){tone(t+i*0.06,f,0.08,'triangle',0.06);});
     else if(name==='lowhp')[0,0.13,0.26].forEach(function(d){tone(t+d,1245,0.07,'square',0.06);});
-    else if(name==='title'){tone(t,392,0.07,'square',0.06);tone(t+0.08,523,0.07,'square',0.06);tone(t+0.16,784,0.08,'square',0.06);tone(t+0.26,1047,0.28,'square',0.07);}
+    else if(name==='victory'){[523,659,784,1047].forEach(function(f,i){tone(t+i*0.1,f,0.11,'square',0.06);});tone(t+0.5,784,0.12,'square',0.05);tone(t+0.64,1047,0.32,'square',0.07);}
+    else if(name==='title'){tone(t,392,0.07,'square',0.06);tone(t+0.08,523,0.07,'square',0.06);tone(t+0.16,784,0.08,'square',0.06);tone(t+0.26,1047,0.25,'square',0.07);}
   }catch(e){}
 }
 
@@ -1684,7 +1724,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v4.0 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v4.1 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
