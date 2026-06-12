@@ -87,10 +87,10 @@ button.card:active{background:var(--cream2)}
 
 /* ---------- bottom tab bar ---------- */
 #tabbar{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));
-  display:flex;gap:2px;background:var(--boxw);border:3px solid var(--frame);
-  border-radius:8px;padding:4px;z-index:50}
-#tabbar button{flex:1;border:none;background:none;color:var(--mut);
-  font-family:'Press Start 2P';font-size:11px;padding:13px 0 11px;border-radius:4px;line-height:1}
+  display:flex;justify-content:space-between;gap:1px;background:var(--boxw);border:3px solid var(--frame);
+  border-radius:8px;padding:4px 3px;z-index:50}
+#tabbar button{flex:none;border:none;background:none;color:var(--mut);
+  font-family:'Press Start 2P';font-size:9px;padding:13px 4px 11px;border-radius:4px;line-height:1}
 #view svg g[data-action]:active{opacity:.7}
 .slab{font-family:'VT323';font-size:14px;fill:#14380E;paint-order:stroke;stroke:#A8E090;stroke-width:3px}
 .slab.dark{fill:#D8E8C0;stroke:#1A2A1E}
@@ -289,8 +289,10 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
 <main id="view"></main>
 
 <nav id="tabbar">
+  <button data-action="tab" data-tab="summary" aria-label="Trainer">TRAINER</button>
   <button data-action="tab" data-tab="map" aria-label="Town map">MAP</button>
   <button data-action="tab" data-tab="workout" aria-label="Gym">GYM</button>
+  <button data-action="tab" data-tab="team" aria-label="Pokemon">TEAM</button>
   <button data-action="tab" data-tab="history" aria-label="History">HISTORY</button>
   <button data-action="tab" data-tab="settings" aria-label="Options">OPTION</button>
 </nav>
@@ -450,10 +452,14 @@ function tickElapsed(){
 function startWorkout(mode){
   if(state.session)return;
   state.session={start:Date.now(),mode:mode==='boss'?'boss':'train'};
+  if(state.game&&state.session.mode==='train'){
+    state.session.wild=spawnWild();
+    state.session.bmsg='A wild '+DEX[state.session.wild.sp].n+' appeared! Log a set to attack.';
+  }
   save();ensureTicker();
   tab='workout';editMode=false;render();
-  sfx(mode==='boss'?'battlestart':'save');
-  toast(mode==='boss'?'Boss battle started! ⚔️':'Workout started 🔥');
+  sfx(state.game?'battlestart':'save');
+  toast(mode==='boss'?'Boss battle started! ⚔️':'Training battle started! 🔥');
 }
 function endWorkout(){
   var ses=state.session;if(!ses)return;
@@ -632,7 +638,7 @@ function summaryHTML(){
   var top=null;
   allLogsFlat().forEach(function(o){if(!top||o.l.w>top.w)top={w:o.l.w,name:o.ex.name};});
   var ls=state.sessions&&state.sessions.length?state.sessions[state.sessions.length-1]:null;
-  return '<div class="titlebar"><h1>TRAINER</h1><button class="textbtn" data-action="tab" data-tab="map">MAP</button></div>'+
+  return '<div class="titlebar"><h1>TRAINER</h1></div>'+
     '<div class="subtitle">'+DAYSF[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate()+'</div>'+
     heroHTML()+
     bossCardHTML()+
@@ -952,7 +958,7 @@ function activeMonStripHTML(){
     '<div class="gbar exp" style="margin-top:5px"><div style="width:'+Math.min(100,Math.round(into/span*100))+'%"></div></div></div>'+xtra+'</button>';
 }
 function teamHTML(){
-  var h='<div class="titlebar"><h1>POKéMON</h1><button class="textbtn" data-action="tab" data-tab="map">MAP</button></div>';
+  var h='<div class="titlebar"><h1>POKéMON</h1></div>';
   if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
   h+='<div class="subtitle">Your partners, powered by your sets</div>'+
     '<div style="margin:0 12px 4px"><div class="seg" style="display:inline-flex">'+
@@ -1094,8 +1100,57 @@ function badgeCount(){
 }
 function hpColor(pct){return pct>50?'#58C868':(pct>20?'#F8E038':'#F85838');}
 var btPrevPct=null,lastDmg=0;
+var WILD_POOL=['pidgey','magikarp','geodude','machop','abra','growlithe','pikachu','gastly','eevee','dratini'];
+function spawnWild(){
+  var am=activeMon();
+  var lv=am?monLevel(am.xp):5;
+  var sp=WILD_POOL[Math.floor(Math.random()*WILD_POOL.length)];
+  var wlv=Math.max(2,lv-(3+Math.floor(Math.random()*6)));
+  var hp=Math.round((500+wlv*45)*(0.8+Math.random()*0.4));
+  return {sp:sp,lv:wlv,hp:hp,max:hp,shiny:Math.random()<0.05};
+}
+function curBattlePct(){
+  if(state.session){
+    if(state.session.mode==='boss'){
+      var bz=bossInfo();
+      if(bz)return Math.round(bz.hp/bz.max*100);
+    }
+    if(state.session.mode==='train'&&state.session.wild){
+      var w=state.session.wild;
+      return Math.round(Math.max(0,w.hp)/w.max*100);
+    }
+  }
+  return null;
+}
+function wildPanelHTML(anim){
+  var w=state.session.wild;
+  var m=activeMon();if(!m)return '';
+  var d=DEX[w.sp];
+  var pct=Math.round(Math.max(0,w.hp)/w.max*100);
+  if(anim)btPrevPct=pct;
+  return '<div class="panel" style="padding:11px 12px">'+
+    '<div id="bt-scene" style="position:relative;display:flex;align-items:center;gap:8px">'+
+      '<div style="flex:1;min-width:0"><div class="pname">WILD '+d.n+(w.shiny?' <span class="shinystar">★</span>':'')+' <span class="plv">:L'+w.lv+'</span></div>'+
+      '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div id="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
+      '<div class="plv" style="margin-top:3px">'+Math.max(0,w.hp).toLocaleString()+' / '+w.max.toLocaleString()+' kg</div></div>'+
+      '<div style="position:relative;flex:none;padding-bottom:5px">'+
+        '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:80px;height:16px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
+        '<img id="bt-espr" class="'+(anim?'slidein-r':'')+(w.shiny?' shinyglow':'')+'" src="'+sprPath(w.sp,w.shiny)+'" alt="'+d.n+'" style="width:68px;height:68px;image-rendering:pixelated;position:relative">'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:flex;align-items:flex-end;gap:8px;margin-top:2px">'+
+      '<div style="position:relative;flex:none;padding-bottom:5px">'+
+        '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:80px;height:16px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
+        '<img class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative">'+
+      '</div>'+
+      '<div class="plv" style="padding-bottom:9px">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+'</div></div>'+
+    '<div class="memo" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
+    esc(state.session.bmsg||('A wild '+d.n+' appeared! Log a set to attack.'))+'</div></div>';
+}
 function battlePanelHTML(anim){
-  if(!(state.session&&state.session.mode==='boss'))return '';
+  if(!state.session)return '';
+  if(state.session.mode==='train'&&state.session.wild&&state.game)return wildPanelHTML(anim);
+  if(state.session.mode!=='boss')return '';
   var bz=bossInfo();if(!bz)return '';
   var m=activeMon();if(!m)return '';
   var pct=Math.round(bz.hp/bz.max*100);
@@ -1128,11 +1183,10 @@ function battlePanelHTML(anim){
 }
 function updateBattlePanel(){
   var w=$('#bt-wrap');if(!w)return;
-  var bz=bossInfo();
   w.innerHTML=battlePanelHTML(false);
   var bar=$('#bt-ehp');
-  if(bar&&bz){
-    var newPct=Math.round(bz.hp/bz.max*100);
+  var newPct=curBattlePct();
+  if(bar&&newPct!==null){
     if(btPrevPct!==null&&btPrevPct!==newPct){
       bar.style.width=btPrevPct+'%';
       requestAnimationFrame(function(){requestAnimationFrame(function(){
@@ -1158,7 +1212,16 @@ function updateBattlePanel(){
   }
 }
 function bossStripHTML(){
-  if(!(state.session&&state.session.mode==='boss'))return '';
+  if(!state.session)return '';
+  if(state.session.mode==='train'&&state.session.wild&&state.game){
+    var w=state.session.wild,d=DEX[w.sp];
+    var wpct=Math.round(Math.max(0,w.hp)/w.max*100);
+    return '<div class="card" style="margin-top:0"><img class="pspr" style="width:40px;height:40px'+(w.shiny?';filter:drop-shadow(0 0 5px rgba(248,200,40,.8))':'')+'" src="'+sprPath(w.sp,w.shiny)+'" alt="">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">WILD '+d.n+(w.shiny?' ★':'')+'</div>'+
+      '<div class="gbar" style="margin-top:5px"><div style="width:'+wpct+'%;background:'+hpColor(wpct)+'"></div></div></div>'+
+      '<span class="plv">'+fmtVol(Math.max(0,w.hp))+'</span></div>';
+  }
+  if(state.session.mode!=='boss')return '';
   var bz=bossInfo();if(!bz)return '';
   var pct=Math.round(bz.hp/bz.max*100);
   return '<div class="card" style="margin-top:0"><img class="pspr" style="width:40px;height:40px" src="sprites/'+bz.monId+'.png" alt="">'+
@@ -1173,7 +1236,7 @@ function bossCardHTML(){
   }
   var bz=bossInfo();if(!bz)return '';
   var pct=Math.round(bz.hp/bz.max*100);
-  return '<div class="panel" data-action="bld" data-b="stadium" style="cursor:pointer"><h3>NEXT BOSS<span class="bestchip">'+(bz.round>1?'R'+bz.round+' · ':'')+(bz.idx<8?('BADGE '+(bz.idx+1)+'/8'):(bz.idx<12?'ELITE FOUR':'FINAL'))+'</span></h3>'+
+  return '<div class="panel" data-action="bld" data-b="boss" style="cursor:pointer"><h3>NEXT BOSS<span class="bestchip">'+(bz.round>1?'R'+bz.round+' · ':'')+(bz.idx<8?('BADGE '+(bz.idx+1)+'/8'):(bz.idx<12?'ELITE FOUR':'FINAL'))+'</span></h3>'+
     '<div style="display:flex;align-items:center;gap:10px">'+
     '<img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:56px;height:56px;image-rendering:pixelated;flex:none">'+
     '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+' <span class="plv">:L'+bz.lv+'</span></div>'+
@@ -1236,77 +1299,116 @@ function showStadiumModal(){
 }
 function mapHTML(){
   var night=state.theme!=='day';
-  var C={grass:night?'#22382C':'#78C850',path:night?'#8A8060':'#E8D8A0',
-    tt:night?'#1B2E22':'#3C8038',tb:night?'#2E2418':'#705030',
-    win:night?'#F8E038':'#A8D8F0'};
+  var C={grass:night?'#22382C':'#90D8A0',dot:night?'#1B2F24':'#7CC890',
+    path:night?'#6A746E':'#DEE6E2',
+    tt:night?'#16301E':'#2E8840',tt2:night?'#1E3C28':'#48A858',tb:night?'#2A2018':'#6E4E2E',
+    bush:night?'#20402C':'#58B868',win:night?'#F8E038':'#B8D8F0',
+    patch:night?'#2A4A34':'#58B868',tuft:night?'#1A3424':'#2E8840'};
   var slab='slab'+(night?' dark':'');
-  var trees='',i;
-  function tree(x,y){
-    trees+='<rect x="'+x+'" y="'+y+'" width="18" height="14" fill="'+C.tt+'"/>'+
-      '<rect x="'+(x+3)+'" y="'+(y-8)+'" width="12" height="10" fill="'+C.tt+'"/>'+
-      '<rect x="'+(x+7)+'" y="'+(y+14)+'" width="5" height="6" fill="'+C.tb+'"/>';
+  var i,j,s='';
+  for(i=66;i<300;i+=38)for(j=26;j<372;j+=34)s+='<rect x="'+i+'" y="'+j+'" width="3" height="3" fill="'+C.dot+'"/>';
+  var dots=s;
+  function pine(x,y){
+    return '<polygon points="'+(x+9)+','+y+' '+x+','+(y+11)+' '+(x+18)+','+(y+11)+'" fill="'+C.tt2+'"/>'+
+      '<polygon points="'+(x+9)+','+(y+5)+' '+(x-2)+','+(y+19)+' '+(x+20)+','+(y+19)+'" fill="'+C.tt+'"/>'+
+      '<rect x="'+(x+6)+'" y="'+(y+19)+'" width="6" height="5" fill="'+C.tb+'"/>';
   }
-  for(i=0;i<10;i++)tree(4,12+i*31);
-  for(i=0;i<10;i++)tree(298,12+i*31);
-  for(i=0;i<7;i++)tree(34+i*38,300);
+  function flower(x,y){
+    return '<rect x="'+(x+1)+'" y="'+(y+4)+'" width="3" height="3" fill="'+C.tuft+'"/>'+
+      '<rect x="'+x+'" y="'+y+'" width="5" height="5" fill="#E84040"/>'+
+      '<rect x="'+(x+1.5)+'" y="'+(y+1.5)+'" width="2" height="2" fill="#F8D048"/>';
+  }
+  function tuft(x,y){
+    return '<rect x="'+x+'" y="'+y+'" width="3" height="8" fill="'+C.tuft+'"/>'+
+      '<rect x="'+(x+4)+'" y="'+(y+2)+'" width="3" height="6" fill="'+C.tuft+'"/>'+
+      '<rect x="'+(x+8)+'" y="'+y+'" width="3" height="8" fill="'+C.tuft+'"/>';
+  }
+  var trees='';
+  for(i=0;i<13;i++)trees+=pine(299,2+i*30);
+  for(i=0;i<3;i++)trees+=pine(60+i*36,0);
+  for(i=0;i<9;i++)trees+=pine(10+i*34,376);
+  var ledge='';
+  for(i=0;i<12;i++)ledge+='<rect x="'+(162+i*12)+'" y="'+(150+(i%2)*2)+'" width="12" height="8" fill="#8B5A3C"/><rect x="'+(162+i*12)+'" y="'+(156+(i%2)*2)+'" width="12" height="3" fill="#6E4424"/>';
+  var fence='<rect x="168" y="216" width="140" height="4" fill="#D8E0E0"/>';
+  for(i=0;i<10;i++)fence+='<rect x="'+(168+i*14)+'" y="208" width="6" height="16" fill="#E8F0F0" stroke="#9AA8A8" stroke-width="1"/>';
+  var ridges=function(x,y,w,h,c){var r='';for(var k=1;k<4;k++)r+='<rect x="'+x+'" y="'+(y+k*h/4-1)+'" width="'+w+'" height="2" fill="'+c+'"/>';return r;};
   var encAlert=(state.game&&state.game.enc&&Object.keys(state.game.enc).length>0)
-    ?'<rect x="268" y="94" width="16" height="20" fill="#F8F8D0" stroke="#585048" stroke-width="2"/>'+
-     '<text x="276" y="110" text-anchor="middle" style="font-family:VT323;font-size:17px" fill="#D03028">!</text>':'';
+    ?'<rect x="288" y="266" width="16" height="20" fill="#F8F8D0" stroke="#585048" stroke-width="2"/>'+
+     '<text x="296" y="282" text-anchor="middle" style="font-family:VT323;font-size:17px" fill="#D03028">!</text>':'';
   var cap=playerSpr()==='leaf'?'#F0F0E8':'#D03028';
-  var h='<div class="titlebar"><h1>POCKET TOWN</h1></div>'+
-    '<div class="subtitle">Tap a building to walk in</div>'+
+  var h='<div class="titlebar"><h1>VIRIDIAN CITY</h1></div>'+
+    '<div class="subtitle">The eternally green paradise</div>'+
     '<div style="margin:6px 12px;border:3px solid var(--bord);border-radius:8px;overflow:hidden;line-height:0">'+
-    '<svg viewBox="0 0 320 330" style="width:100%;display:block" shape-rendering="crispEdges">'+
-    '<rect width="320" height="330" fill="'+C.grass+'"/>'+trees+
-    '<rect x="40" y="86" width="240" height="18" fill="'+C.path+'"/>'+
-    '<rect x="148" y="86" width="20" height="220" fill="'+C.path+'"/>'+
-    '<rect x="40" y="196" width="240" height="18" fill="'+C.path+'"/>'+
-    '<g data-action="bld" data-b="gym" style="cursor:pointer">'+
-    '<rect x="38" y="26" width="92" height="46" fill="#8898B8" stroke="#585048" stroke-width="3"/>'+
-    '<rect x="38" y="16" width="92" height="16" fill="#4868A8" stroke="#585048" stroke-width="3"/>'+
-    '<rect x="72" y="50" width="20" height="22" fill="#283048"/>'+
-    '<rect x="48" y="34" width="68" height="12" fill="#F8F8D0"/>'+
-    '<text x="82" y="44" text-anchor="middle" style="font-family:VT323;font-size:12px" fill="#283048">GYM</text>'+
-    '<rect x="48" y="54" width="10" height="10" fill="'+C.win+'"/>'+
-    '<rect x="106" y="54" width="10" height="10" fill="'+C.win+'"/></g>'+
-    '<g data-action="bld" data-b="stadium" style="cursor:pointer">'+
-    '<rect x="186" y="22" width="96" height="50" fill="#D8C878" stroke="#585048" stroke-width="3"/>'+
-    '<rect x="186" y="14" width="96" height="14" fill="#B89838" stroke="#585048" stroke-width="3"/>'+
-    '<rect x="224" y="50" width="20" height="22" fill="#584838"/>'+
-    '<rect x="196" y="34" width="76" height="12" fill="#F8F8D0"/>'+
-    '<text x="234" y="44" text-anchor="middle" style="font-family:VT323;font-size:12px" fill="#A03028">LEAGUE</text>'+
-    '<rect x="198" y="56" width="10" height="10" fill="'+C.win+'"/>'+
-    '<rect x="262" y="56" width="10" height="10" fill="'+C.win+'"/></g>'+
-    '<g data-action="bld" data-b="center" style="cursor:pointer">'+
-    '<rect x="38" y="124" width="86" height="44" fill="#F0F0E8" stroke="#585048" stroke-width="3"/>'+
-    '<rect x="34" y="112" width="94" height="16" fill="#D03028" stroke="#585048" stroke-width="3"/>'+
-    '<rect x="70" y="146" width="20" height="22" fill="#903028"/>'+
-    '<circle cx="58" cy="136" r="7" fill="#D03028"/>'+
-    '<text x="58" y="140" text-anchor="middle" style="font-family:VT323;font-size:11px" fill="#FFF8F0">P</text>'+
-    '<rect x="98" y="132" width="12" height="10" fill="'+C.win+'"/></g>'+
-    '<g data-action="bld" data-b="lab" style="cursor:pointer">'+
-    '<rect x="196" y="124" width="86" height="44" fill="#E8E8E0" stroke="#585048" stroke-width="3"/>'+
-    '<rect x="192" y="112" width="94" height="16" fill="#888078" stroke="#585048" stroke-width="3"/>'+
-    '<rect x="228" y="146" width="20" height="22" fill="#504840"/>'+
-    '<rect x="204" y="132" width="40" height="10" fill="#F8F8D0"/>'+
-    '<text x="224" y="141" text-anchor="middle" style="font-family:VT323;font-size:11px" fill="#303030">LAB</text>'+
+    '<svg viewBox="0 0 320 400" style="width:100%;display:block" shape-rendering="crispEdges">'+
+    '<rect width="320" height="400" fill="'+C.grass+'"/>'+dots+
+    '<rect x="12" y="0" width="42" height="400" fill="'+C.path+'"/>'+
+    '<rect x="54" y="56" width="210" height="20" fill="'+C.path+'"/>'+
+    '<rect x="146" y="76" width="20" height="170" fill="'+C.path+'"/>'+
+    '<rect x="54" y="246" width="254" height="20" fill="'+C.path+'"/>'+
+    '<rect x="80" y="266" width="20" height="68" fill="'+C.path+'"/>'+
+    '<rect x="54" y="334" width="150" height="20" fill="'+C.path+'"/>'+
+    ledge+fence+
+    '<g data-action="bld" data-b="boss" style="cursor:pointer">'+
+    '<rect x="176" y="14" width="128" height="46" fill="#C8A848" stroke="#585048" stroke-width="3"/>'+
+    ridges(176,14,128,46,'#A88830')+
+    '<rect x="176" y="60" width="128" height="44" fill="#C8D0D8" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="226" y="76" width="28" height="28" fill="#3050A0"/>'+
+    '<rect x="196" y="64" width="52" height="14" fill="#F8F8F0" stroke="#585048" stroke-width="2"/>'+
+    '<text x="222" y="75" text-anchor="middle" style="font-family:VT323;font-size:12px" fill="#C83028">GYM</text>'+
+    '<circle cx="278" cy="78" r="9" fill="#F8F8F0" stroke="#585048" stroke-width="2"/>'+
+    '<rect x="269" y="77" width="18" height="2" fill="#585048"/>'+
+    '<rect x="186" y="66" width="14" height="12" fill="'+C.win+'"/></g>'+
+    '<g><rect x="56" y="92" width="90" height="30" fill="#50A050" stroke="#585048" stroke-width="3"/>'+
+    ridges(56,92,90,30,'#3E8040')+
+    '<rect x="96" y="82" width="18" height="14" fill="#B89038" stroke="#585048" stroke-width="2"/>'+
+    '<rect x="56" y="122" width="90" height="34" fill="#E8D8A8" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="92" y="132" width="20" height="24" fill="#8B5A36"/>'+
+    '<rect x="64" y="128" width="16" height="12" fill="'+C.win+'"/>'+
+    '<rect x="122" y="128" width="16" height="12" fill="'+C.win+'"/></g>'+
+    '<g><rect x="56" y="176" width="90" height="30" fill="#50A050" stroke="#585048" stroke-width="3"/>'+
+    ridges(56,176,90,30,'#3E8040')+
+    '<rect x="56" y="206" width="90" height="34" fill="#E8D8A8" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="92" y="216" width="20" height="24" fill="#8B5A36"/>'+
+    '<rect x="62" y="212" width="18" height="12" fill="'+C.win+'"/>'+
+    '<rect x="122" y="212" width="18" height="12" fill="'+C.win+'"/>'+
+    '<rect x="62" y="226" width="18" height="6" fill="#48A048"/>'+
+    '<rect x="122" y="226" width="18" height="6" fill="#48A048"/>'+
+    '<rect x="66" y="224" width="4" height="4" fill="#E84040"/><rect x="74" y="224" width="4" height="4" fill="#E84040"/>'+
+    '<rect x="126" y="224" width="4" height="4" fill="#E84040"/><rect x="134" y="224" width="4" height="4" fill="#E84040"/></g>'+
+    '<g data-action="bld" data-b="mart" style="cursor:pointer">'+
+    '<rect x="196" y="176" width="96" height="32" rx="7" fill="#5890E0" stroke="#585048" stroke-width="3"/>'+
+    '<circle cx="244" cy="192" r="8" fill="#E8F0F8" stroke="#585048" stroke-width="2"/>'+
+    '<rect x="236" y="191" width="16" height="2" fill="#585048"/>'+
+    '<rect x="196" y="208" width="96" height="32" fill="#E8ECF0" stroke="#585048" stroke-width="3"/>'+
+    '<rect x="204" y="212" width="42" height="13" fill="#F8F8F0" stroke="#585048" stroke-width="2"/>'+
+    '<text x="225" y="222" text-anchor="middle" style="font-family:VT323;font-size:11px" fill="#C83028">MART</text>'+
+    '<rect x="254" y="212" width="24" height="28" fill="#3858A8"/></g>'+
+    '<g><rect x="56" y="270" width="112" height="32" fill="#E05848" stroke="#585048" stroke-width="3"/>'+
+    ridges(56,270,112,32,'#B84038')+
+    '<rect x="56" y="302" width="112" height="32" fill="#E8ECF0" stroke="#585048" stroke-width="3"/>'+
+    '<circle cx="112" cy="302" r="8" fill="#F8F8F0" stroke="#585048" stroke-width="2"/>'+
+    '<rect x="104" y="301" width="16" height="2" fill="#585048"/>'+
+    '<rect x="62" y="308" width="30" height="13" fill="#F8F8F0" stroke="#585048" stroke-width="2"/>'+
+    '<text x="77" y="318" text-anchor="middle" style="font-family:VT323;font-size:11px" fill="#C83028">P.C</text>'+
+    '<rect x="102" y="310" width="22" height="24" fill="#4060A8"/></g>'+
+    '<g data-action="bld" data-b="train" style="cursor:pointer">'+
+    '<rect x="206" y="280" width="100" height="92" fill="'+C.patch+'" stroke="'+C.tuft+'" stroke-width="2"/>'+
+    tuft(214,288)+tuft(248,292)+tuft(282,288)+tuft(222,318)+tuft(262,322)+tuft(238,348)+tuft(280,350)+
+    flower(216,306)+flower(290,310)+flower(212,352)+flower(266,340)+flower(244,300)+
     encAlert+'</g>'+
-    '<g data-action="bld" data-b="house" style="cursor:pointer">'+
-    '<rect x="52" y="232" width="72" height="42" fill="#E8D0B0" stroke="#585048" stroke-width="3"/>'+
-    '<rect x="46" y="220" width="84" height="16" fill="#C86828" stroke="#585048" stroke-width="3"/>'+
-    '<rect x="78" y="252" width="18" height="22" fill="#705030"/>'+
-    '<rect x="60" y="240" width="12" height="10" fill="'+C.win+'"/>'+
-    '<rect x="104" y="240" width="12" height="10" fill="'+C.win+'"/></g>'+
-    '<g><rect x="156" y="216" width="8" height="6" fill="'+cap+'"/>'+
-    '<rect x="156" y="222" width="8" height="5" fill="#F0C8A0"/>'+
-    '<rect x="154" y="227" width="12" height="9" fill="#3858A8"/>'+
-    '<rect x="156" y="236" width="3" height="5" fill="#283048"/>'+
-    '<rect x="161" y="236" width="3" height="5" fill="#283048"/></g>'+
-    '<text x="82" y="84" text-anchor="middle" class="'+slab+'">TRAIN</text>'+
-    '<text x="234" y="84" text-anchor="middle" class="'+slab+'">BOSS</text>'+
-    '<text x="81" y="182" text-anchor="middle" class="'+slab+'">TEAM</text>'+
-    '<text x="239" y="182" text-anchor="middle" class="'+slab+'">POKéDEX</text>'+
-    '<text x="88" y="288" text-anchor="middle" class="'+slab+'">TRAINER</text>'+
+    trees+
+    '<rect x="160" y="118" width="16" height="14" rx="6" fill="'+C.bush+'"/>'+
+    '<rect x="30" y="200" width="16" height="14" rx="6" fill="'+C.bush+'"/>'+
+    '<g><rect x="236" y="110" width="8" height="7" fill="#F0C8A0"/>'+
+    '<rect x="234" y="117" width="12" height="8" fill="#4878C8"/></g>'+
+    '<g><rect x="150" y="248" width="8" height="6" fill="'+cap+'"/>'+
+    '<rect x="150" y="254" width="8" height="5" fill="#F0C8A0"/>'+
+    '<rect x="148" y="259" width="12" height="9" fill="#3858A8"/>'+
+    '<rect x="150" y="268" width="3" height="5" fill="#283048"/>'+
+    '<rect x="155" y="268" width="3" height="5" fill="#283048"/></g>'+
+    '<text x="240" y="120" text-anchor="middle" class="'+slab+'">BOSS</text>'+
+    '<text x="244" y="258" text-anchor="middle" class="'+slab+'">SHOP</text>'+
+    '<text x="256" y="296" text-anchor="middle" class="'+slab+'">TRAIN</text>'+
     '</svg></div>';
   if(state.session)h+=heroHTML();
   return h;
@@ -1530,7 +1632,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v3.3 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v3.4 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -1717,6 +1819,26 @@ function saveLogEntry(){
           if(state.game.boss.hp<=0)bossDefeated();
         }
       }
+      else if(state.session&&state.session.mode==='train'&&state.session.wild){
+        var wd=state.session.wild;
+        var stT=statsAt(am.sp,monLevel(am.xp));
+        var dmgT=Math.round(vol*(1+Math.max(stT.atk,stT.spa)/250));
+        wd.hp-=dmgT;
+        lastDmg=dmgT;
+        var exr2=exById(id);
+        if(wd.hp<=0){
+          var wbonus=Math.round(wd.max/10);
+          state.session.xpg=(state.session.xpg||0)+wbonus;
+          applyXP(am,wbonus);
+          sfx('faint');
+          var oldN=DEX[wd.sp].n;
+          state.session.wild=spawnWild();
+          state.session.bmsg='Wild '+oldN+' fainted! +'+wbonus+' XP! A wild '+DEX[state.session.wild.sp].n+' appeared!';
+        }else{
+          sfx('hit');
+          state.session.bmsg=DEX[am.sp].n+' used '+(exr2?exr2.ex.name.toUpperCase():'A SET')+'! '+dmgT.toLocaleString()+' dmg.';
+        }
+      }
       // a new record feeds the lead a Rare Candy: jump to the next level
       if(entry.w>prevBest&&prevBest>0){
         sfx('pr');
@@ -1726,7 +1848,7 @@ function saveLogEntry(){
           queueLevelUp(am,clv,clv+1);
         }
       }
-      else if(!(state.session&&state.session.mode==='boss')){sfx('save');}
+      else if(!(state.session&&state.game)){sfx('save');}
     }
   }
   (state.logs[id]=state.logs[id]||[]).push(entry);
@@ -2036,11 +2158,13 @@ document.addEventListener('click',function(e){
   else if(a==='stadium-go'){closeModal();showChooserThenStart('boss');}
   else if(a==='bld'){
     var bid=b.dataset.b;
-    if(bid==='gym'){if(state.session){tab='workout';render();}else showChooserThenStart('train');}
-    else if(bid==='stadium'){if(state.session){tab='workout';render();}else showStadiumModal();}
-    else if(bid==='center'){teamView='party';tab='team';render();}
-    else if(bid==='lab'){teamView='dex';tab='team';render();}
-    else if(bid==='house'){tab='summary';render();}
+    if(bid==='train'){if(state.session){tab='workout';render();}else showChooserThenStart('train');}
+    else if(bid==='boss'){if(state.session){tab='workout';render();}else showStadiumModal();}
+    else if(bid==='mart'){
+      showModal('<h3>POKé MART</h3><p>The clerk is still stocking the shelves… The shop opens in a future update!</p>'+
+        '<div class="mbtns"><button class="btn acc" data-action="close-modal">OK</button></div>');
+      modalOk=null;
+    }
   }
   else if(a==='use-xatk'){
     if(state.session&&state.session.mode==='boss'&&!state.session.xatkUsed&&!state.session.xatkArmed){
