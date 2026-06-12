@@ -1,8 +1,10 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v11';
+const CACHE = 'gym-tracker-v12';
 const MON_IDS = [4,5,6,7,8,9,16,17,18,25,26,58,59,63,64,65,66,67,68,74,75,76,92,93,94,95,129,130,131,133,134,135,136,143,147,148,149,150];
 const BOSS_IDS = [45,110,112,121];
+const WILD_IDS = [10,11,13,14,19,21,23,27,29,32,35,37,39,41,43,46,48,50,52,54,56,60,69,72,77,81,84,86,88,90,96,98,100,102,104,109,111,116,118,120];
+const REWARD_IDS = [57,106,107];
 const TRAINERS = ['red','leaf','oak','brock','misty','ltsurge','erika','koga','sabrina','blaine','giovanni','lorelei','bruno','agatha','lance','blue'];
 const ASSETS = [
   './',
@@ -19,7 +21,15 @@ const ASSETS = [
   .concat(MON_IDS.map((i) => './sprites/back/' + i + '.png'))
   .concat(MON_IDS.map((i) => './sprites/back/shiny/' + i + '.png'))
   .concat(BOSS_IDS.map((i) => './sprites/' + i + '.png'))
-  .concat(TRAINERS.map((t) => './sprites/trainers/' + t + '.png'));
+  .concat(WILD_IDS.map((i) => './sprites/' + i + '.png'))
+  .concat(WILD_IDS.map((i) => './sprites/shiny/' + i + '.png'))
+  .concat(REWARD_IDS.map((i) => './sprites/' + i + '.png'))
+  .concat(REWARD_IDS.map((i) => './sprites/shiny/' + i + '.png'))
+  .concat(REWARD_IDS.map((i) => './sprites/back/' + i + '.png'))
+  .concat(REWARD_IDS.map((i) => './sprites/back/shiny/' + i + '.png'))
+  .concat(['./sprites/shiny/112.png', './sprites/back/112.png', './sprites/back/shiny/112.png'])
+  .concat(TRAINERS.map((t) => './sprites/trainers/' + t + '.png'))
+  .concat(['./map/viridian.png']);
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
