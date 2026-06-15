@@ -487,6 +487,11 @@ function startWorkout(mode){
     state.session.wild=spawnWild();
     state.session.bmsg='A wild '+DEX[state.session.wild.sp].n+' appeared! Log a set to attack.';
   }
+  if(state.game&&state.session.mode==='boss'&&state.game.boss){
+    initBossSession();
+    var bzs=bossInfo();
+    state.session.bmsg=bzs?(bzs.n+' sent out '+bzs.mon+'! Log a set to attack — mind your HP!'):'';
+  }
   save();ensureTicker();
   tab='workout';editMode=false;render();
   var fx=$('#fx');
@@ -777,6 +782,25 @@ var WILD_ONLY={
   staryu:['STARYU',120],goldeen:['GOLDEEN',118],poliwag:['POLIWAG',60],vulpix:['VULPIX',37]
 };
 (function(){for(var k in WILD_ONLY)if(!DEX[k])DEX[k]={n:WILD_ONLY[k][0],id:WILD_ONLY[k][1],t:[]};})();
+/* upgrade six wild lines to full catchable lines */
+DEX.sandshrew={n:'SANDSHREW',id:27,t:['Ground'],bs:[50,75,85,20,30,40],evo:{lv:22,to:'sandslash'}};
+DEX.sandslash={n:'SANDSLASH',id:28,t:['Ground'],bs:[75,100,110,45,55,65]};
+DEX.vulpix={n:'VULPIX',id:37,t:['Fire'],bs:[38,41,40,50,65,65],evo:{lv:30,to:'ninetales'}};
+DEX.ninetales={n:'NINETALES',id:38,t:['Fire'],bs:[73,76,75,81,100,100]};
+DEX.meowth={n:'MEOWTH',id:52,t:['Normal'],bs:[40,45,35,40,40,90],evo:{lv:28,to:'persian'}};
+DEX.persian={n:'PERSIAN',id:53,t:['Normal'],bs:[65,70,60,65,65,115]};
+DEX.psyduck={n:'PSYDUCK',id:54,t:['Water'],bs:[50,52,48,65,50,55],evo:{lv:33,to:'golduck'}};
+DEX.golduck={n:'GOLDUCK',id:55,t:['Water'],bs:[80,82,78,95,80,85]};
+DEX.drowzee={n:'DROWZEE',id:96,t:['Psychic'],bs:[60,48,45,43,90,42],evo:{lv:26,to:'hypno'}};
+DEX.hypno={n:'HYPNO',id:97,t:['Psychic'],bs:[85,73,70,73,115,67]};
+DEX.cubone={n:'CUBONE',id:104,t:['Ground'],bs:[50,50,95,40,50,35],evo:{lv:28,to:'marowak'}};
+DEX.marowak={n:'MAROWAK',id:105,t:['Ground'],bs:[60,80,110,50,80,45]};
+DEX_ORDER.push('sandshrew','sandslash','vulpix','ninetales','meowth','persian','psyduck','golduck','drowzee','hypno','cubone','marowak');
+CATCH_QUEUES.forearm.push(['sandshrew',7000],['cubone',12000]);
+CATCH_QUEUES.triceps.push(['vulpix',7000]);
+CATCH_QUEUES.biceps.push(['meowth',7000]);
+CATCH_QUEUES.legs.push(['psyduck',12000]);
+CATCH_QUEUES.shoulders.push(['drowzee',7000]);
 var WILD_STAGES=[
   ['pidgey','rattata','caterpie','metapod','weedle','kakuna','pikachu','spearow','mankey','nidoranf','nidoranm'],
   ['zubat','geodude','paras','clefairy','jigglypuff','sandshrew','ekans','magikarp'],
@@ -840,7 +864,19 @@ var MOVESETS={
   primeape:[[9,'KARATE CHOP'],[28,'RAGE'],[45,'CROSS CHOP'],[63,'THRASH']],
   hitmonchan:[[7,'COMET PUNCH'],[26,'MACH PUNCH'],[44,'MEGA PUNCH'],[51,'SKY UPPERCUT']],
   hitmonlee:[[6,'MEDITATE'],[20,'JUMP KICK'],[41,'HI JUMP KICK'],[53,'MEGA KICK']],
-  rhydon:[[10,'HORN ATTACK'],[30,'STOMP'],[55,'TAKE DOWN'],[66,'MEGAHORN']]
+  rhydon:[[10,'HORN ATTACK'],[30,'STOMP'],[55,'TAKE DOWN'],[66,'MEGAHORN']],
+  sandshrew:[[6,'DEFENSE CURL'],[17,'SAND-ATTACK'],[31,'SLASH'],[45,'SANDSTORM']],
+  sandslash:[[6,'DEFENSE CURL'],[24,'SLASH'],[42,'FURY SWIPES'],[55,'SANDSTORM']],
+  vulpix:[[9,'EMBER'],[21,'QUICK ATTACK'],[31,'FLAMETHROWER'],[41,'FIRE SPIN']],
+  ninetales:[[9,'EMBER'],[31,'QUICK ATTACK'],[45,'FLAMETHROWER'],[60,'FIRE SPIN']],
+  meowth:[[10,'BITE'],[18,'PAY DAY'],[31,'FURY SWIPES'],[44,'SLASH']],
+  persian:[[10,'BITE'],[28,'PAY DAY'],[42,'FURY SWIPES'],[55,'SLASH']],
+  psyduck:[[10,'WATER GUN'],[23,'CONFUSION'],[36,'PSYCH UP'],[44,'HYDRO PUMP']],
+  golduck:[[10,'WATER GUN'],[33,'CONFUSION'],[48,'PSYCH UP'],[58,'HYDRO PUMP']],
+  drowzee:[[10,'HYPNOSIS'],[18,'CONFUSION'],[31,'PSYCHIC'],[40,'FUTURE SIGHT']],
+  hypno:[[10,'HYPNOSIS'],[26,'CONFUSION'],[40,'PSYCHIC'],[52,'FUTURE SIGHT']],
+  cubone:[[9,'BONE CLUB'],[21,'HEADBUTT'],[33,'BONEMERANG'],[45,'DOUBLE-EDGE']],
+  marowak:[[9,'BONE CLUB'],[28,'HEADBUTT'],[39,'BONEMERANG'],[53,'BONE RUSH']]
 };
 function movesFor(sp){return MOVESETS[sp]||[];}
 function eggSVG(size){
@@ -1096,15 +1132,51 @@ var pendingMode='train';
 function showChooserThenStart(mode){
   pendingMode=mode==='boss'?'boss':'train';
   var g=state.game;
-  if(!g||g.mons.length<=1){
-    if(g&&g.mons[0])g.active=g.mons[0].uid;
-    startWorkout(pendingMode);return;
-  }
+  if(!g||!g.mons.length){startWorkout(pendingMode);return;}
+  if(pendingMode==='boss'){showBossPartyModal();return;}
+  if(g.mons.length<=1){g.active=g.mons[0].uid;startWorkout('train');return;}
   var h='<h3>Choose a POKéMON.</h3><p>It banks all XP from this workout.</p>';
   g.mons.forEach(function(m){
     h+='<button class="prow" data-action="choose-mon" data-m="'+m.uid+'">'+
       '<img class="pspr" src="'+sprPath(m.sp,m.shiny)+'" alt=""><span class="pname">'+DEX[m.sp].n+(m.shiny?' <span class="shinystar">★</span>':'')+'</span>'+
       '<span class="plv" style="margin-left:auto">:L'+monLevel(m.xp)+'</span></button>';
+  });
+  h+='<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button></div>';
+  showModal(h);
+  modalOk=null;
+}
+function showBossPartyModal(){
+  var g=state.game;if(!g||!g.mons.length){startWorkout('boss');return;}
+  var bz=bossInfo();
+  var party=battleParty();
+  var leadUid=(g.active&&party.some(function(m){return m.uid===g.active;}))?g.active:(party[0]?party[0].uid:null);
+  if(leadUid)g.active=leadUid;
+  var h='<h3>Challenge '+(bz?esc(bz.n):'the boss')+'</h3>'+
+    '<p>Your top '+party.length+' fight as a team. Tap one to lead — it can faint, so SWITCH anytime. If all faint, you black out.</p>';
+  party.forEach(function(m){
+    var l=monLevel(m.xp),st=statsAt(m.sp,l);
+    h+='<button class="prow" data-action="pre-lead" data-m="'+m.uid+'">'+
+      '<img class="pspr" src="'+sprPath(m.sp,m.shiny)+'" alt="">'+
+      '<span style="flex:1;min-width:0"><span class="pname">'+DEX[m.sp].n+(m.shiny?' <span class="shinystar">★</span>':'')+(m.uid===leadUid?' <span class="leadchip">LEAD</span>':'')+'</span><br>'+
+      '<span class="plv">:L'+l+' · '+st.hp+' HP</span></span></button>';
+  });
+  h+='<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button>'+
+     '<button class="btn acc" data-action="party-go">CHALLENGE</button></div>';
+  showModal(h);
+  modalOk=null;
+}
+function showSwitchModal(){
+  if(!state.session)return;
+  var party=partyMons();
+  var h='<h3>Switch POKéMON</h3><p>Send out a fresh teammate. Fainted ones can’t battle.</p>';
+  party.forEach(function(m){
+    var l=monLevel(m.xp),mx=maxHpOf(m),hp=Math.max(0,curHpOf(m)),pc=Math.round(hp/Math.max(1,mx)*100);
+    var fainted=hp<=0,isLead=state.session.lead===m.uid;
+    h+='<button class="prow" '+(fainted||isLead?'disabled style="opacity:.55"':'data-action="do-switch" data-m="'+m.uid+'"')+'>'+
+      '<img class="pspr" src="'+sprPath(m.sp,m.shiny)+'" alt=""'+(fainted?' style="filter:grayscale(1)"':'')+'>'+
+      '<span style="flex:1;min-width:0"><span class="pname">'+DEX[m.sp].n+(isLead?' <span class="leadchip">OUT</span>':'')+(fainted?' <span class="plv">FNT</span>':'')+'</span>'+
+      '<div class="gbar" style="margin-top:5px"><div style="width:'+pc+'%;background:'+hpColor(pc)+'"></div></div></span>'+
+      '<span class="plv" style="margin-left:6px">:L'+l+'</span></button>';
   });
   h+='<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button></div>';
   showModal(h);
@@ -1226,43 +1298,173 @@ function closeMon(fromPop){
 
 /* ===== game: bosses ===== */
 var BOSSES=[
-  {n:'BROCK',tr:'brock',gym:'PEWTER GYM',badge:'BOULDER BADGE',mon:'ONIX',monId:95,lv:14,type:'Rock',hp:12000},
-  {n:'MISTY',tr:'misty',gym:'CERULEAN GYM',badge:'CASCADE BADGE',mon:'STARMIE',monId:121,lv:21,type:'Water',hp:16000},
-  {n:'LT. SURGE',tr:'ltsurge',gym:'VERMILION GYM',badge:'THUNDER BADGE',mon:'RAICHU',monId:26,lv:24,type:'Electric',hp:21000},
-  {n:'ERIKA',tr:'erika',gym:'CELADON GYM',badge:'RAINBOW BADGE',mon:'VILEPLUME',monId:45,lv:29,type:'Grass',hp:27000},
-  {n:'KOGA',tr:'koga',gym:'FUCHSIA GYM',badge:'SOUL BADGE',mon:'WEEZING',monId:110,lv:37,type:'Poison',hp:34000},
-  {n:'SABRINA',tr:'sabrina',gym:'SAFFRON GYM',badge:'MARSH BADGE',mon:'ALAKAZAM',monId:65,lv:43,type:'Psychic',hp:42000},
-  {n:'BLAINE',tr:'blaine',gym:'CINNABAR GYM',badge:'VOLCANO BADGE',mon:'ARCANINE',monId:59,lv:47,type:'Fire',hp:52000},
-  {n:'GIOVANNI',tr:'giovanni',gym:'VIRIDIAN GYM',badge:'EARTH BADGE',mon:'RHYDON',monId:112,lv:50,type:'Ground',hp:64000},
-  {n:'LORELEI',tr:'lorelei',gym:'ELITE FOUR',badge:'',mon:'LAPRAS',monId:131,lv:54,type:'Ice',hp:78000},
-  {n:'BRUNO',tr:'bruno',gym:'ELITE FOUR',badge:'',mon:'MACHAMP',monId:68,lv:56,type:'Fighting',hp:94000},
-  {n:'AGATHA',tr:'agatha',gym:'ELITE FOUR',badge:'',mon:'GENGAR',monId:94,lv:58,type:'Ghost',hp:112000},
-  {n:'LANCE',tr:'lance',gym:'ELITE FOUR',badge:'',mon:'DRAGONITE',monId:149,lv:60,type:'Dragon',hp:132000},
-  {n:'CHAMPION BLUE',tr:'blue',gym:'INDIGO PLATEAU',badge:'HALL OF FAME',mon:null,monId:0,lv:63,type:'',hp:160000}
+  {n:'BROCK',tr:'brock',gym:'PEWTER GYM',badge:'BOULDER BADGE',lv:14,hp:12000,
+    team:[{mon:'GEODUDE',monId:74,type:'Rock',frac:0.3},{mon:'ONIX',monId:95,type:'Rock',frac:0.7}]},
+  {n:'MISTY',tr:'misty',gym:'CERULEAN GYM',badge:'CASCADE BADGE',lv:21,hp:16000,
+    team:[{mon:'STARYU',monId:120,type:'Water',frac:0.35},{mon:'STARMIE',monId:121,type:'Water',frac:0.65}]},
+  {n:'LT. SURGE',tr:'ltsurge',gym:'VERMILION GYM',badge:'THUNDER BADGE',lv:24,hp:21000,
+    team:[{mon:'VOLTORB',monId:100,type:'Electric',frac:0.25},{mon:'PIKACHU',monId:25,type:'Electric',frac:0.3},{mon:'RAICHU',monId:26,type:'Electric',frac:0.45}]},
+  {n:'ERIKA',tr:'erika',gym:'CELADON GYM',badge:'RAINBOW BADGE',lv:29,hp:27000,
+    team:[{mon:'VICTREEBEL',monId:71,type:'Grass',frac:0.3},{mon:'TANGELA',monId:114,type:'Grass',frac:0.3},{mon:'VILEPLUME',monId:45,type:'Grass',frac:0.4}]},
+  {n:'KOGA',tr:'koga',gym:'FUCHSIA GYM',badge:'SOUL BADGE',lv:37,hp:34000,
+    team:[{mon:'KOFFING',monId:109,type:'Poison',frac:0.25},{mon:'MUK',monId:89,type:'Poison',frac:0.35},{mon:'WEEZING',monId:110,type:'Poison',frac:0.4}]},
+  {n:'SABRINA',tr:'sabrina',gym:'SAFFRON GYM',badge:'MARSH BADGE',lv:43,hp:42000,
+    team:[{mon:'KADABRA',monId:64,type:'Psychic',frac:0.25},{mon:'VENOMOTH',monId:49,type:'Poison',frac:0.3},{mon:'ALAKAZAM',monId:65,type:'Psychic',frac:0.45}]},
+  {n:'BLAINE',tr:'blaine',gym:'CINNABAR GYM',badge:'VOLCANO BADGE',lv:47,hp:52000,
+    team:[{mon:'GROWLITHE',monId:58,type:'Fire',frac:0.2},{mon:'RAPIDASH',monId:78,type:'Fire',frac:0.3},{mon:'ARCANINE',monId:59,type:'Fire',frac:0.5}]},
+  {n:'GIOVANNI',tr:'giovanni',gym:'VIRIDIAN GYM',badge:'EARTH BADGE',lv:50,hp:64000,
+    team:[{mon:'DUGTRIO',monId:51,type:'Ground',frac:0.25},{mon:'NIDOQUEEN',monId:31,type:'Ground',frac:0.35},{mon:'RHYDON',monId:112,type:'Ground',frac:0.4}]},
+  {n:'LORELEI',tr:'lorelei',gym:'ELITE FOUR',badge:'',lv:54,hp:78000,
+    team:[{mon:'DEWGONG',monId:87,type:'Ice',frac:0.3},{mon:'JYNX',monId:124,type:'Ice',frac:0.3},{mon:'LAPRAS',monId:131,type:'Ice',frac:0.4}]},
+  {n:'BRUNO',tr:'bruno',gym:'ELITE FOUR',badge:'',lv:56,hp:94000,
+    team:[{mon:'HITMONCHAN',monId:107,type:'Fighting',frac:0.25},{mon:'HITMONLEE',monId:106,type:'Fighting',frac:0.25},{mon:'MACHAMP',monId:68,type:'Fighting',frac:0.5}]},
+  {n:'AGATHA',tr:'agatha',gym:'ELITE FOUR',badge:'',lv:58,hp:112000,
+    team:[{mon:'GOLBAT',monId:42,type:'Poison',frac:0.25},{mon:'HAUNTER',monId:93,type:'Ghost',frac:0.3},{mon:'GENGAR',monId:94,type:'Ghost',frac:0.45}]},
+  {n:'LANCE',tr:'lance',gym:'ELITE FOUR',badge:'',lv:60,hp:132000,
+    team:[{mon:'GYARADOS',monId:130,type:'Water',frac:0.3},{mon:'AERODACTYL',monId:142,type:'Rock',frac:0.3},{mon:'DRAGONITE',monId:149,type:'Dragon',frac:0.4}]},
+  {n:'CHAMPION BLUE',tr:'blue',gym:'INDIGO PLATEAU',badge:'HALL OF FAME',lv:63,hp:160000,team:null}
 ];
+function bossTeam(idx){
+  var b=BOSSES[idx];
+  if(b.team)return b.team;
+  var ch=state.game&&state.game.starter==='charmander';
+  return [
+    {mon:'PIDGEOT',monId:18,type:'Flying',frac:0.25},
+    {mon:'ALAKAZAM',monId:65,type:'Psychic',frac:0.25},
+    ch?{mon:'BLASTOISE',monId:9,type:'Water',frac:0.5}:{mon:'CHARIZARD',monId:6,type:'Fire',frac:0.5}
+  ];
+}
+var EFF2={
+  Rock:{Fire:1.5,Ice:1.5,Flying:1.5,Fighting:0.67,Ground:0.67},
+  Water:{Fire:1.5,Rock:1.5,Ground:1.5,Water:0.67,Grass:0.67,Dragon:0.67},
+  Electric:{Water:1.5,Flying:1.5,Electric:0.67,Grass:0.67,Dragon:0.67,Ground:0.5},
+  Grass:{Water:1.5,Rock:1.5,Ground:1.5,Fire:0.67,Grass:0.67,Flying:0.67,Poison:0.67,Dragon:0.67},
+  Poison:{Grass:1.5,Poison:0.67,Ground:0.67,Rock:0.67,Ghost:0.67},
+  Psychic:{Fighting:1.5,Poison:1.5,Psychic:0.67},
+  Fire:{Grass:1.5,Ice:1.5,Fire:0.67,Water:0.67,Rock:0.67,Dragon:0.67},
+  Ground:{Fire:1.5,Electric:1.5,Rock:1.5,Poison:1.5,Grass:0.67,Flying:0.5},
+  Ice:{Grass:1.5,Ground:1.5,Flying:1.5,Dragon:1.5,Fire:0.67,Water:0.67,Ice:0.67},
+  Fighting:{Normal:1.5,Rock:1.5,Ice:1.5,Psychic:0.67,Flying:0.67,Poison:0.67,Ghost:0.5},
+  Ghost:{Psychic:1.5,Ghost:1.5,Normal:0.5},
+  Dragon:{Dragon:1.5},
+  Flying:{Grass:1.5,Fighting:1.5,Electric:0.67,Rock:0.67}
+};
 var GROUP_MOVE_TYPE={pecs:'Fighting',back:'Flying',shoulders:'Psychic',biceps:'Electric',triceps:'Fire',forearm:'Rock',legs:'Water'};
 var MOVE_EFF={
-  Fighting:{Rock:2,Ice:2,Psychic:0.5,Poison:0.5,Ghost:0.25},
+  Fighting:{Rock:2,Ice:2,Normal:2,Psychic:0.5,Poison:0.5,Flying:0.5,Ghost:0.25},
   Flying:{Fighting:2,Grass:2,Rock:0.5,Electric:0.5},
   Psychic:{Fighting:2,Poison:2,Psychic:0.5},
-  Electric:{Water:2,Grass:0.5,Dragon:0.5,Electric:0.5,Ground:0.25},
+  Electric:{Water:2,Flying:2,Grass:0.5,Dragon:0.5,Electric:0.5,Ground:0.25},
   Fire:{Grass:2,Ice:2,Fire:0.5,Water:0.5,Rock:0.5,Dragon:0.5},
   Rock:{Fire:2,Ice:2,Flying:2,Fighting:0.5,Ground:0.5},
   Water:{Rock:2,Ground:2,Fire:2,Water:0.5,Grass:0.5,Dragon:0.5}
 };
 function backSprPath(m){return 'sprites/back/'+(m.shiny?'shiny/':'')+DEX[m.sp].id+'.png';}
 function hpFor(idx,round){return Math.round(BOSSES[idx].hp*Math.pow(2,(round||1)-1));}
+/* Which team member is currently fighting, given remaining total HP.
+   Members are fought front-to-back; each occupies a `frac` slice of the total. */
+function bossMemberIdx(idx,hp,max){
+  var team=bossTeam(idx),cum=0;
+  for(var i=0;i<team.length;i++){
+    cum+=team[i].frac;
+    if(hp>max*(1-cum)+0.5)return i;
+  }
+  return team.length-1;
+}
 function bossInfo(){
   var g=state.game;if(!g||!g.boss)return null;
   var b=BOSSES[g.boss.idx];if(!b)return null;
   var round=g.round||1;
-  var mon=b.mon,monId=b.monId,type=b.type;
-  if(!mon){
-    var ch=g.starter==='charmander';
-    mon=ch?'BLASTOISE':'CHARIZARD';monId=ch?9:6;type=ch?'Water':'Fire';
-  }
-  return {n:b.n,tr:b.tr,gym:b.gym,badge:b.badge,mon:mon,monId:monId,type:type,
-    lv:Math.min(100,b.lv+(round-1)*30),hp:Math.max(0,g.boss.hp),max:hpFor(g.boss.idx,round),idx:g.boss.idx,round:round};
+  var max=hpFor(g.boss.idx,round), hp=Math.max(0,g.boss.hp);
+  var team=bossTeam(g.boss.idx);
+  var mi=bossMemberIdx(g.boss.idx,hp,max);
+  var cumBefore=0;for(var i=0;i<mi;i++)cumBefore+=team[i].frac;
+  var memberMax=Math.round(max*team[mi].frac);
+  var lower=max*(1-(cumBefore+team[mi].frac));
+  var memberHp=Math.max(0,Math.min(memberMax,Math.round(hp-lower)));
+  var m=team[mi];
+  return {n:b.n,tr:b.tr,gym:b.gym,badge:b.badge,
+    mon:m.mon,monId:m.monId,type:m.type,
+    lv:Math.min(100,b.lv+(round-1)*30),
+    hp:hp,max:max,idx:g.boss.idx,round:round,
+    team:team,memberIdx:mi,teamSize:team.length,aliveLeft:team.length-mi,
+    memberHp:memberHp,memberMax:memberMax};
+}
+/* ----- your battle squad ----- */
+function battleParty(){
+  if(!state.game)return [];
+  return state.game.mons.slice().sort(function(a,b){
+    return monLevel(b.xp)-monLevel(a.xp) || b.xp-a.xp;
+  }).slice(0,6);
+}
+function maxHpOf(m){return statsAt(m.sp,monLevel(m.xp)).hp;}
+function curHpOf(m){
+  if(state.session&&state.session.phps&&state.session.phps[m.uid]!==undefined)return state.session.phps[m.uid];
+  return maxHpOf(m);
+}
+function leadMon(){
+  if(state.session&&state.session.lead){var m=findMon(state.session.lead);if(m)return m;}
+  return activeMon();
+}
+function partyMons(){
+  if(!state.session||!state.session.party)return battleParty();
+  return state.session.party.map(findMon).filter(Boolean);
+}
+function alivePartyMons(){return partyMons().filter(function(m){return curHpOf(m)>0;});}
+function initBossSession(){
+  if(!state.game||!state.session)return;
+  var party=battleParty();
+  state.session.party=party.map(function(m){return m.uid;});
+  state.session.phps={};
+  party.forEach(function(m){state.session.phps[m.uid]=maxHpOf(m);});
+  var lead=(state.game.active&&state.session.party.indexOf(state.game.active)>=0)?state.game.active:(party[0]?party[0].uid:null);
+  state.session.lead=lead;if(lead)state.game.active=lead;
+}
+/* boss type hitting your mon (defensive matchup) */
+function typeEffAgainst(atkType,defTypes){
+  var e=1;(defTypes||[]).forEach(function(t){
+    if(EFF2[atkType]&&EFF2[atkType][t]!==undefined)e*=EFF2[atkType][t];
+  });
+  return e;
+}
+function bossCounterDamage(bz,mon){
+  var st=statsAt(mon.sp,monLevel(mon.xp));
+  var eff=typeEffAgainst(bz.type,DEX[mon.sp].t);
+  var def=(st.def+st.spd)/2;
+  var raw=(bz.lv*1.7+6)*eff;
+  return {dmg:Math.max(1,Math.round(raw*45/(45+def))),eff:eff};
+}
+function applyBossCounter(bz,lead){
+  var c=bossCounterDamage(bz,lead);
+  state.session.phps[lead.uid]=Math.max(0,curHpOf(lead)-c.dmg);
+  state.session.lastpdmg=c.dmg;
+  var ctxt=c.eff>=2?' A heavy blow!':(c.eff>1?' It hit hard!':(c.eff<1?' '+DEX[lead.sp].n+' shrugged it off.':''));
+  state.session.bmsg+=' '+bz.mon+' struck back — '+c.dmg+' dmg!'+ctxt;
+  if(state.session.phps[lead.uid]<=0)handleLeadFaint(lead);
+}
+function handleLeadFaint(lead){
+  sfx('faint');
+  state.session.bmsg+=' '+DEX[lead.sp].n+' fainted!';
+  var alive=alivePartyMons();
+  if(alive.length){
+    alive.sort(function(a,b){return curHpOf(b)-curHpOf(a);});
+    var nxt=alive[0];
+    state.session.lead=nxt.uid;state.game.active=nxt.uid;
+    state.session.bmsg+=' Go, '+DEX[nxt.sp].n+'!';
+  }else triggerBlackout();
+}
+function triggerBlackout(){
+  state.session.blackout=true;
+  var bz=bossInfo();
+  if(bz)state.game.boss.hp=Math.min(bz.max,state.game.boss.hp+Math.round(bz.max*0.25));
+  var bz2=bossInfo();
+  state.session.bmsg='Your whole team fainted! You blacked out'+(bz2?' — '+bz2.n+' recovered some HP':'')+'. Sets now earn XP only; heal up by your next workout.';
+  queueModal(function(){
+    sfx('faint');
+    showModal('<h3>Blacked out!</h3><p>'+esc(playerName())+'’s team was defeated. '+(bz2?esc(bz2.n)+' recovered 25% HP. ':'')+'Your sets still earn XP this workout — level up and come back stronger!</p>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+    modalOk=function(){closeModal();};
+  });
 }
 function bossEffFor(group){
   if(!(state.session&&state.session.mode==='boss'))return null;
@@ -1277,7 +1479,7 @@ function badgeCount(){
   return Math.min(g.boss?g.boss.idx:0,8);
 }
 function hpColor(pct){return pct>50?'#58C868':(pct>20?'#F8E038':'#F85838');}
-var btPrevPct=null,lastDmg=0;
+var btPrevPct=null,lastDmg=0,btPrevMember=null,btPrevPhp=null;
 function spawnWild(){
   var am=activeMon();
   var lv=am?monLevel(am.xp):5;
@@ -1291,7 +1493,7 @@ function curBattlePct(){
   if(state.session){
     if(state.session.mode==='boss'){
       var bz=bossInfo();
-      if(bz)return Math.round(bz.hp/bz.max*100);
+      if(bz)return Math.round(bz.memberHp/Math.max(1,bz.memberMax)*100);
     }
     if(state.session.mode==='train'&&state.session.wild){
       var w=state.session.wild;
@@ -1330,49 +1532,84 @@ function battlePanelHTML(anim){
   if(state.session.mode==='train'&&state.session.wild&&state.game)return wildPanelHTML(anim);
   if(state.session.mode!=='boss')return '';
   var bz=bossInfo();if(!bz)return '';
-  var m=activeMon();if(!m)return '';
-  var pct=Math.round(bz.hp/bz.max*100);
-  if(anim)btPrevPct=pct;
-  var xrow='';
-  if(!state.session.xatkUsed&&!state.session.xatkArmed){
-    xrow='<button class="btn" data-action="use-xatk" style="width:100%;margin-top:8px">USE X ATTACK · NEXT SET +50%</button>';
-  }else if(state.session.xatkArmed){
-    xrow='<div style="font-family:\'Press Start 2P\';font-size:10px;color:#D03028;margin-top:9px;text-align:center;line-height:1.5">X ATTACK ARMED ▲ NEXT SET +50%</div>';
+  if(!state.session.party)initBossSession();
+  var m=leadMon();if(!m)return '';
+  var pct=Math.round(bz.memberHp/Math.max(1,bz.memberMax)*100);
+  if(anim){btPrevPct=pct;btPrevMember=bz.memberIdx;}
+  var pmax=maxHpOf(m),php=Math.max(0,curHpOf(m)),ppct=Math.round(php/Math.max(1,pmax)*100);
+  if(anim)btPrevPhp=ppct;
+  var dots='';
+  for(var di=0;di<bz.teamSize;di++){
+    dots+='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:3px;border:1px solid #585048;background:'+(di<bz.memberIdx?'transparent':'#D03028')+'"></span>';
+  }
+  var alive=alivePartyMons().length, total=partyMons().length, brow;
+  if(state.session.blackout){
+    brow='<div style="font-family:\'Press Start 2P\';font-size:9px;color:#D03028;margin-top:9px;text-align:center;line-height:1.6">ALL POKéMON FAINTED — XP ONLY<br>HEAL BY YOUR NEXT WORKOUT</div>';
+  }else{
+    var xrow='';
+    if(!state.session.xatkUsed&&!state.session.xatkArmed){
+      xrow='<button class="btn" data-action="use-xatk" style="flex:1">X ATTACK +50%</button>';
+    }else if(state.session.xatkArmed){
+      xrow='<div style="flex:1;font-family:\'Press Start 2P\';font-size:9px;color:#D03028;text-align:center;align-self:center;line-height:1.4">X ATTACK ARMED ▲</div>';
+    }
+    var swrow=(total>1)?'<button class="btn'+(alive>1?' acc':'')+'" data-action="switch-mon" style="flex:1"'+(alive>1?'':' disabled')+'>SWITCH ('+alive+')</button>':'';
+    brow='<div style="display:flex;gap:8px;margin-top:8px">'+xrow+swrow+'</div>';
   }
   return '<div class="panel" style="padding:11px 12px">'+
     '<div id="bt-scene" style="position:relative;display:flex;align-items:center;gap:8px">'+
-      '<div style="flex:1;min-width:0"><div class="pname">'+bz.mon+' <span class="plv">:L'+bz.lv+(bz.round>1?' · R'+bz.round:'')+'</span></div>'+
+      '<div style="flex:1;min-width:0"><div class="pname">'+bz.mon+' <span class="plv">:L'+bz.lv+(bz.round>1?' · R'+bz.round:'')+'</span><span style="float:right">'+dots+'</span></div>'+
       '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div id="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
-      '<div class="plv" style="margin-top:3px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg</div></div>'+
+      '<div class="plv" style="margin-top:3px">'+bz.n+' · '+bz.aliveLeft+' left</div></div>'+
       '<div style="position:relative;flex:none;padding-bottom:5px">'+
         '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:92px;height:18px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
         '<img id="bt-espr" class="'+(anim?'slidein-r':'')+'" src="sprites/'+bz.monId+'.png" alt="'+bz.mon+'" style="width:76px;height:76px;image-rendering:pixelated;position:relative">'+
       '</div>'+
     '</div>'+
-    '<div style="display:flex;align-items:flex-end;gap:8px;margin-top:2px">'+
+    '<div id="bt-pscene" style="position:relative;display:flex;align-items:flex-end;gap:8px;margin-top:2px">'+
       '<div style="position:relative;flex:none;padding-bottom:5px">'+
         '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:80px;height:16px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
-        '<img class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative">'+
+        '<img class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative'+(php<=0?';opacity:.4':'')+'">'+
       '</div>'+
-      '<div class="plv" style="padding-bottom:9px">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+'</div></div>'+
+      '<div style="flex:1;min-width:0;padding-bottom:4px"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+'</div>'+
+      '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div id="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
+      '<div class="plv" style="margin-top:3px">'+php+' / '+pmax+' HP</div></div>'+
+    '</div>'+
     '<div class="memo" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
-    esc(state.session.bmsg||(bz.n+' wants to battle! Log a set to attack.'))+'</div>'+
-    xrow+'</div>';
+    esc(state.session.bmsg||(bz.n+' sent out '+bz.mon+'! Log a set to attack.'))+'</div>'+
+    brow+'</div>';
 }
 function updateBattlePanel(){
   var w=$('#bt-wrap');if(!w)return;
   w.innerHTML=battlePanelHTML(false);
+  var isBoss=state.session&&state.session.mode==='boss';
+  var bz=isBoss?bossInfo():null;
   var bar=$('#bt-ehp');
   var newPct=curBattlePct();
+  var curMember=bz?bz.memberIdx:-1;
   if(bar&&newPct!==null){
-    if(btPrevPct!==null&&btPrevPct!==newPct){
+    if(isBoss&&btPrevMember!==null&&curMember!==btPrevMember){
+      bar.style.width=newPct+'%';bar.style.background=hpColor(newPct);
+    }else if(btPrevPct!==null&&btPrevPct!==newPct){
       bar.style.width=btPrevPct+'%';
       requestAnimationFrame(function(){requestAnimationFrame(function(){
         bar.style.width=newPct+'%';
         bar.style.background=hpColor(newPct);
       });});
     }
-    btPrevPct=newPct;
+    btPrevPct=newPct;btPrevMember=curMember;
+  }
+  if(isBoss){
+    var pbar=$('#bt-php'),lead=leadMon();
+    if(pbar&&lead){
+      var pm=maxHpOf(lead),npp=Math.round(Math.max(0,curHpOf(lead))/Math.max(1,pm)*100);
+      if(btPrevPhp!==null&&btPrevPhp!==npp){
+        pbar.style.width=btPrevPhp+'%';
+        requestAnimationFrame(function(){requestAnimationFrame(function(){
+          pbar.style.width=npp+'%';pbar.style.background=hpColor(npp);
+        });});
+      }
+      btPrevPhp=npp;
+    }
   }
   if(lastDmg){
     var im=$('#bt-espr');
@@ -1388,6 +1625,18 @@ function updateBattlePanel(){
     }
     lastDmg=0;
   }
+  if(state.session&&state.session.lastpdmg){
+    var ps=$('#bt-pscene');
+    if(ps){
+      var pf=document.createElement('span');
+      pf.className='dmgfloat';pf.style.color='#3878C8';
+      pf.textContent='-'+state.session.lastpdmg;
+      pf.style.left='14px';pf.style.top='2px';
+      ps.appendChild(pf);
+      setTimeout(function(){if(pf.parentNode)pf.parentNode.removeChild(pf);},950);
+    }
+    state.session.lastpdmg=0;
+  }
 }
 function bossStripHTML(){
   if(!state.session)return '';
@@ -1401,11 +1650,11 @@ function bossStripHTML(){
   }
   if(state.session.mode!=='boss')return '';
   var bz=bossInfo();if(!bz)return '';
-  var pct=Math.round(bz.hp/bz.max*100);
+  var pct=Math.round(bz.memberHp/Math.max(1,bz.memberMax)*100);
   return '<div class="card" style="margin-top:0"><img class="pspr" style="width:40px;height:40px" src="sprites/'+bz.monId+'.png" alt="">'+
-    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+'</div>'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+' <span class="plv">'+bz.aliveLeft+' left</span></div>'+
     '<div class="gbar" style="margin-top:5px"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
-    '<span class="plv">'+fmtVol(bz.hp)+'</span></div>';
+    '<span class="plv">'+fmtVol(bz.memberHp)+'</span></div>';
 }
 function bossCardHTML(){
   if(!state.game)return '';
@@ -1418,7 +1667,7 @@ function bossCardHTML(){
     '<div style="display:flex;align-items:center;gap:10px">'+
     '<img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:56px;height:56px;image-rendering:pixelated;flex:none">'+
     '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+' <span class="plv">:L'+bz.lv+'</span></div>'+
-    '<div class="plv" style="margin:1px 0 6px">'+bz.gym+' · '+bz.type+' type</div>'+
+    '<div class="plv" style="margin:1px 0 6px">'+bz.gym+' · team of '+bz.teamSize+'</div>'+
     '<div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div>'+
     '<div class="plv" style="margin-top:3px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg — tap to challenge</div>'+
     '</div></div></div>';
@@ -1427,6 +1676,11 @@ function bossDefeated(){
   var g=state.game;var bz=bossInfo();if(!bz)return;
   var bonus=Math.round(bz.max/30);
   g.mons.forEach(function(m){m.xp+=bonus;});
+  // winning revitalises your squad for the next challenger
+  if(state.session&&state.session.party){
+    state.session.party.forEach(function(uid){var mm=findMon(uid);if(mm)state.session.phps[uid]=maxHpOf(mm);});
+    state.session.blackout=false;
+  }
   var isChamp=bz.idx>=BOSSES.length-1;
   if(isChamp){
     g.flags.champion=1;
@@ -1438,10 +1692,10 @@ function bossDefeated(){
   save();
   queueModal(function(){
     sfx('faint');
-    showModal('<h3>Enemy '+esc(bz.mon)+' fainted!</h3>'+
+    showModal('<h3>'+esc(bz.n)+' is out of POKéMON!</h3>'+
       '<div style="display:flex;align-items:center;gap:12px;margin:4px 0">'+
       '<img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:60px;height:60px;image-rendering:pixelated;flex:none">'+
-      '<p style="margin:0">'+esc(playerName())+' defeated '+esc(bz.n)+(bz.gym?' of '+esc(bz.gym):'')+'!</p></div>'+
+      '<p style="margin:0">'+esc(playerName())+' defeated '+esc(bz.n)+(bz.gym?' of '+esc(bz.gym):'')+'’s whole team! Your POKéMON are revitalised.</p></div>'+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
     modalOk=function(){closeModal();};
   });
@@ -1466,11 +1720,16 @@ function showStadiumModal(){
   var bz=bossInfo();
   if(!bz){toast('The league is quiet… for now.');return;}
   var pct=Math.round(bz.hp/bz.max*100);
+  var teamRow=bz.team.map(function(t,i){
+    var beaten=i<bz.memberIdx;
+    return '<img src="sprites/'+t.monId+'.png" alt="'+t.mon+'" title="'+t.mon+'" style="width:'+(beaten?40:46)+'px;height:'+(beaten?40:46)+'px;image-rendering:pixelated'+(beaten?';opacity:.3;filter:grayscale(1)':'')+'">';
+  }).join('');
   showModal('<div style="text-align:center;padding-bottom:4px"><img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
     '<h3>'+esc(bz.n)+'</h3>'+
-    '<p style="margin-bottom:8px">'+esc(bz.gym)+' · '+esc(bz.mon)+' :L'+bz.lv+(bz.round>1?' · ROUND '+bz.round:'')+'</p>'+
+    '<p style="margin-bottom:8px">'+esc(bz.gym)+' · team of '+bz.teamSize+' · :L'+bz.lv+(bz.round>1?' · ROUND '+bz.round:'')+'</p>'+
+    '<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:10px">'+teamRow+'</div>'+
     '<div style="display:flex;align-items:center;gap:5px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
-    '<p style="margin-top:8px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg left. Your sets are the attacks!</p>'+
+    '<p style="margin-top:8px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg left. Your sets attack — but the boss hits back, so bring a strong party!</p>'+
     '<div class="mbtns"><button class="btn" data-action="close-modal">LEAVE</button>'+
     '<button class="btn acc" data-action="stadium-go">CHALLENGE</button></div>');
   modalOk=null;
@@ -1724,7 +1983,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v4.1 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v4.2 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -1889,8 +2148,11 @@ function saveLogEntry(){
         applyXP(am,gain);
       }
       if(state.session&&state.session.mode==='boss'&&state.game.boss){
+        if(!state.session.party)initBossSession();
         var bz=bossInfo(),exr=exById(id);
-        if(bz&&exr){
+        if(bz&&exr&&state.session.blackout){
+          state.session.bmsg=DEX[am.sp].n+' trained hard — +'+(entry.xpg||0)+' XP. (Blacked out: no damage dealt.)';
+        }else if(bz&&exr){
           var gk2=groupKeyOf(exr.group);
           var mt=gk2?GROUP_MOVE_TYPE[gk2]:null;
           var eff=(mt&&MOVE_EFF[mt]&&MOVE_EFF[mt][bz.type]!==undefined)?MOVE_EFF[mt][bz.type]:1;
@@ -1898,17 +2160,30 @@ function saveLogEntry(){
           var boosted=!!state.session.xatkArmed;
           if(boosted){state.session.xatkArmed=false;state.session.xatkUsed=true;}
           var dmg=Math.round(vol*eff*(1+Math.max(stA.atk,stA.spa)/250)*(boosted?1.5:1));
+          var memberBefore=bz.memberIdx;
           var hpBefore=state.game.boss.hp;
           state.game.boss.hp-=dmg;
           entry.dmg=dmg;entry.bidx=bz.idx;
           lastDmg=dmg;
           var effTxt=eff>=2?" It's super effective!":(eff<=0.3?' It barely affects it…':(eff<1?" It's not very effective…":''));
-          state.session.bmsg=DEX[am.sp].n+' used '+exr.ex.name.toUpperCase()+'!'+(boosted?' X ATTACK boost!':'')+effTxt+' '+dmg.toLocaleString()+' dmg.';
           sfx(eff>=2?'superhit':(eff<=0.3?'weakhit':'hit'));
-          if(state.game.boss.hp>0&&state.game.boss.hp/bz.max<0.2&&hpBefore/bz.max>=0.2){
-            setTimeout(function(){sfx('lowhp');},350);
+          state.session.bmsg=DEX[am.sp].n+' used '+exr.ex.name.toUpperCase()+'!'+(boosted?' X ATTACK boost!':'')+effTxt+' '+dmg.toLocaleString()+' dmg.';
+          if(state.game.boss.hp<=0){
+            bossDefeated();
+          }else{
+            var bzAfter=bossInfo();
+            if(bzAfter.memberIdx>memberBefore){
+              // clean KO of a team member — the next one steps up, no counter this turn
+              sfx('faint');
+              state.session.bmsg+=' '+bz.mon+' fainted! '+bz.n+' sent out '+bzAfter.mon+'!';
+            }else{
+              // member survives → it strikes your lead back
+              applyBossCounter(bz,am);
+            }
+            if(state.game.boss.hp>0&&state.game.boss.hp/bz.max<0.2&&hpBefore/bz.max>=0.2){
+              setTimeout(function(){sfx('lowhp');},350);
+            }
           }
-          if(state.game.boss.hp<=0)bossDefeated();
         }
       }
       else if(state.session&&state.session.mode==='train'&&state.session.wild){
@@ -2274,6 +2549,19 @@ document.addEventListener('click',function(e){
   else if(a==='choose-mon'){
     if(state.game&&findMon(b.dataset.m)){
       state.game.active=b.dataset.m;save();closeModal();startWorkout(pendingMode);
+    }
+  }
+  else if(a==='pre-lead'){
+    if(state.game&&findMon(b.dataset.m)){state.game.active=b.dataset.m;save();showBossPartyModal();}
+  }
+  else if(a==='party-go'){closeModal();startWorkout('boss');}
+  else if(a==='switch-mon'){if(state.session&&!state.session.blackout)showSwitchModal();}
+  else if(a==='do-switch'){
+    var swm=findMon(b.dataset.m);
+    if(swm&&state.session&&curHpOf(swm)>0){
+      state.session.lead=swm.uid;state.game.active=swm.uid;
+      state.session.bmsg=playerName()+' sent out '+DEX[swm.sp].n+'!';
+      save();closeModal();updateBattlePanel();render(true);
     }
   }
   else if(a==='stadium-go'){closeModal();showChooserThenStart('boss');}
