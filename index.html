@@ -1419,6 +1419,7 @@ function initBossSession(){
   party.forEach(function(m){state.session.phps[m.uid]=maxHpOf(m);});
   var lead=(state.game.active&&state.session.party.indexOf(state.game.active)>=0)?state.game.active:(party[0]?party[0].uid:null);
   state.session.lead=lead;if(lead)state.game.active=lead;
+  save();
 }
 /* boss type hitting your mon (defensive matchup) */
 function typeEffAgainst(atkType,defTypes){
@@ -1435,6 +1436,7 @@ function bossCounterDamage(bz,mon){
   return {dmg:Math.max(1,Math.round(raw*45/(45+def))),eff:eff};
 }
 function applyBossCounter(bz,lead){
+  if(!state.session.phps)state.session.phps={};
   var c=bossCounterDamage(bz,lead);
   state.session.phps[lead.uid]=Math.max(0,curHpOf(lead)-c.dmg);
   state.session.lastpdmg=c.dmg;
@@ -1444,7 +1446,7 @@ function applyBossCounter(bz,lead){
 }
 function handleLeadFaint(lead){
   sfx('faint');
-  state.session.bmsg+=' '+DEX[lead.sp].n+' fainted!';
+  state.session.bmsg+=' '+DEX[lead.sp].n+' is unable to battle!';
   var alive=alivePartyMons();
   if(alive.length){
     alive.sort(function(a,b){return curHpOf(b)-curHpOf(a);});
@@ -1465,6 +1467,47 @@ function triggerBlackout(){
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
     modalOk=function(){closeModal();};
   });
+}
+/* One logged set in boss mode = one full battle exchange. */
+function resolveBossSet(am,entry,vol,id){
+  if(!state.session.party)initBossSession();
+  var bz=bossInfo(),exr=exById(id);
+  if(!bz||!exr)return;
+  if(state.session.blackout){
+    state.session.bmsg=DEX[am.sp].n+' keeps training! +'+(entry.xpg||0)+' XP. (Blacked out — no boss damage this workout.)';
+    return;
+  }
+  var gk=groupKeyOf(exr.group);
+  var mt=gk?GROUP_MOVE_TYPE[gk]:null;
+  var eff=(mt&&MOVE_EFF[mt]&&MOVE_EFF[mt][bz.type]!==undefined)?MOVE_EFF[mt][bz.type]:1;
+  var stA=statsAt(am.sp,monLevel(am.xp));
+  var boosted=!!state.session.xatkArmed;
+  if(boosted){state.session.xatkArmed=false;state.session.xatkUsed=true;}
+  var dmg=Math.round(vol*eff*(1+Math.max(stA.atk,stA.spa)/250)*(boosted?1.5:1));
+  var hpBefore=state.game.boss.hp;
+  state.game.boss.hp-=dmg;
+  entry.dmg=dmg;entry.bidx=bz.idx;
+  lastDmg=dmg;
+  var effTxt=eff>=2?" It's super effective!":(eff<=0.3?' It barely affects it…':(eff<1?" It's not very effective…":''));
+  sfx(eff>=2?'superhit':(eff<=0.3?'weakhit':'hit'));
+  state.session.bmsg=DEX[am.sp].n+' used '+exr.ex.name.toUpperCase()+'!'+(boosted?' X ATTACK boost!':'')+effTxt+' '+dmg.toLocaleString()+' dmg.';
+  if(state.game.boss.hp<=0){bossDefeated();return;}
+  var after=bossInfo();
+  if(after.memberIdx>bz.memberIdx){
+    // clean KO: the fallen member pays out XP, the next steps up — no counter this turn
+    sfx('faint');
+    var ko=Math.max(5,Math.round(bz.memberMax/25));
+    entry.xpg=(entry.xpg||0)+ko;entry.mon=am.uid;
+    state.session.xpg=(state.session.xpg||0)+ko;
+    applyXP(am,ko);
+    state.session.bmsg+=' Foe '+bz.mon+' is unable to battle! +'+ko+' XP! '+bz.n+' sent out '+after.mon+'!';
+  }else{
+    // member survives → it strikes your lead back
+    applyBossCounter(after,am);
+  }
+  if(state.game.boss.hp>0&&state.game.boss.hp/bz.max<0.2&&hpBefore/bz.max>=0.2){
+    setTimeout(function(){sfx('lowhp');},350);
+  }
 }
 function bossEffFor(group){
   if(!(state.session&&state.session.mode==='boss'))return null;
@@ -1542,6 +1585,11 @@ function battlePanelHTML(anim){
   for(var di=0;di<bz.teamSize;di++){
     dots+='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:3px;border:1px solid #585048;background:'+(di<bz.memberIdx?'transparent':'#D03028')+'"></span>';
   }
+  var pdots='';
+  partyMons().forEach(function(q){
+    var up=curHpOf(q)>0;
+    pdots+='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:2px;border:1px solid #585048;background:'+(up?(q.uid===m.uid?'#F8B050':'#58C868'):'transparent')+'"></span>';
+  });
   var alive=alivePartyMons().length, total=partyMons().length, brow;
   if(state.session.blackout){
     brow='<div style="font-family:\'Press Start 2P\';font-size:9px;color:#D03028;margin-top:9px;text-align:center;line-height:1.6">ALL POKéMON FAINTED — XP ONLY<br>HEAL BY YOUR NEXT WORKOUT</div>';
@@ -1559,7 +1607,7 @@ function battlePanelHTML(anim){
     '<div id="bt-scene" style="position:relative;display:flex;align-items:center;gap:8px">'+
       '<div style="flex:1;min-width:0"><div class="pname">'+bz.mon+' <span class="plv">:L'+bz.lv+(bz.round>1?' · R'+bz.round:'')+'</span><span style="float:right">'+dots+'</span></div>'+
       '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div id="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
-      '<div class="plv" style="margin-top:3px">'+bz.n+' · '+bz.aliveLeft+' left</div></div>'+
+      '<div class="plv" style="margin-top:3px">'+bz.memberHp.toLocaleString()+' / '+bz.memberMax.toLocaleString()+' kg · '+bz.aliveLeft+' left</div></div>'+
       '<div style="position:relative;flex:none;padding-bottom:5px">'+
         '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:92px;height:18px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
         '<img id="bt-espr" class="'+(anim?'slidein-r':'')+'" src="sprites/'+bz.monId+'.png" alt="'+bz.mon+'" style="width:76px;height:76px;image-rendering:pixelated;position:relative">'+
@@ -1570,7 +1618,7 @@ function battlePanelHTML(anim){
         '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:80px;height:16px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
         '<img class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative'+(php<=0?';opacity:.4':'')+'">'+
       '</div>'+
-      '<div style="flex:1;min-width:0;padding-bottom:4px"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+'</div>'+
+      '<div style="flex:1;min-width:0;padding-bottom:4px"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+' <span style="vertical-align:1px">'+pdots+'</span></div>'+
       '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div id="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
       '<div class="plv" style="margin-top:3px">'+php+' / '+pmax+' HP</div></div>'+
     '</div>'+
@@ -1688,7 +1736,7 @@ function bossDefeated(){
     g.boss={idx:0,hp:hpFor(0,g.round)};
   }
   else g.boss={idx:bz.idx+1,hp:hpFor(bz.idx+1,g.round||1)};
-  if(state.session)state.session.bmsg='Enemy '+bz.mon+' fainted!'+(isChamp?' You are the CHAMPION!':' '+BOSSES[bz.idx+1].n+' steps up next!');
+  if(state.session)state.session.bmsg='Foe '+bz.mon+' is unable to battle!'+(isChamp?' You are the CHAMPION!':' '+BOSSES[bz.idx+1].n+' steps up next!');
   save();
   queueModal(function(){
     sfx('faint');
@@ -1983,7 +2031,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v4.2 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v4.3 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -2148,43 +2196,7 @@ function saveLogEntry(){
         applyXP(am,gain);
       }
       if(state.session&&state.session.mode==='boss'&&state.game.boss){
-        if(!state.session.party)initBossSession();
-        var bz=bossInfo(),exr=exById(id);
-        if(bz&&exr&&state.session.blackout){
-          state.session.bmsg=DEX[am.sp].n+' trained hard — +'+(entry.xpg||0)+' XP. (Blacked out: no damage dealt.)';
-        }else if(bz&&exr){
-          var gk2=groupKeyOf(exr.group);
-          var mt=gk2?GROUP_MOVE_TYPE[gk2]:null;
-          var eff=(mt&&MOVE_EFF[mt]&&MOVE_EFF[mt][bz.type]!==undefined)?MOVE_EFF[mt][bz.type]:1;
-          var stA=statsAt(am.sp,monLevel(am.xp));
-          var boosted=!!state.session.xatkArmed;
-          if(boosted){state.session.xatkArmed=false;state.session.xatkUsed=true;}
-          var dmg=Math.round(vol*eff*(1+Math.max(stA.atk,stA.spa)/250)*(boosted?1.5:1));
-          var memberBefore=bz.memberIdx;
-          var hpBefore=state.game.boss.hp;
-          state.game.boss.hp-=dmg;
-          entry.dmg=dmg;entry.bidx=bz.idx;
-          lastDmg=dmg;
-          var effTxt=eff>=2?" It's super effective!":(eff<=0.3?' It barely affects it…':(eff<1?" It's not very effective…":''));
-          sfx(eff>=2?'superhit':(eff<=0.3?'weakhit':'hit'));
-          state.session.bmsg=DEX[am.sp].n+' used '+exr.ex.name.toUpperCase()+'!'+(boosted?' X ATTACK boost!':'')+effTxt+' '+dmg.toLocaleString()+' dmg.';
-          if(state.game.boss.hp<=0){
-            bossDefeated();
-          }else{
-            var bzAfter=bossInfo();
-            if(bzAfter.memberIdx>memberBefore){
-              // clean KO of a team member — the next one steps up, no counter this turn
-              sfx('faint');
-              state.session.bmsg+=' '+bz.mon+' fainted! '+bz.n+' sent out '+bzAfter.mon+'!';
-            }else{
-              // member survives → it strikes your lead back
-              applyBossCounter(bz,am);
-            }
-            if(state.game.boss.hp>0&&state.game.boss.hp/bz.max<0.2&&hpBefore/bz.max>=0.2){
-              setTimeout(function(){sfx('lowhp');},350);
-            }
-          }
-        }
+        resolveBossSet(am,entry,vol,id);
       }
       else if(state.session&&state.session.mode==='train'&&state.session.wild){
         var wd=state.session.wild;
@@ -2686,6 +2698,10 @@ document.addEventListener('click',function(e){
 });
 
 /* ===== init ===== */
+// Surface unexpected errors instead of silently freezing a button press.
+window.addEventListener('error',function(ev){
+  try{toast('⚠️ '+String((ev&&ev.message)||'Something glitched').slice(0,90));}catch(e){}
+});
 var staleNote=migrateState();
 applyTheme();
 render();
