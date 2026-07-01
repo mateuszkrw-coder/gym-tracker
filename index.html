@@ -18,9 +18,10 @@
 @font-face{font-family:'Press Start 2P';src:url('fonts/press-start-2p.woff2') format('woff2');font-display:swap}
 @font-face{font-family:'VT323';src:url('fonts/vt323.woff2') format('woff2');font-display:swap}
 :root{
-  --cream:#F8F8D0;
-  --cream2:#EEE8B0;
-  --bord:#585048;
+  /* Official FRLG window skin: white menu boxes, FireRed red-orange frames */
+  --cream:#FFFFFF;
+  --cream2:#F0E4DC;
+  --bord:#C05028;
   --frame:#405068;
   --boxw:#FFFFFF;
   --text:#303030;
@@ -47,7 +48,7 @@ button{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;curs
 .titlebar{padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between}
 h1{font-family:'Press Start 2P';font-size:16px;font-weight:400;margin:0;color:var(--ink);line-height:1.5}
 .subtitle{color:var(--inkmut);font-size:19px;margin:6px 16px 12px}
-.textbtn{background:none;border:none;color:var(--gold);font-family:'Press Start 2P';font-size:11px;padding:10px 0 10px 16px}
+.textbtn{background:none;border:none;color:var(--red);font-family:'Press Start 2P';font-size:11px;padding:10px 0 10px 16px}
 
 /* ---------- sections & exercise cards ---------- */
 .section{margin:18px 0 0}
@@ -73,10 +74,10 @@ button.card:active{background:var(--cream2)}
   font-size:16px;flex:none;font-family:inherit;display:flex;align-items:center;justify-content:center}
 .iconbtn.red{color:var(--red)}
 .addcard{justify-content:center;color:var(--text);background:var(--boxw);border-style:dashed}
-.card.done{background:#CFC796;border-color:#6A6248}
-.card.done .exname{color:#5F5638}
-.card.done .exlast{color:#7E764F}
-.card.done .gobtn{color:#2E8B48;background:#E8E2B8;border-color:#6A6248;font-size:9px}
+.card.done{background:#E8E8E8;border-color:#A8A8A0}
+.card.done .exname{color:#606060}
+.card.done .exlast{color:#909090}
+.card.done .gobtn{color:#2E8B48;background:#F8F8F8;border-color:#A8A8A0;font-size:9px}
 
 /* ---------- install banner ---------- */
 .banner{margin:4px 12px 8px;background:var(--boxw);
@@ -97,11 +98,11 @@ button.card:active{background:var(--cream2)}
 .mapwrap{position:relative;margin:6px 12px;border:3px solid var(--bord);border-radius:8px;overflow:hidden;line-height:0}
 html.theme-night .mapwrap img{filter:brightness(.62) saturate(.85)}
 .hotspot{position:absolute;background:none;border:none;display:flex;align-items:flex-end;justify-content:center;padding:0;cursor:pointer}
-.hotspot:active{background:rgba(248,248,208,.2)}
-.maptag{font-family:'Press Start 2P';font-size:9px;background:#F8F8D0;border:2px solid #585048;border-radius:4px;
+.hotspot:active{background:rgba(255,255,255,.25)}
+.maptag{font-family:'Press Start 2P';font-size:9px;background:#FFFFFF;border:2px solid #C05028;border-radius:4px;
   padding:3px 6px;color:#303030;line-height:1;margin-bottom:2px}
-.mapalert{position:absolute;top:-2px;right:2px;font-family:'VT323';font-size:17px;background:#F8F8D0;
-  border:2px solid #585048;border-radius:3px;padding:0 4px;color:#D03028;line-height:1.15}
+.mapalert{position:absolute;top:-2px;right:2px;font-family:'VT323';font-size:17px;background:#FFFFFF;
+  border:2px solid #C05028;border-radius:3px;padding:0 4px;color:#D03028;line-height:1.15}
 @keyframes bob{0%,100%{transform:none}50%{transform:translateY(-3px)}}
 .monstrip img{animation:bob 1.6s ease-in-out infinite}
 html.theme-night .maptag{background:#222A34;color:#E0E8F0;border-color:#10161E}
@@ -119,7 +120,7 @@ html.theme-night .mapalert{background:#222A34;border-color:#10161E}
 .dexcell:active{transform:scale(.95)}
 .prow:active,.card:active{transition:transform .08s}
 button.card:active,button.prow:active{transform:scale(.98)}
-#tabbar button.on{color:var(--red);background:var(--cream)}
+#tabbar button.on{color:var(--red);background:#F8DCD0}
 #tabbar svg{display:none}
 
 /* ---------- exercise sheet ---------- */
@@ -280,7 +281,7 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
 .seg button.on{background:var(--bord);color:var(--cream)}
 .btn{border:2px solid var(--bord);border-radius:4px;background:var(--boxw);color:var(--text);
   font-family:'Press Start 2P';font-size:10px;padding:11px 10px;flex:none;line-height:1;text-transform:uppercase}
-.btn.acc{background:var(--cream)}
+.btn.acc{background:#F8DCD0}
 .btn.danger{color:var(--red)}
 .btn.dangerbg{background:var(--red);border-color:#802018;color:#FFF8F0}
 .about{color:var(--inkmut);font-size:17px;text-align:center;margin:26px 20px;line-height:1.45}
@@ -1521,7 +1522,7 @@ function badgeCount(){
   if(g.flags.champion)return 8;
   return Math.min(g.boss?g.boss.idx:0,8);
 }
-function hpColor(pct){return pct>50?'#58C868':(pct>20?'#F8E038':'#F85838');}
+function hpColor(pct){return pct>50?'#58C868':(pct>20?'#F8D020':'#F85838');}
 var btPrevPct=null,lastDmg=0,btPrevMember=null,btPrevPhp=null;
 function spawnWild(){
   var am=activeMon();
@@ -1588,7 +1589,7 @@ function battlePanelHTML(anim){
   var pdots='';
   partyMons().forEach(function(q){
     var up=curHpOf(q)>0;
-    pdots+='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:2px;border:1px solid #585048;background:'+(up?(q.uid===m.uid?'#F8B050':'#58C868'):'transparent')+'"></span>';
+    pdots+='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:2px;border:1px solid #585048;background:'+(up?(q.uid===m.uid?'#D03028':'#58C868'):'transparent')+'"></span>';
   });
   var alive=alivePartyMons().length, total=partyMons().length, brow;
   if(state.session.blackout){
@@ -2031,7 +2032,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v4.3 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v4.4 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
