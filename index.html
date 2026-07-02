@@ -257,6 +257,21 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
 .evoflash{animation:evof .5s ease-in-out 4}
 @keyframes shk{0%,100%{transform:none}25%{transform:translateX(5px)}75%{transform:translateX(-5px)}}
 .shake{animation:shk .35s ease 2}
+/* GBA battle choreography */
+@keyframes lungeL{0%{transform:none}35%{transform:translate(16px,-9px)}60%{transform:translate(16px,-9px)}100%{transform:none}}
+.lunge-l{animation:lungeL .5s ease 1}
+@keyframes lungeR{0%{transform:none}35%{transform:translate(-16px,9px)}60%{transform:translate(-16px,9px)}100%{transform:none}}
+.lunge-r{animation:lungeR .5s ease 1}
+@keyframes blinkHit{0%,49%{opacity:1}50%,100%{opacity:.15}}
+.blink{animation:blinkHit .14s steps(1) 4}
+@keyframes faintdrop{to{transform:translateY(36px);opacity:0}}
+.faintdrop{animation:faintdrop .55s ease-in forwards}
+.bob{animation:bob 1.6s ease-in-out infinite}
+@keyframes blinkc{0%,55%{opacity:1}56%,100%{opacity:0}}
+.blinkc{display:inline-block;color:var(--red);animation:blinkc 1s steps(1) infinite;margin-right:6px}
+#bt-msg.msgdone::after{content:'▼';color:var(--red);font-size:13px;margin-left:5px;
+  display:inline-block;animation:bob 0.8s steps(2) infinite}
+.hpcrit{animation:pulse 1s ease-in-out infinite}
 .effchip{font-family:'Press Start 2P';font-size:9px;color:#FFF8F0;padding:3px 6px;border-radius:3px;flex:none}
 @keyframes slr{from{transform:translateX(90px);opacity:0}to{transform:none;opacity:1}}
 @keyframes sll{from{transform:translateX(-90px);opacity:0}to{transform:none;opacity:1}}
@@ -689,10 +704,10 @@ function heroHTML(){
     '</span></div>';
   return '<div class="panel hero">'+
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+
-    '<img src="sprites/trainers/'+playerSpr()+'.png" alt="" style="width:46px;height:46px;image-rendering:pixelated;flex:none">'+
+    '<img class="bob" src="sprites/trainers/'+playerSpr()+'.png" alt="" style="width:46px;height:46px;image-rendering:pixelated;flex:none">'+
     '<div class="hero-title" style="margin:0">'+esc(playerName())+'</div></div>'+
     activeMonStripHTML()+card+
-    '<button class="savebtn" data-action="start-workout" style="margin-top:12px">START WORKOUT</button></div>';
+    '<button class="savebtn" data-action="start-workout" style="margin-top:12px"><span class="blinkc">▶</span>START WORKOUT</button></div>';
 }
 function summaryHTML(){
   var d=new Date(), m=daySetsMap();
@@ -1572,24 +1587,34 @@ function bossCounterDamage(bz,mon){
 function applyBossCounter(bz,lead){
   if(!state.session.phps)state.session.phps={};
   var c=bossCounterDamage(bz,lead);
+  var mx=maxHpOf(lead);
+  var from=Math.round(Math.max(0,curHpOf(lead))/Math.max(1,mx)*100);
   state.session.phps[lead.uid]=Math.max(0,curHpOf(lead)-c.dmg);
-  state.session.lastpdmg=c.dmg;
+  var to=Math.round(state.session.phps[lead.uid]/Math.max(1,mx)*100);
   var ctxt=c.eff>=2?' A heavy blow!':(c.eff>1?' It hit hard!':(c.eff<1?' '+DEX[lead.sp].n+' shrugged it off.':''));
-  state.session.bmsg+=' '+bz.mon+' struck back — '+c.dmg+' dmg!'+ctxt;
-  if(state.session.phps[lead.uid]<=0)handleLeadFaint(lead);
+  var res={dmg:c.dmg,php:[from,to],msg:bz.mon+' struck back — '+c.dmg+' dmg!'+ctxt,fainted:false,faintMsg:null,goMsg:null};
+  state.session.bmsg+=' '+res.msg;
+  if(state.session.phps[lead.uid]<=0){
+    res.fainted=true;
+    var f=handleLeadFaint(lead);
+    res.faintMsg=f.msg;res.goMsg=f.goMsg;
+  }
+  return res;
 }
 function handleLeadFaint(lead){
-  sfx('faint');
   state.session.bmsg+=' '+DEX[lead.sp].n+' is unable to battle!';
   // next teammate in PARTY ORDER tanks (set yours via TEAM → EDIT PARTY)
   var order=partyMons(),nxt=null;
   for(var i=0;i<order.length;i++){
     if(order[i].uid!==lead.uid&&curHpOf(order[i])>0){nxt=order[i];break;}
   }
+  var out={msg:DEX[lead.sp].n+' is unable to battle!',goMsg:null};
   if(nxt){
     state.session.lead=nxt.uid;state.game.active=nxt.uid;
     state.session.bmsg+=' Go, '+DEX[nxt.sp].n+'!';
+    out.goMsg='Go, '+DEX[nxt.sp].n+'!';
   }else triggerBlackout();
+  return out;
 }
 function triggerBlackout(){
   state.session.blackout=true;
@@ -1597,20 +1622,24 @@ function triggerBlackout(){
   if(bz)state.game.boss.hp=Math.min(bz.max,state.game.boss.hp+Math.round(bz.max*0.25));
   var bz2=bossInfo();
   state.session.bmsg='Your whole team fainted! You blacked out'+(bz2?' — '+bz2.n+' recovered some HP':'')+'. Sets now earn XP only; heal up by your next workout.';
-  queueModal(function(){
-    sfx('faint');
-    showModal('<h3>Blacked out!</h3><p>'+esc(playerName())+'’s team was defeated. '+(bz2?esc(bz2.n)+' recovered 25% HP. ':'')+'Your sets still earn XP this workout — level up and come back stronger!</p>'+
-      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
-    modalOk=function(){closeModal();};
-  });
+  // let the faint animation finish before the modal drops
+  setTimeout(function(){
+    queueModal(function(){
+      sfx('faint');
+      showModal('<h3>Blacked out!</h3><p>'+esc(playerName())+'’s team was defeated. '+(bz2?esc(bz2.n)+' recovered 25% HP. ':'')+'Your sets still earn XP this workout — level up and come back stronger!</p>'+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+      modalOk=function(){closeModal();};
+    });
+  },2400);
 }
-/* One logged set in boss mode = one full battle exchange. */
+/* One logged set in boss mode = one full battle exchange, played out in stages. */
 function resolveBossSet(am,entry,vol,id){
   if(!state.session.party)initBossSession();
   var bz=bossInfo(),exr=exById(id);
   if(!bz||!exr)return;
   if(state.session.blackout){
     state.session.bmsg=DEX[am.sp].n+' keeps training! +'+(entry.xpg||0)+' XP. (Blacked out — no boss damage this workout.)';
+    pendingSteps={ov:null,list:[{msg:state.session.bmsg}]};
     return;
   }
   var gk=groupKeyOf(exr.group);
@@ -1620,30 +1649,52 @@ function resolveBossSet(am,entry,vol,id){
   var boosted=!!state.session.xatkArmed;
   if(boosted){state.session.xatkArmed=false;state.session.xatkUsed=true;}
   var dmg=Math.round(vol*eff*(1+Math.max(stA.atk,stA.spa)/250)*(boosted?1.5:1));
+  var ehpFrom=Math.round(bz.memberHp/Math.max(1,bz.memberMax)*100);
   var hpBefore=state.game.boss.hp;
   state.game.boss.hp-=dmg;
   entry.dmg=dmg;entry.bidx=bz.idx;
-  lastDmg=dmg;
   var effTxt=eff>=2?" It's super effective!":(eff<=0.3?' It barely affects it…':(eff<1?" It's not very effective…":''));
-  sfx(eff>=2?'superhit':(eff<=0.3?'weakhit':'hit'));
-  state.session.bmsg=DEX[am.sp].n+' used '+exr.ex.name.toUpperCase()+'!'+(boosted?' X ATTACK boost!':'')+effTxt+' '+dmg.toLocaleString()+' dmg.';
-  if(state.game.boss.hp<=0){bossDefeated();return;}
+  var hitSfx=eff>=2?'superhit':(eff<=0.3?'weakhit':'hit');
+  var atkMsg=DEX[am.sp].n+' used '+exr.ex.name.toUpperCase()+'!'+(boosted?' X ATTACK boost!':'')+effTxt;
+  state.session.bmsg=atkMsg+' '+dmg.toLocaleString()+' dmg.';
+  var steps=[];
+  if(state.game.boss.hp<=0){
+    steps.push({msg:atkMsg,sfx:hitSfx,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg]});
+    steps.push({msg:'Foe '+bz.mon+' is unable to battle!',sfx:'faint',faint:'enemy',hold:1100});
+    steps.push({refresh:true,hold:0});
+    pendingSteps={ov:{enemy:bz,lead:am},list:steps};
+    bossDefeated();
+    return;
+  }
   var after=bossInfo();
   if(after.memberIdx>bz.memberIdx){
     // clean KO: the fallen member pays out XP, the next steps up — no counter this turn
-    sfx('faint');
     var ko=Math.max(5,Math.round(bz.memberMax/25));
     entry.xpg=(entry.xpg||0)+ko;entry.mon=am.uid;
     state.session.xpg=(state.session.xpg||0)+ko;
     applyXP(am,ko);
     state.session.bmsg+=' Foe '+bz.mon+' is unable to battle! +'+ko+' XP! '+bz.n+' sent out '+after.mon+'!';
+    steps.push({msg:atkMsg,sfx:hitSfx,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg]});
+    steps.push({msg:'Foe '+bz.mon+' is unable to battle! +'+ko+' XP!',sfx:'faint',faint:'enemy',hold:1100});
+    steps.push({msg:bz.n+' sent out '+after.mon+'!',sfx:'battlestart',refresh:true,slide:'enemy'});
   }else{
-    // member survives → it strikes your lead back
-    applyBossCounter(after,am);
+    // member survives → your strike lands first, THEN it hits back
+    var ehpTo=Math.round(after.memberHp/Math.max(1,after.memberMax)*100);
+    steps.push({msg:atkMsg,sfx:hitSfx,lunge:'player',blink:'enemy',ehp:[ehpFrom,ehpTo],dmg:['enemy',dmg]});
+    var ct=applyBossCounter(after,am);
+    steps.push({msg:ct.msg,sfx:'hit',lunge:'enemy',blink:'player',php:ct.php,dmg:['player',ct.dmg]});
+    if(ct.fainted){
+      steps.push({msg:ct.faintMsg,sfx:'faint',faint:'player',hold:1100});
+      if(ct.goMsg)steps.push({msg:ct.goMsg,sfx:'battlestart',refresh:true,slide:'player'});
+      else steps.push({msg:'Your whole team fainted! You blacked out…',refresh:true,hold:1400});
+    }else{
+      steps.push({refresh:true,hold:0});
+    }
+    if(state.game.boss.hp>0&&state.game.boss.hp/bz.max<0.2&&hpBefore/bz.max>=0.2){
+      setTimeout(function(){sfx('lowhp');},1600);
+    }
   }
-  if(state.game.boss.hp>0&&state.game.boss.hp/bz.max<0.2&&hpBefore/bz.max>=0.2){
-    setTimeout(function(){sfx('lowhp');},350);
-  }
+  pendingSteps={ov:{enemy:bz,lead:am},list:steps};
 }
 function bossEffFor(group){
   if(!(state.session&&state.session.mode==='boss'))return null;
@@ -1658,7 +1709,7 @@ function badgeCount(){
   return Math.min(g.boss?g.boss.idx:0,8);
 }
 function hpColor(pct){return pct>50?'#58C868':(pct>20?'#F8D020':'#F85838');}
-var btPrevPct=null,lastDmg=0,btPrevMember=null,btPrevPhp=null;
+var btPrevPct=null,btPrevMember=null,btPrevPhp=null;
 function spawnWild(){
   var am=activeMon();
   var lv=am?monLevel(am.xp):5;
@@ -1681,9 +1732,13 @@ function curBattlePct(){
   }
   return null;
 }
-function wildPanelHTML(anim){
-  var w=state.session.wild;
-  var m=activeMon();if(!m)return '';
+function expPctOf(m){
+  var l=monLevel(m.xp),into=m.xp-xpFloor(l),span=Math.max(1,xpFloor(l+1)-xpFloor(l));
+  return Math.min(100,Math.round(into/span*100));
+}
+function wildPanelHTML(anim,ov){
+  var w=(ov&&ov.wild)||state.session.wild;
+  var m=(ov&&ov.lead)||activeMon();if(!m)return '';
   var d=DEX[w.sp];
   var pct=Math.round(Math.max(0,w.hp)/w.max*100);
   if(anim)btPrevPct=pct;
@@ -1700,22 +1755,24 @@ function wildPanelHTML(anim){
         '<img id="bt-espr" class="'+(anim?'slidein-r':'')+(w.shiny?' shinyglow':'')+'" src="'+sprPath(w.sp,w.shiny)+'" alt="'+d.n+'" style="width:68px;height:68px;image-rendering:pixelated;position:relative">'+
       '</div>'+
     '</div>'+
-    '<div style="display:flex;align-items:flex-end;gap:8px;margin-top:2px">'+
+    '<div id="bt-pscene" style="position:relative;display:flex;align-items:flex-end;gap:8px;margin-top:2px">'+
       '<div style="position:relative;flex:none;padding-bottom:5px">'+
         '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:80px;height:16px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
-        '<img class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative">'+
+        '<img id="bt-pspr" class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative">'+
       '</div>'+
-      '<div class="plv" style="padding-bottom:9px">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+'</div></div>'+
-    '<div class="memo" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
+      '<div style="flex:1;min-width:0;padding-bottom:7px"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+'</div>'+
+      '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div id="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div></div>'+
+    '</div>'+
+    '<div class="memo" id="bt-msg" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
     esc(state.session.bmsg||('A wild '+d.n+' appeared! Log a set to attack.'))+'</div></div>';
 }
-function battlePanelHTML(anim){
+function battlePanelHTML(anim,ov){
   if(!state.session)return '';
-  if(state.session.mode==='train'&&state.session.wild&&state.game)return wildPanelHTML(anim);
+  if(state.session.mode==='train'&&state.session.wild&&state.game)return wildPanelHTML(anim,ov);
   if(state.session.mode!=='boss')return '';
-  var bz=bossInfo();if(!bz)return '';
   if(!state.session.party)initBossSession();
-  var m=leadMon();if(!m)return '';
+  var bz=(ov&&ov.enemy)||bossInfo();if(!bz)return '';
+  var m=(ov&&ov.lead)||leadMon();if(!m)return '';
   var pct=Math.round(bz.memberHp/Math.max(1,bz.memberMax)*100);
   if(anim){btPrevPct=pct;btPrevMember=bz.memberIdx;}
   var pmax=maxHpOf(m),php=Math.max(0,curHpOf(m)),ppct=Math.round(php/Math.max(1,pmax)*100);
@@ -1758,75 +1815,158 @@ function battlePanelHTML(anim){
     '<div id="bt-pscene" style="position:relative;display:flex;align-items:flex-end;gap:8px;margin-top:2px">'+
       '<div style="position:relative;flex:none;padding-bottom:5px">'+
         '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:80px;height:16px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
-        '<img class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative'+(php<=0?';opacity:.4':'')+'">'+
+        '<img id="bt-pspr" class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative'+(php<=0?';opacity:.4':'')+'">'+
       '</div>'+
       '<div style="flex:1;min-width:0;padding-bottom:4px"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+' <span style="vertical-align:1px">'+pdots+'</span></div>'+
       '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div id="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
+      '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div id="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div>'+
       '<div class="plv" style="margin-top:3px">'+php+' / '+pmax+' HP</div></div>'+
     '</div>'+
-    '<div class="memo" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
+    '<div class="memo" id="bt-msg" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
     esc(state.session.bmsg||(bz.n+' sent out '+bz.mon+'! Log a set to attack.'))+'</div>'+
     brow+'</div>';
 }
+/* ---- battle playback: one logged set becomes a staged FRLG exchange ---- */
+var pendingSteps=null,pendingExp=null,animTimers=[],typeTimer=null;
+function clearBattleAnim(){
+  animTimers.forEach(clearTimeout);animTimers=[];
+  if(typeTimer){clearInterval(typeTimer);typeTimer=null;}
+}
+function typeMsg(txt){
+  var el=$('#bt-msg');if(!el)return;
+  if(typeTimer)clearInterval(typeTimer);
+  el.classList.remove('msgdone');
+  el.textContent='';
+  var i=0;
+  typeTimer=setInterval(function(){
+    i+=2;
+    el.textContent=txt.slice(0,i);
+    if(i>=txt.length){clearInterval(typeTimer);typeTimer=null;el.classList.add('msgdone');}
+  },16);
+}
+function setBarNow(sel,pct,isHp){
+  var el=$(sel);if(!el)return;
+  el.style.transition='none';
+  el.style.width=pct+'%';
+  if(isHp)el.style.background=hpColor(pct);
+  void el.offsetWidth;
+  el.style.transition='';
+}
+function driftBar(sel,to,isHp){
+  var el=$(sel);if(!el)return;
+  el.style.width=to+'%';
+  if(isHp){
+    el.style.background=hpColor(to);
+    if(sel==='#bt-php')el.classList.toggle('hpcrit',to<=20&&to>0);
+  }
+}
+function dmgFloat(side,val){
+  var sc=$(side==='player'?'#bt-pscene':'#bt-scene');
+  if(!sc)return;
+  var f=document.createElement('span');
+  f.className='dmgfloat';
+  if(side==='player'){f.style.color='#3878C8';f.style.left='14px';f.style.top='2px';}
+  else{f.style.right='14px';f.style.top='4px';}
+  f.textContent='-'+Number(val).toLocaleString();
+  sc.appendChild(f);
+  setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},950);
+}
+function sprFx(sel,cls){
+  var el=$(sel);if(!el)return;
+  el.classList.remove('lunge-l','lunge-r','blink','faintdrop');
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+function syncPrevBars(){
+  btPrevPct=curBattlePct();
+  var bz=(state.session&&state.session.mode==='boss')?bossInfo():null;
+  btPrevMember=bz?bz.memberIdx:null;
+  var lead=leadMon();
+  btPrevPhp=(bz&&lead)?Math.round(Math.max(0,curHpOf(lead))/Math.max(1,maxHpOf(lead))*100):null;
+}
+function runBattleStep(st){
+  if(st.refresh){
+    var w=$('#bt-wrap');
+    if(w){
+      w.innerHTML=battlePanelHTML(false);
+      if(st.slide==='enemy')sprFx('#bt-espr','slidein-r');
+      if(st.slide==='player')sprFx('#bt-pspr','slidein-l');
+      syncPrevBars();
+    }
+  }
+  if(st.sfx)sfx(st.sfx);
+  if(st.msg)typeMsg(st.msg);
+  if(st.lunge==='player')sprFx('#bt-pspr','lunge-l');
+  if(st.lunge==='enemy')sprFx('#bt-espr','lunge-r');
+  if(st.blink==='enemy')animTimers.push(setTimeout(function(){sprFx('#bt-espr','blink');},240));
+  if(st.blink==='player')animTimers.push(setTimeout(function(){sprFx('#bt-pspr','blink');},240));
+  if(st.faint==='enemy')sprFx('#bt-espr','faintdrop');
+  if(st.faint==='player')sprFx('#bt-pspr','faintdrop');
+  if(st.ehp)animTimers.push(setTimeout(function(){driftBar('#bt-ehp',st.ehp[1],true);},300));
+  if(st.php)animTimers.push(setTimeout(function(){driftBar('#bt-php',st.php[1],true);},300));
+  if(st.dmg)animTimers.push(setTimeout(function(){dmgFloat(st.dmg[0],st.dmg[1]);},260));
+}
+function stepHold(st){
+  var base=st.hold||950;
+  if(st.msg)base=Math.max(base,st.msg.length*8+520);
+  return base;
+}
+function playBattleSteps(steps){
+  var t=0;
+  steps.forEach(function(st){
+    animTimers.push(setTimeout(function(){runBattleStep(st);},t));
+    t+=stepHold(st);
+  });
+  // xp fill runs alongside the first step, wrapping through 100 on level-up
+  if(pendingExp){
+    (function(xa){
+      animTimers.push(setTimeout(function(){
+        if(xa.wrap){
+          driftBar('#bt-pexp',100,false);
+          animTimers.push(setTimeout(function(){setBarNow('#bt-pexp',0,false);driftBar('#bt-pexp',xa.to,false);},460));
+        }else driftBar('#bt-pexp',xa.to,false);
+      },420));
+    })(pendingExp);
+    pendingExp=null;
+  }
+}
 function updateBattlePanel(){
   var w=$('#bt-wrap');if(!w)return;
+  clearBattleAnim();
+  if(pendingSteps){
+    var plan=pendingSteps;pendingSteps=null;
+    w.innerHTML=battlePanelHTML(false,plan.ov);
+    // prime bars at their pre-attack values so drains play out
+    plan.list.forEach(function(st){
+      if(st.ehp&&st.ehp.length>1&&st._p!==1){setBarNow('#bt-ehp',st.ehp[0],true);st._p=1;}
+      if(st.php&&st.php.length>1&&st._q!==1){setBarNow('#bt-php',st.php[0],true);st._q=1;}
+    });
+    if(plan.exp){setBarNow('#bt-pexp',plan.exp.from,false);pendingExp=plan.exp;}
+    var m0=$('#bt-msg');if(m0){m0.textContent='';m0.classList.remove('msgdone');}
+    playBattleSteps(plan.list);
+    return;
+  }
   w.innerHTML=battlePanelHTML(false);
+  // plain refresh (switch, potion, panel rebuild): gentle bar catch-up
+  var bar=$('#bt-ehp'),newPct=curBattlePct();
   var isBoss=state.session&&state.session.mode==='boss';
   var bz=isBoss?bossInfo():null;
-  var bar=$('#bt-ehp');
-  var newPct=curBattlePct();
   var curMember=bz?bz.memberIdx:-1;
-  if(bar&&newPct!==null){
-    if(isBoss&&btPrevMember!==null&&curMember!==btPrevMember){
-      bar.style.width=newPct+'%';bar.style.background=hpColor(newPct);
-    }else if(btPrevPct!==null&&btPrevPct!==newPct){
-      bar.style.width=btPrevPct+'%';
-      requestAnimationFrame(function(){requestAnimationFrame(function(){
-        bar.style.width=newPct+'%';
-        bar.style.background=hpColor(newPct);
-      });});
-    }
-    btPrevPct=newPct;btPrevMember=curMember;
+  if(bar&&newPct!==null&&btPrevPct!==null&&btPrevPct!==newPct&&!(isBoss&&btPrevMember!==null&&curMember!==btPrevMember)){
+    setBarNow('#bt-ehp',btPrevPct,true);
+    requestAnimationFrame(function(){requestAnimationFrame(function(){driftBar('#bt-ehp',newPct,true);});});
   }
   if(isBoss){
-    var pbar=$('#bt-php'),lead=leadMon();
+    var lead=leadMon(),pbar=$('#bt-php');
     if(pbar&&lead){
-      var pm=maxHpOf(lead),npp=Math.round(Math.max(0,curHpOf(lead))/Math.max(1,pm)*100);
+      var npp=Math.round(Math.max(0,curHpOf(lead))/Math.max(1,maxHpOf(lead))*100);
       if(btPrevPhp!==null&&btPrevPhp!==npp){
-        pbar.style.width=btPrevPhp+'%';
-        requestAnimationFrame(function(){requestAnimationFrame(function(){
-          pbar.style.width=npp+'%';pbar.style.background=hpColor(npp);
-        });});
+        setBarNow('#bt-php',btPrevPhp,true);
+        requestAnimationFrame(function(){requestAnimationFrame(function(){driftBar('#bt-php',npp,true);});});
       }
-      btPrevPhp=npp;
     }
   }
-  if(lastDmg){
-    var im=$('#bt-espr');
-    if(im){im.classList.remove('shake');void im.offsetWidth;im.classList.add('shake');}
-    var sc=$('#bt-scene');
-    if(sc){
-      var f=document.createElement('span');
-      f.className='dmgfloat';
-      f.textContent='-'+lastDmg.toLocaleString();
-      f.style.right='14px';f.style.top='4px';
-      sc.appendChild(f);
-      setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},950);
-    }
-    lastDmg=0;
-  }
-  if(state.session&&state.session.lastpdmg){
-    var ps=$('#bt-pscene');
-    if(ps){
-      var pf=document.createElement('span');
-      pf.className='dmgfloat';pf.style.color='#3878C8';
-      pf.textContent='-'+state.session.lastpdmg;
-      pf.style.left='14px';pf.style.top='2px';
-      ps.appendChild(pf);
-      setTimeout(function(){if(pf.parentNode)pf.parentNode.removeChild(pf);},950);
-    }
-    state.session.lastpdmg=0;
-  }
+  syncPrevBars();
 }
 function bossStripHTML(){
   if(!state.session)return '';
@@ -1855,7 +1995,7 @@ function bossCardHTML(){
   var pct=Math.round(bz.hp/bz.max*100);
   return '<div class="panel" data-action="bld" data-b="boss" style="cursor:pointer"><h3>NEXT BOSS<span class="bestchip">'+(bz.round>1?'R'+bz.round+' · ':'')+(bz.idx<8?('BADGE '+(bz.idx+1)+'/8'):(bz.idx<12?'ELITE FOUR':'FINAL'))+'</span></h3>'+
     '<div style="display:flex;align-items:center;gap:10px">'+
-    '<img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:56px;height:56px;image-rendering:pixelated;flex:none">'+
+    '<img class="bob" src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:56px;height:56px;image-rendering:pixelated;flex:none">'+
     '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+' <span class="plv">:L'+bz.lv+'</span></div>'+
     '<div class="plv" style="margin:1px 0 6px">'+bz.gym+' · team of '+bz.teamSize+'</div>'+
     '<div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div>'+
@@ -1891,6 +2031,8 @@ function bossDefeated(){
   else g.boss={idx:bz.idx+1,hp:hpFor(bz.idx+1,g.round||1)};
   if(state.session)state.session.bmsg='Foe '+bz.mon+' is unable to battle!'+(isChamp?' You are the CHAMPION!':' '+BOSSES[bz.idx+1].n+' steps up next!');
   save();
+  // let the final KO animation land before the victory modals
+  setTimeout(function(){
   queueModal(function(){
     sfx('faint');
     showModal('<h3>'+esc(bz.n)+' is out of POKéMON!</h3>'+
@@ -1916,6 +2058,7 @@ function bossDefeated(){
     });
     grantMon('mewtwo','mewtwo','A legend stirs…','You are the CHAMPION! MEWTWO acknowledges your strength and joins you!');
   }
+  },2300);
 }
 function showStadiumModal(){
   var bz=bossInfo();
@@ -2249,7 +2392,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v4.5 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v4.6 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -2407,6 +2550,7 @@ function saveLogEntry(){
     var am=activeMon();
     if(am){
       var vol=entry.w*entry.r*entry.s;
+      var expFrom=expPctOf(am),expLv0=monLevel(am.xp);
       var gain=Math.round(vol/10*(state.session?(state.session.mode==='boss'?1:1.5):1)*(state.session&&state.session.lucky?2:1));
       if(gain>0){
         entry.xpg=gain;entry.mon=am.uid;
@@ -2420,43 +2564,54 @@ function saveLogEntry(){
         var wd=state.session.wild;
         var stT=statsFor(am);
         var dmgT=Math.round(vol*(1+Math.max(stT.atk,stT.spa)/250));
+        var wPre={sp:wd.sp,lv:wd.lv,hp:Math.max(0,wd.hp),max:wd.max,shiny:wd.shiny,tr:wd.tr};
+        var wFrom=Math.round(wPre.hp/wd.max*100);
         wd.hp-=dmgT;
-        lastDmg=dmgT;
+        var wTo=Math.round(Math.max(0,wd.hp)/wd.max*100);
         var exr2=exById(id);
+        var wAtk=DEX[am.sp].n+' used '+(exr2?exr2.ex.name.toUpperCase():'A SET')+'!';
+        var wSteps=[{msg:wAtk,sfx:'hit',lunge:'player',blink:'enemy',ehp:[wFrom,wTo],dmg:['enemy',dmgT]}];
         if(wd.hp<=0){
           var wbonus=Math.round(wd.max/(wd.tr?8:10));
           state.session.xpg=(state.session.xpg||0)+wbonus;
           applyXP(am,wbonus);
           var oldN=DEX[wd.sp].n;
           state.session.wild=spawnWild();
+          var newN=DEX[state.session.wild.sp].n;
           if(wd.tr){
             // trainer beaten — payout, like the games
             addMoney(wd.tr.purse);
-            sfx('badge');
-            state.session.bmsg=wd.tr.clsN+' '+wd.tr.name+' was defeated! Won ₽'+wd.tr.purse+'! +'+wbonus+' XP! A wild '+DEX[state.session.wild.sp].n+' appeared!';
+            state.session.bmsg=wd.tr.clsN+' '+wd.tr.name+' was defeated! Won ₽'+wd.tr.purse+'! +'+wbonus+' XP! A wild '+newN+' appeared!';
+            wSteps.push({msg:'Foe '+oldN+' is unable to battle! +'+wbonus+' XP!',sfx:'faint',faint:'enemy',hold:1100});
+            wSteps.push({msg:wd.tr.clsN+' '+wd.tr.name+' was defeated! Won ₽'+wd.tr.purse+'!',sfx:'badge',hold:1300});
+            wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',refresh:true,slide:'enemy'});
           }else{
-            sfx('faint');
-            state.session.bmsg='Wild '+oldN+' fainted! +'+wbonus+' XP! A wild '+DEX[state.session.wild.sp].n+' appeared!';
+            state.session.bmsg='Wild '+oldN+' fainted! +'+wbonus+' XP! A wild '+newN+' appeared!';
+            wSteps.push({msg:'Wild '+oldN+' fainted! +'+wbonus+' XP!',sfx:'faint',faint:'enemy',hold:1100});
+            wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',refresh:true,slide:'enemy'});
             // sometimes a route trainer ambushes you (optional fight, pays ₽)
             if(Math.random()<0.25){
               pendingAmbush=rollAmbush();
               (function(pa){
-                queueModal(function(){
-                  sfx('battlestart');
-                  showModal('<div style="text-align:center;padding-bottom:4px"><img src="sprites/trainers/'+pa.cls+'.png" alt="" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
-                    '<h3>'+pa.clsN+' '+pa.name+' wants to battle!</h3>'+
-                    '<p>Their '+DEX[pa.sp].n+' :L'+pa.lv+' blocks the path. Beat it for ₽'+pa.purse+'!</p>'+
-                    '<div class="mbtns"><button class="btn" data-action="close-modal">IGNORE</button>'+
-                    '<button class="btn acc" data-action="ambush-yes">BATTLE</button></div>');
-                  modalOk=null;
-                });
+                setTimeout(function(){
+                  queueModal(function(){
+                    sfx('battlestart');
+                    showModal('<div style="text-align:center;padding-bottom:4px"><img src="sprites/trainers/'+pa.cls+'.png" alt="" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
+                      '<h3>'+pa.clsN+' '+pa.name+' wants to battle!</h3>'+
+                      '<p>Their '+DEX[pa.sp].n+' :L'+pa.lv+' blocks the path. Beat it for ₽'+pa.purse+'!</p>'+
+                      '<div class="mbtns"><button class="btn" data-action="close-modal">IGNORE</button>'+
+                      '<button class="btn acc" data-action="ambush-yes">BATTLE</button></div>');
+                    modalOk=null;
+                  });
+                },2700);
               })(pendingAmbush);
             }
           }
         }else{
-          sfx('hit');
-          state.session.bmsg=DEX[am.sp].n+' used '+(exr2?exr2.ex.name.toUpperCase():'A SET')+'! '+dmgT.toLocaleString()+' dmg.';
+          state.session.bmsg=wAtk+' '+dmgT.toLocaleString()+' dmg.';
+          wSteps.push({refresh:true,hold:0});
         }
+        pendingSteps={ov:{wild:wPre,lead:am},list:wSteps};
       }
       // a new record feeds the lead a Rare Candy: jump to the next level (+PR bonus ₽)
       if(entry.w>prevBest&&prevBest>0){
@@ -2469,6 +2624,8 @@ function saveLogEntry(){
         }
       }
       else if(!(state.session&&state.game)){sfx('save');}
+      // hand the XP fill to the battle playback (wraps through 100 on level-up)
+      if(pendingSteps)pendingSteps.exp={from:expFrom,to:expPctOf(am),wrap:monLevel(am.xp)>expLv0};
       if(state.game.egg){
         state.game.egg.left-=entry.s;
         if(state.game.egg.left<=0){
