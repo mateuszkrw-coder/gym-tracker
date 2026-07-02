@@ -301,6 +301,10 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
 .stroll.follow{animation-delay:.4s,.15s}
 .mapwrap img.mapimg{filter:var(--townf,none)}
 html.theme-night .mapwrap img.mapimg{filter:var(--townf,none) brightness(.62) saturate(.85)}
+/* official FRLG battle scene */
+.arenabg{background-size:cover;background-position:center bottom;image-rendering:pixelated;
+  border:2px solid var(--bord);border-radius:6px;padding:7px}
+.databox{background:rgba(255,255,255,.86);border:2px solid var(--bord);border-radius:6px;padding:5px 8px}
 .effchip{font-family:'Press Start 2P';font-size:9px;color:#FFF8F0;padding:3px 6px;border-radius:3px;flex:none}
 @keyframes slr{from{transform:translateX(90px);opacity:0}to{transform:none;opacity:1}}
 @keyframes sll{from{transform:translateX(-90px);opacity:0}to{transform:none;opacity:1}}
@@ -556,6 +560,8 @@ function endWorkout(){
   var end=Date.now();
   var st=sessionStats(ses.start,end);
   state.session=null;ensureTicker();
+  // back to town after every workout, like leaving the gym
+  tab='map';editMode=false;
   if(!st.sets){save();render();toast('Workout ended — no sets logged, so nothing saved');return;}
   state.sessions=state.sessions||[];
   state.sessions.push({id:uid(),start:ses.start,end:end,sets:st.sets,volume:st.volume,exercises:st.exercises});
@@ -1578,23 +1584,33 @@ function curMoveFor(m,bz){
   ms.forEach(function(n){var e=effOfType(moveTypeOf(n),bz.type);if(e>=be){be=e;best=n;}});
   return best;
 }
-/* the journey: one town per badge, each with its own tint and shop stock */
+/* the journey: one town per badge — real FRLG maps, own hotspots + shop stock.
+   hs boxes are [left%,top%,width%,height%] over each town's map image; wp = walker [left%,bottom%] */
 var TOWNS=[
-  {n:'VIRIDIAN CITY',sub:'The eternally green paradise',f:'none'},
-  {n:'PEWTER CITY',sub:'A quiet town carved from grey stone',f:'saturate(.55) brightness(1.04)'},
-  {n:'CERULEAN CITY',sub:'A splash of blue between the hills',f:'hue-rotate(35deg) saturate(1.15)'},
-  {n:'VERMILION CITY',sub:'A sunset harbour humming with current',f:'hue-rotate(-25deg) saturate(1.2)'},
-  {n:'CELADON CITY',sub:'The rainbow town of big spenders',f:'hue-rotate(12deg) saturate(1.4)'},
-  {n:'FUCHSIA CITY',sub:'A pink-walled town of safari secrets',f:'hue-rotate(-60deg) saturate(1.1)'},
-  {n:'SAFFRON CITY',sub:'A golden city of unblinking minds',f:'sepia(.45) saturate(1.3)'},
-  {n:'CINNABAR ISLAND',sub:'A volcanic isle of burning research',f:'hue-rotate(-40deg) saturate(1.5) brightness(.95)'},
-  {n:'INDIGO PLATEAU',sub:'Where only champions walk',f:'hue-rotate(190deg) saturate(.9)'}
+  {n:'VIRIDIAN CITY',sub:'The eternally green paradise',img:'map/viridian.png',
+    hs:{boss:[64,13,22,19],mart:[67,37.5,16,14.5],train:[64,53.5,21,16.5]},wp:[14,8]},
+  {n:'PEWTER CITY',sub:'A quiet town carved from grey stone',img:'map/pewter.png',
+    hs:{boss:[24,30,17,17],mart:[52,37,12,12],train:[52,55,30,24]},wp:[18,18]},
+  {n:'CERULEAN CITY',sub:'A splash of blue between the hills',img:'map/cerulean.png',
+    hs:{boss:[54,44,17,12],mart:[54,65,12,11],train:[2,60,22,30]},wp:[25,23]},
+  {n:'VERMILION CITY',sub:'A sunset harbour humming with current',img:'map/vermilion.png',
+    hs:{boss:[23,55,17,12],mart:[55,38,11,10],train:[63,3,26,17]},wp:[40,20]},
+  {n:'CELADON CITY',sub:'The rainbow town of big spenders',img:'map/celadon.png',
+    hs:{boss:[14,68,11,12],mart:[15,15,14,26],train:[38,42,14,21]},wp:[30,25]},
+  {n:'FUCHSIA CITY',sub:'A pink-walled town of safari secrets',img:'map/fuchsia.png',
+    hs:{boss:[13,70,15,13],mart:[18,32,10,11],train:[11,17,28,12]},wp:[35,44]},
+  {n:'SAFFRON CITY',sub:'A golden city of unblinking minds',img:'map/saffron.png',
+    hs:{boss:[65,16,11,10],mart:[55.5,31.5,9,10],train:[0.5,1,21,35]},wp:[40,12]},
+  {n:'CINNABAR ISLAND',sub:'A volcanic isle of burning research',img:'map/cinnabar.png',
+    hs:{boss:[70,10,17,15],mart:[70,40,14,19],train:[6,64,57,27]},wp:[30,30]},
+  {n:'INDIGO PLATEAU',sub:'Where only champions walk',img:'map/indigo.png',
+    hs:{boss:[21,6,55,32],mart:[3,34,18,26],train:[10,64,80,33]},wp:[35,45]}
 ];
 function townIdx(){return Math.min(badgeCount(),8);}
-/* per-gym arena floors + move-effect archetypes */
-var ARENA={Rock:'#EAD9B0',Water:'#CFE3F8',Electric:'#F8EFC0',Grass:'#D9EDC2',Poison:'#E5D3EE',
-  Psychic:'#F6D4E4',Fire:'#F8D9C2',Ground:'#E7D6B4',Ice:'#D8F0F2',Fighting:'#EFD9C0',
-  Ghost:'#DAD1E8',Dragon:'#D9D6F2',Champion:'#F3E3B8'};
+/* official FRLG battle backgrounds per boss type */
+var ARENA_IMG={Rock:'cave',Ground:'cave',Water:'water',Ice:'ice',Electric:'gym',Fighting:'gym',
+  Grass:'grass',Poison:'poison',Ghost:'poison',Psychic:'psychic',Fire:'sand',Dragon:'teal',Champion:'pond'};
+function arenaFile(t){return 'sprites/arenas/'+(ARENA_IMG[t]||'gym')+'.png';}
 var FX_OF={Fire:'fxfire',Electric:'fxelec',Water:'fxwater',Ice:'fxwater',Rock:'fxrock',Ground:'fxrock',
   Psychic:'fxpsy',Ghost:'fxpsy',Dragon:'fxpsy',Fighting:'fximpact',Normal:'fximpact',Steel:'fximpact',
   Grass:'fxleaf',Poison:'fxleaf',Bug:'fxleaf',Flying:'fxleaf'};
@@ -1839,26 +1855,26 @@ function wildPanelHTML(anim,ov){
   var d=DEX[w.sp];
   var pct=Math.round(Math.max(0,w.hp)/w.max*100);
   if(anim)btPrevPct=pct;
-  return '<div class="panel" style="padding:11px 12px;background:linear-gradient(180deg,#FFFFFF 26%,#DDEFC6)">'+
+  return '<div class="panel" style="padding:11px 12px">'+
+    '<div class="arenabg" style="background-image:url('+arenaFile('Grass')+')">'+
     '<div id="bt-scene" style="position:relative;display:flex;align-items:center;gap:8px">'+
-      '<div style="flex:1;min-width:0"><div class="pname">'+
+      '<div class="databox" style="flex:1;min-width:0"><div class="pname">'+
       (w.tr?'<img src="sprites/trainers/'+w.tr.cls+'.png" alt="" style="width:22px;height:22px;image-rendering:pixelated;vertical-align:-5px"> '+w.tr.name+"'S "+d.n
            :'WILD '+d.n+(w.shiny?' <span class="shinystar">★</span>':''))+
       ' <span class="plv">:L'+w.lv+'</span></div>'+
       '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div id="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
       '<div class="plv" style="margin-top:3px">'+Math.max(0,w.hp).toLocaleString()+' / '+w.max.toLocaleString()+' kg</div></div>'+
       '<div style="position:relative;flex:none;padding-bottom:5px">'+
-        '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:80px;height:16px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
         '<img id="bt-espr" class="'+(anim?'slidein-r':'')+(w.shiny?' shinyglow':'')+'" src="'+sprPath(w.sp,w.shiny)+'" alt="'+d.n+'" style="width:68px;height:68px;image-rendering:pixelated;position:relative">'+
       '</div>'+
     '</div>'+
     '<div id="bt-pscene" style="position:relative;display:flex;align-items:flex-end;gap:8px;margin-top:2px">'+
       '<div style="position:relative;flex:none;padding-bottom:5px">'+
-        '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:80px;height:16px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
         '<img id="bt-pspr" class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative">'+
       '</div>'+
-      '<div style="flex:1;min-width:0;padding-bottom:7px"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+'</div>'+
+      '<div class="databox" style="flex:1;min-width:0"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+'</div>'+
       '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div id="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div></div>'+
+    '</div>'+
     '</div>'+
     '<div class="memo" id="bt-msg" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
     esc(state.session.bmsg||('A wild '+d.n+' appeared! Log a set to attack.'))+'</div></div>';
@@ -1907,26 +1923,25 @@ function battlePanelHTML(anim,ov){
       '<span class="tchip" style="background:'+(TYPE_COLORS[mvT]||'#888')+'">'+mvT.toUpperCase()+'</span>'+
       '<span>'+mvN+' · '+mvLab+'</span></button>';
   }
-  var arena=ARENA[bz.idx===12?'Champion':bz.type]||'#F2F2F2';
-  return '<div class="panel" style="padding:11px 12px;background:linear-gradient(180deg,#FFFFFF 26%,'+arena+')">'+
+  return '<div class="panel" style="padding:11px 12px">'+
+    '<div class="arenabg" style="background-image:url('+arenaFile(bz.idx===12?'Champion':bz.type)+')">'+
     '<div id="bt-scene" style="position:relative;display:flex;align-items:center;gap:8px">'+
-      '<div style="flex:1;min-width:0"><div class="pname">'+bz.mon+' <span class="plv">:L'+bz.lv+(bz.round>1?' · R'+bz.round:'')+'</span><span style="float:right">'+dots+'</span></div>'+
+      '<div class="databox" style="flex:1;min-width:0"><div class="pname">'+bz.mon+' <span class="plv">:L'+bz.lv+(bz.round>1?' · R'+bz.round:'')+'</span><span style="float:right">'+dots+'</span></div>'+
       '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div id="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
       '<div class="plv" style="margin-top:3px">'+bz.memberHp.toLocaleString()+' / '+bz.memberMax.toLocaleString()+' kg · '+bz.aliveLeft+' left</div></div>'+
       '<div style="position:relative;flex:none;padding-bottom:5px">'+
-        '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:92px;height:18px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
         '<img id="bt-espr" class="'+(anim?'slidein-r':'')+'" src="sprites/'+bz.monId+'.png" alt="'+bz.mon+'" style="width:76px;height:76px;image-rendering:pixelated;position:relative">'+
       '</div>'+
     '</div>'+
     '<div id="bt-pscene" style="position:relative;display:flex;align-items:flex-end;gap:8px;margin-top:2px">'+
       '<div style="position:relative;flex:none;padding-bottom:5px">'+
-        '<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:80px;height:16px;border-radius:50%;background:rgba(88,80,72,.16)"></div>'+
         '<img id="bt-pspr" class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative'+(php<=0?';opacity:.4':'')+'">'+
       '</div>'+
-      '<div style="flex:1;min-width:0;padding-bottom:4px"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+' <span style="vertical-align:1px">'+pdots+'</span></div>'+
+      '<div class="databox" style="flex:1;min-width:0"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+' <span style="vertical-align:1px">'+pdots+'</span></div>'+
       '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div id="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
       '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div id="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div>'+
       '<div class="plv" style="margin-top:3px">'+php+' / '+pmax+' HP</div></div>'+
+    '</div>'+
     '</div>'+
     '<div class="memo" id="bt-msg" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
     esc(state.session.bmsg||(bz.n+' sent out '+bz.mon+'! Log a set to attack.'))+'</div>'+
@@ -2299,16 +2314,20 @@ function partyStripHTML(){
 }
 function mapHTML(){
   var encAlert=(state.game&&state.game.enc&&Object.keys(state.game.enc).length>0);
-  var tw=TOWNS[townIdx()];
+  var ti=townIdx(),tw=TOWNS[ti];
   var lead=activeMon();
+  function spot(key,label,extra){
+    var b=tw.hs[key];
+    return '<button class="hotspot" data-action="bld" data-b="'+key+'" style="left:'+b[0]+'%;top:'+b[1]+'%;width:'+b[2]+'%;height:'+b[3]+'%" aria-label="'+label+'">'+(extra||'')+'<span class="maptag">'+label+'</span></button>';
+  }
   var h='<div class="titlebar"><h1>'+tw.n+'</h1></div>'+
-    '<div class="subtitle">'+tw.sub+(townIdx()>0?' · town '+(townIdx()+1)+'/9':'')+'</div>'+
-    '<div class="mapwrap" style="--townf:'+tw.f+'">'+
-    '<img class="mapimg" src="map/viridian.png" alt="'+tw.n+'" style="width:100%;display:block;image-rendering:pixelated">'+
-    '<button class="hotspot" data-action="bld" data-b="boss" style="left:64%;top:13%;width:22%;height:19%" aria-label="Gym boss challenge"><span class="maptag">BOSS</span></button>'+
-    '<button class="hotspot" data-action="bld" data-b="mart" style="left:67%;top:37.5%;width:16%;height:14.5%" aria-label="Mart"><span class="maptag">SHOP</span></button>'+
-    '<button class="hotspot" data-action="bld" data-b="train" style="left:64%;top:53.5%;width:21%;height:16.5%" aria-label="Wild grass training">'+(encAlert?'<span class="mapalert">!</span>':'')+'<span class="maptag">TRAIN</span></button>'+
-    '<div style="position:absolute;left:14%;bottom:8%;pointer-events:none;display:flex;align-items:flex-end">'+
+    '<div class="subtitle">'+tw.sub+(ti>0?' · town '+(ti+1)+'/9':'')+'</div>'+
+    '<div class="mapwrap">'+
+    '<img class="mapimg" src="'+tw.img+'" alt="'+tw.n+'" style="width:100%;display:block;image-rendering:pixelated">'+
+    spot('boss','BOSS')+
+    spot('mart','SHOP')+
+    spot('train','TRAIN',encAlert?'<span class="mapalert">!</span>':'')+
+    '<div style="position:absolute;left:'+tw.wp[0]+'%;bottom:'+tw.wp[1]+'%;pointer-events:none;display:flex;align-items:flex-end">'+
       '<img class="stroll" src="sprites/trainers/'+playerSpr()+'.png" alt="" style="width:34px;height:34px;image-rendering:pixelated">'+
       (lead?'<img class="stroll follow" src="'+sprPath(lead.sp,lead.shiny)+'" alt="" style="width:30px;height:30px;image-rendering:pixelated;margin-left:-8px">':'')+
     '</div>'+
@@ -2528,7 +2547,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v4.7 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v4.8 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
