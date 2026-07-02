@@ -1,13 +1,15 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v16';
+const CACHE = 'gym-tracker-v17';
 /* Catchable lines (have front + shiny + back + back-shiny sprites). */
 const MON_IDS = [4,5,6,7,8,9,16,17,18,25,26,27,28,37,38,52,53,54,55,57,58,59,63,64,65,66,67,68,74,75,76,92,93,94,95,96,97,104,105,106,107,112,129,130,131,133,134,135,136,143,147,148,149,150];
 /* Boss team members shown front-on only. */
 const BOSS_IDS = [31,42,45,49,51,71,78,87,89,100,109,110,114,120,121,124,142];
 /* Wild-only species (front + shiny front — 5% of wild spawns are shiny). */
 const WILD_IDS = [10,11,13,14,19,21,23,29,32,35,39,41,43,46,48,50,56,60,69,72,77,81,84,86,88,90,98,102,109,111,116,118];
-const TRAINERS = ['red','leaf','oak','brock','misty','ltsurge','erika','koga','sabrina','blaine','giovanni','lorelei','bruno','agatha','lance','blue'];
+const TRAINERS = ['red','leaf','oak','brock','misty','ltsurge','erika','koga','sabrina','blaine','giovanni','lorelei','bruno','agatha','lance','blue',
+  'bugcatcher','youngster','lass','hiker','fisherman','picnicker'];
+const ITEM_KEYS = ['potion','superpotion','hyperpotion','revive','pokeball','greatball','ultraball','xattack','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy'];
 const ASSETS = [
   './',
   './index.html',
@@ -26,6 +28,7 @@ const ASSETS = [
   .concat(WILD_IDS.map((i) => './sprites/' + i + '.png'))
   .concat(WILD_IDS.map((i) => './sprites/shiny/' + i + '.png'))
   .concat(TRAINERS.map((t) => './sprites/trainers/' + t + '.png'))
+  .concat(ITEM_KEYS.map((k) => './sprites/items/' + k + '.png'))
   .concat(['./map/viridian.png']);
 
 self.addEventListener('install', (e) => {
