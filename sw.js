@@ -1,6 +1,6 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v18';
+const CACHE = 'gym-tracker-v19';
 /* Catchable lines (have front + shiny + back + back-shiny sprites). */
 const MON_IDS = [4,5,6,7,8,9,16,17,18,25,26,27,28,37,38,52,53,54,55,57,58,59,63,64,65,66,67,68,74,75,76,92,93,94,95,96,97,104,105,106,107,112,129,130,131,133,134,135,136,143,147,148,149,150];
 /* Boss team members shown front-on only. */
