@@ -750,6 +750,7 @@ function summaryHTML(){
     '<div class="subtitle">'+DAYSF[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate()+'</div>'+
     heroHTML()+
     bossCardHTML()+
+    bossLadderHTML()+
     hofCardHTML()+
     medalsHTML()+
     '<div class="grid2">'+
@@ -2388,6 +2389,34 @@ function bossCardHTML(){
     '<div class="plv" style="margin-top:3px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg — tap to challenge</div>'+
     '</div></div></div>';
 }
+function bossLadderHTML(){
+  var g=state.game;
+  if(!g)return '';
+  var curIdx=g.boss?g.boss.idx:BOSSES.length;
+  var round=g.round||1;
+  var beatenN=Math.min(curIdx,BOSSES.length);
+  var cells='';
+  BOSSES.forEach(function(b,i){
+    var beaten=i<curIdx,current=i===curIdx;
+    var nm=b.n.replace('CHAMPION ','');
+    var img='<img src="sprites/trainers/'+b.tr+'.png" alt="" style="width:40px;height:40px;image-rendering:pixelated'+
+      (beaten||current?'':';filter:brightness(0);opacity:.4')+'">';
+    if(current){
+      cells+='<button class="pstripbtn" data-action="bld" data-b="boss" style="width:62px;margin-bottom:6px">'+img+
+        '<div class="plv" style="font-size:11px;line-height:1.15;color:#D03028">'+nm+'<br>NEXT ▶</div></button>';
+    }else if(beaten){
+      cells+='<div class="pstripbtn" style="width:62px;margin-bottom:6px;cursor:default">'+img+
+        '<div class="plv" style="font-size:11px;line-height:1.15">'+nm+'<br><span style="color:#2E8B48">✓ WON</span></div></div>';
+    }else{
+      cells+='<div class="pstripbtn" style="width:62px;margin-bottom:6px;cursor:default">'+img+
+        '<div class="plv" style="font-size:11px;line-height:1.15;color:#A8A8A0">'+nm+'<br>· · ·</div></div>';
+    }
+  });
+  return '<div class="panel"><h3>LEAGUE LADDER<span class="bestchip">'+
+    (round>1?'R'+round+' · ':'')+beatenN+' / '+BOSSES.length+
+    (g.hof&&g.hof.length?' · 🏆'+g.hof.length:'')+'</span></h3>'+
+    '<div style="display:flex;flex-wrap:wrap;justify-content:space-between">'+cells+'</div></div>';
+}
 function bossDefeated(){
   var g=state.game;var bz=bossInfo();if(!bz)return;
   var bonus=Math.round(bz.max/30);
@@ -2752,7 +2781,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.2 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.3 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
