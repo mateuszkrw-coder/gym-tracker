@@ -267,8 +267,6 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
 @keyframes faintdrop{to{transform:translateY(36px);opacity:0}}
 .faintdrop{animation:faintdrop .55s ease-in forwards}
 .bob{animation:bob 1.6s ease-in-out infinite}
-@keyframes blinkc{0%,55%{opacity:1}56%,100%{opacity:0}}
-.blinkc{display:inline-block;color:var(--red);animation:blinkc 1s steps(1) infinite;margin-right:6px}
 .bt-msg.msgdone::after{content:'▼';color:var(--red);font-size:13px;margin-left:5px;
   display:inline-block;animation:bob 0.8s steps(2) infinite}
 .hpcrit{animation:pulse 1s ease-in-out infinite}
@@ -668,6 +666,7 @@ function migrateState(){
     if(!state.game.bag){state.game.bag={};changed=true;}
     if(!Array.isArray(state.game.hof)){state.game.hof=[];changed=true;}
     if(state.game.partyIds===undefined){state.game.partyIds=null;changed=true;}
+    if(!state.game.medals){state.game.medals={};changed=true;}
   }
   if(!(state.version>=9)){state.version=9;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
@@ -749,7 +748,7 @@ function heroHTML(){
     '<img class="bob" src="sprites/trainers/'+playerSpr()+'.png" alt="" style="width:46px;height:46px;image-rendering:pixelated;flex:none">'+
     '<div class="hero-title" style="margin:0">'+esc(playerName())+'</div></div>'+
     activeMonStripHTML()+card+
-    '<button class="savebtn" data-action="start-workout" style="margin-top:12px"><span class="blinkc">▶</span>START WORKOUT</button></div>';
+    '<button class="savebtn" data-action="start-workout" style="margin-top:12px">START WORKOUT</button></div>';
 }
 function summaryHTML(){
   var d=new Date(), m=daySetsMap();
@@ -765,6 +764,7 @@ function summaryHTML(){
     heroHTML()+
     bossCardHTML()+
     hofCardHTML()+
+    medalsHTML()+
     '<div class="grid2">'+
     '<div class="scard"><div class="t">This week</div><div class="v" style="color:var(--accent)">'+weekDays+'<span class="u"> days</span></div>'+miniBarsHTML()+'</div>'+
     '<div class="scard"><div class="t">Volume today</div><div class="v" style="color:#7848B0">'+fmtVol(volToday)+'<span class="u"> '+esc(state.unit)+'</span></div>'+
@@ -882,6 +882,43 @@ CATCH_QUEUES.triceps.push(['vulpix',7000]);
 CATCH_QUEUES.biceps.push(['meowth',7000]);
 CATCH_QUEUES.legs.push(['psyduck',12000]);
 CATCH_QUEUES.shoulders.push(['drowzee',7000]);
+/* v5.0 content drop: twelve more catchable lines (26 species) */
+DEX.rattata={n:'RATTATA',id:19,t:['Normal'],bs:[30,56,35,25,35,72],evo:{lv:20,to:'raticate'}};
+DEX.raticate={n:'RATICATE',id:20,t:['Normal'],bs:[55,81,60,50,70,97]};
+DEX.spearow={n:'SPEAROW',id:21,t:['Normal','Flying'],bs:[40,60,30,31,31,70],evo:{lv:20,to:'fearow'}};
+DEX.fearow={n:'FEAROW',id:22,t:['Normal','Flying'],bs:[65,90,65,61,61,100]};
+DEX.zubat={n:'ZUBAT',id:41,t:['Poison','Flying'],bs:[40,45,35,30,40,55],evo:{lv:22,to:'golbat'}};
+DEX.golbat={n:'GOLBAT',id:42,t:['Poison','Flying'],bs:[75,80,70,65,75,90]};
+DEX.oddish={n:'ODDISH',id:43,t:['Grass','Poison'],bs:[45,50,55,75,65,30],evo:{lv:21,to:'gloom'}};
+DEX.gloom={n:'GLOOM',id:44,t:['Grass','Poison'],bs:[60,65,70,85,75,40],evo:{lv:36,to:'vileplume'}};
+DEX.vileplume={n:'VILEPLUME',id:45,t:['Grass','Poison'],bs:[75,80,85,100,90,50]};
+DEX.paras={n:'PARAS',id:46,t:['Bug','Grass'],bs:[35,70,55,45,55,25],evo:{lv:24,to:'parasect'}};
+DEX.parasect={n:'PARASECT',id:47,t:['Bug','Grass'],bs:[60,95,80,60,80,30]};
+DEX.venonat={n:'VENONAT',id:48,t:['Bug','Poison'],bs:[60,55,50,40,55,45],evo:{lv:31,to:'venomoth'}};
+DEX.venomoth={n:'VENOMOTH',id:49,t:['Bug','Poison'],bs:[70,65,60,90,75,90]};
+DEX.poliwag={n:'POLIWAG',id:60,t:['Water'],bs:[40,50,40,40,40,90],evo:{lv:25,to:'poliwhirl'}};
+DEX.poliwhirl={n:'POLIWHIRL',id:61,t:['Water'],bs:[65,65,65,50,50,90],evo:{lv:42,to:'poliwrath'}};
+DEX.poliwrath={n:'POLIWRATH',id:62,t:['Water','Fighting'],bs:[90,85,95,70,90,70]};
+DEX.ponyta={n:'PONYTA',id:77,t:['Fire'],bs:[50,85,55,65,65,90],evo:{lv:40,to:'rapidash'}};
+DEX.rapidash={n:'RAPIDASH',id:78,t:['Fire'],bs:[65,100,70,80,80,105]};
+DEX.magnemite={n:'MAGNEMITE',id:81,t:['Electric','Steel'],bs:[25,35,70,95,55,45],evo:{lv:30,to:'magneton'}};
+DEX.magneton={n:'MAGNETON',id:82,t:['Electric','Steel'],bs:[50,60,95,120,70,70]};
+DEX.grimer={n:'GRIMER',id:88,t:['Poison'],bs:[80,80,50,40,50,25],evo:{lv:38,to:'muk'}};
+DEX.muk={n:'MUK',id:89,t:['Poison'],bs:[105,105,75,65,100,50]};
+DEX.voltorb={n:'VOLTORB',id:100,t:['Electric'],bs:[40,30,50,55,55,100],evo:{lv:30,to:'electrode'}};
+DEX.electrode={n:'ELECTRODE',id:101,t:['Electric'],bs:[60,50,70,80,80,140]};
+DEX.staryu={n:'STARYU',id:120,t:['Water'],bs:[30,45,55,70,55,85],evo:{lv:36,to:'starmie'}};
+DEX.starmie={n:'STARMIE',id:121,t:['Water','Psychic'],bs:[60,75,85,100,85,115]};
+DEX_ORDER.push('rattata','raticate','spearow','fearow','zubat','golbat','oddish','gloom','vileplume',
+  'paras','parasect','venonat','venomoth','poliwag','poliwhirl','poliwrath','ponyta','rapidash',
+  'magnemite','magneton','grimer','muk','voltorb','electrode','staryu','starmie');
+CATCH_QUEUES.back.push(['rattata',3000],['spearow',6000],['zubat',14000]);
+CATCH_QUEUES.legs.push(['oddish',6000],['poliwag',16000],['staryu',22000]);
+CATCH_QUEUES.forearm.push(['paras',18000]);
+CATCH_QUEUES.shoulders.push(['venonat',14000]);
+CATCH_QUEUES.biceps.push(['magnemite',14000],['voltorb',20000]);
+CATCH_QUEUES.triceps.push(['ponyta',14000]);
+CATCH_QUEUES.pecs.push(['grimer',9000]);
 var WILD_STAGES=[
   ['pidgey','rattata','caterpie','metapod','weedle','kakuna','pikachu','spearow','mankey','nidoranf','nidoranm'],
   ['zubat','geodude','paras','clefairy','jigglypuff','sandshrew','ekans','magikarp'],
@@ -957,7 +994,33 @@ var MOVESETS={
   drowzee:[[10,'HYPNOSIS'],[18,'CONFUSION'],[31,'PSYCHIC'],[40,'FUTURE SIGHT']],
   hypno:[[10,'HYPNOSIS'],[26,'CONFUSION'],[40,'PSYCHIC'],[52,'FUTURE SIGHT']],
   cubone:[[9,'BONE CLUB'],[21,'HEADBUTT'],[33,'BONEMERANG'],[45,'DOUBLE-EDGE']],
-  marowak:[[9,'BONE CLUB'],[28,'HEADBUTT'],[39,'BONEMERANG'],[53,'BONE RUSH']]
+  marowak:[[9,'BONE CLUB'],[28,'HEADBUTT'],[39,'BONEMERANG'],[53,'BONE RUSH']],
+  rattata:[[7,'QUICK ATTACK'],[13,'HYPER FANG'],[27,'SUPER FANG']],
+  raticate:[[7,'QUICK ATTACK'],[20,'HYPER FANG'],[34,'SUPER FANG'],[50,'DOUBLE-EDGE']],
+  spearow:[[9,'PECK'],[15,'FURY ATTACK'],[29,'DRILL PECK'],[43,'AGILITY']],
+  fearow:[[9,'PECK'],[23,'FURY ATTACK'],[38,'DRILL PECK'],[53,'AGILITY']],
+  zubat:[[6,'SUPERSONIC'],[12,'BITE'],[26,'WING ATTACK'],[46,'AIR CUTTER']],
+  golbat:[[6,'SUPERSONIC'],[22,'BITE'],[34,'WING ATTACK'],[52,'AIR CUTTER']],
+  oddish:[[7,'ABSORB'],[14,'ACID'],[23,'MEGA DRAIN'],[39,'PETAL DANCE']],
+  gloom:[[7,'ABSORB'],[21,'ACID'],[32,'MEGA DRAIN'],[48,'PETAL DANCE']],
+  vileplume:[[7,'ABSORB'],[36,'MEGA DRAIN'],[50,'PETAL DANCE'],[64,'SOLARBEAM']],
+  paras:[[7,'STUN SPORE'],[13,'LEECH LIFE'],[27,'SLASH'],[41,'SPORE']],
+  parasect:[[7,'STUN SPORE'],[24,'LEECH LIFE'],[35,'SLASH'],[49,'SPORE']],
+  venonat:[[9,'CONFUSION'],[17,'POISONPOWDER'],[25,'PSYBEAM'],[41,'PSYCHIC']],
+  venomoth:[[9,'CONFUSION'],[31,'PSYBEAM'],[45,'PSYCHIC'],[59,'SLEEP POWDER']],
+  poliwag:[[7,'BUBBLE'],[16,'HYPNOSIS'],[31,'BODY SLAM'],[43,'HYDRO PUMP']],
+  poliwhirl:[[7,'BUBBLE'],[25,'HYPNOSIS'],[37,'BODY SLAM'],[51,'HYDRO PUMP']],
+  poliwrath:[[7,'BUBBLE'],[42,'SUBMISSION'],[55,'MIND READER'],[68,'HYDRO PUMP']],
+  ponyta:[[9,'EMBER'],[19,'STOMP'],[31,'FIRE SPIN'],[45,'BOUNCE']],
+  rapidash:[[9,'EMBER'],[40,'STOMP'],[50,'FIRE SPIN'],[63,'FIRE BLAST']],
+  magnemite:[[6,'THUNDERSHOCK'],[16,'SONICBOOM'],[32,'SPARK'],[44,'ZAP CANNON']],
+  magneton:[[6,'THUNDERSHOCK'],[30,'SONICBOOM'],[43,'SPARK'],[57,'ZAP CANNON']],
+  grimer:[[8,'SLUDGE'],[19,'MINIMIZE'],[34,'SLUDGE BOMB'],[47,'GUNK SHOT']],
+  muk:[[8,'SLUDGE'],[38,'MINIMIZE'],[47,'SLUDGE BOMB'],[61,'GUNK SHOT']],
+  voltorb:[[8,'SPARK'],[15,'ROLLOUT'],[27,'SELFDESTRUCT'],[42,'EXPLOSION']],
+  electrode:[[8,'SPARK'],[30,'ROLLOUT'],[41,'SELFDESTRUCT'],[54,'EXPLOSION']],
+  staryu:[[7,'WATER GUN'],[18,'SWIFT'],[31,'BUBBLEBEAM'],[42,'HYDRO PUMP']],
+  starmie:[[7,'WATER GUN'],[36,'BUBBLEBEAM'],[48,'PSYCHIC'],[60,'HYDRO PUMP']]
 };
 function movesFor(sp){return MOVESETS[sp]||[];}
 function eggSVG(size){
@@ -978,12 +1041,12 @@ var ITEMS={
   ultraball:{n:'ULTRA BALL',p:1200,d:'Fills a catch bar by 50%',ball:0.50,t:4},
   xattack:{n:'X ATTACK',p:500,d:'One extra +50% set in a boss fight',t:0},
   luckyegg:{n:'LUCKY EGG',p:1500,d:'2× XP for your whole next workout',t:1},
-  hpup:{n:'HP UP',p:3000,d:'+5 MAX HP, permanent',v:'hp',t:5},
-  protein:{n:'PROTEIN',p:3000,d:'+5 ATTACK, permanent',v:'atk',t:5},
-  iron:{n:'IRON',p:3000,d:'+5 DEFENSE, permanent',v:'def',t:5},
-  calcium:{n:'CALCIUM',p:3000,d:'+5 SP. ATK, permanent',v:'spa',t:5},
-  zinc:{n:'ZINC',p:3000,d:'+5 SP. DEF, permanent',v:'spd',t:5},
-  carbos:{n:'CARBOS',p:3000,d:'+5 SPEED, permanent',v:'spe',t:5},
+  hpup:{n:'HP UP',p:3000,d:'+5 MAX HP — a bigger tank in boss fights',v:'hp',t:5},
+  protein:{n:'PROTEIN',p:3000,d:'+5 ATTACK — your sets hit harder',v:'atk',t:5},
+  iron:{n:'IRON',p:3000,d:'+5 DEFENSE — boss counters hurt less',v:'def',t:5},
+  calcium:{n:'CALCIUM',p:3000,d:'+5 SP. ATK — your sets hit harder',v:'spa',t:5},
+  zinc:{n:'ZINC',p:3000,d:'+5 SP. DEF — boss counters hurt less',v:'spd',t:5},
+  carbos:{n:'CARBOS',p:3000,d:'+5 SPEED — more critical hits',v:'spe',t:5},
   rarecandy:{n:'RARE CANDY',p:4800,d:'Instantly levels up one POKéMON',t:6}
 };
 var ITEMS_ORDER=['potion','superpotion','hyperpotion','revive','pokeball','greatball','ultraball','xattack','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy'];
@@ -1230,6 +1293,24 @@ function checkGameEvents(){
   if(maxW>=100&&grantMon('pr100','primeape','Something angry appears!','100 '+state.unit+' on the bar?! PRIMEAPE is furious it cannot lift that. It joined to learn.'))changed=true;
   if(maxW>=130&&grantMon('pr130','hitmonlee','A challenger!','130 '+state.unit+'! HITMONLEE bows to your strength and joins your team!'))changed=true;
   if(maxW>=160&&grantMon('pr160','rhydon','The ground shakes…','160 '+state.unit+'?! RHYDON felt the tremor and had to meet you!'))changed=true;
+  // type medals: completing a type's collection is celebrated once
+  if(!g.medals)g.medals={};
+  medalList().forEach(function(md){
+    if(g.medals[md.t])return;
+    if(medalCaught(md)>=md.species.length){
+      g.medals[md.t]=1;changed=true;
+      (function(t){
+        queueModal(function(){
+          sfx('badge');
+          showModal('<div style="text-align:center">'+medalSVG(t,true,64)+'</div>'+
+            '<h3 style="text-align:center">'+t.toUpperCase()+' MEDAL GET! 🎖</h3>'+
+            '<p style="text-align:center">You caught every '+t+'-type POKéMON!</p>'+
+            '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+          modalOk=function(){closeModal();render(true);};
+        });
+      })(md.t);
+    }
+  });
   // Oak's eggs at badges 1, 4 and 7
   var bc2=badgeCount();
   [['egg1',1],['egg2',4],['egg3',7]].forEach(function(eg){
@@ -1434,9 +1515,14 @@ function openMon(u){
   var into=m.xp-xpFloor(l),span=Math.max(1,xpFloor(l+1)-xpFloor(l));
   var chips='';
   d.t.forEach(function(t){chips+='<span class="tchip" style="background:'+(TYPE_COLORS[t]||'#888')+'">'+t.toUpperCase()+'</span> ';});
-  var rows=[['MAX. HP',st.hp],['ATTACK',st.atk],['DEFENSE',st.def],['SP. ATK',st.spa],['SP. DEF',st.spd],['SPEED',st.spe]];
+  var base=statsAt(m.sp,l);
+  var rows=[['MAX. HP','hp'],['ATTACK','atk'],['DEFENSE','def'],['SP. ATK','spa'],['SP. DEF','spd'],['SPEED','spe']];
   var srows='';
-  rows.forEach(function(r){srows+='<div class="statrow"><span style="color:var(--mut)">'+r[0]+'</span><b style="font-weight:400">'+r[1]+'</b></div>';});
+  rows.forEach(function(r){
+    var bonus=st[r[1]]-base[r[1]];
+    srows+='<div class="statrow"><span style="color:var(--mut)">'+r[0]+'</span><b style="font-weight:400">'+st[r[1]]+
+      (bonus>0?' <span style="color:#2E8B48;font-size:16px">+'+bonus+'</span>':'')+'</b></div>';
+  });
   $('#monsheet').innerHTML='<div class="sheethead"><div class="shtitle">'+
     '<div class="g" style="color:#D03028">POKéMON INFO</div>'+
     '<h1>'+d.n+(m.shiny?' <span class="shinystar">★</span>':'')+'</h1>'+
@@ -1571,7 +1657,13 @@ var MOVE_TYPES={
   'MIST':'Ice','ICE BEAM':'Ice','AURORA BEAM':'Ice',
   'DRAGON RAGE':'Dragon',
   'ACID ARMOR':'Poison','SMOG':'Poison',
-  'METAL CLAW':'Steel','BITE':'Dark','MEGAHORN':'Bug'
+  'METAL CLAW':'Steel','BITE':'Dark','MEGAHORN':'Bug',
+  'PECK':'Flying','DRILL PECK':'Flying','AIR CUTTER':'Flying','BOUNCE':'Flying',
+  'ABSORB':'Grass','MEGA DRAIN':'Grass','PETAL DANCE':'Grass','SOLARBEAM':'Grass',
+  'STUN SPORE':'Grass','SPORE':'Grass','SLEEP POWDER':'Grass',
+  'ACID':'Poison','POISONPOWDER':'Poison','SLUDGE':'Poison','SLUDGE BOMB':'Poison','GUNK SHOT':'Poison',
+  'LEECH LIFE':'Bug','SPARK':'Electric','ZAP CANNON':'Electric','ROLLOUT':'Rock',
+  'BUBBLEBEAM':'Water','SUBMISSION':'Fighting','MIND READER':'Normal'
 };
 function moveTypeOf(n){return MOVE_TYPES[n]||'Normal';}
 function effOfType(at,dt){return (MOVE_EFF[at]&&MOVE_EFF[at][dt]!==undefined)?MOVE_EFF[at][dt]:1;}
@@ -1621,6 +1713,61 @@ function arenaFile(t){return 'sprites/arenas/'+(ARENA_IMG[t]||'gym')+'.png';}
 var FX_OF={Fire:'fxfire',Electric:'fxelec',Water:'fxwater',Ice:'fxwater',Rock:'fxrock',Ground:'fxrock',
   Psychic:'fxpsy',Ghost:'fxpsy',Dragon:'fxpsy',Fighting:'fximpact',Normal:'fximpact',Steel:'fximpact',
   Grass:'fxleaf',Poison:'fxleaf',Bug:'fxleaf',Flying:'fxleaf'};
+/* collector medals: catch every catchable species of a type to earn it */
+var MEDAL_ORDER=['Normal','Fire','Water','Electric','Grass','Psychic','Fighting','Flying','Poison','Ground','Rock','Bug','Ghost','Dragon','Steel'];
+function medalList(){
+  var by={};
+  DEX_ORDER.forEach(function(sp){(DEX[sp].t||[]).forEach(function(t){(by[t]=by[t]||[]).push(sp);});});
+  var out=[];
+  MEDAL_ORDER.forEach(function(t){if(by[t]&&by[t].length>=2)out.push({t:t,species:by[t]});});
+  return out;
+}
+function medalCaught(md){
+  var c=0;
+  md.species.forEach(function(sp){var d=state.game&&state.game.dex[sp];if(d&&d.c)c++;});
+  return c;
+}
+function medalSVG(t,earned,size){
+  var c=earned?(TYPE_COLORS[t]||'#888888'):'#A8A8A0';
+  return '<svg viewBox="0 0 40 40" width="'+size+'" height="'+size+'" aria-hidden="true">'+
+    '<circle cx="20" cy="20" r="18" fill="'+(earned?'#E8D890':'#C8C8C0')+'" stroke="#585048" stroke-width="2"/>'+
+    '<circle cx="20" cy="20" r="13" fill="'+c+'" stroke="rgba(0,0,0,.25)" stroke-width="2"/>'+
+    '<ellipse cx="15" cy="14" rx="5" ry="3" fill="rgba(255,255,255,'+(earned?'.55':'.3')+')" transform="rotate(-25 15 14)"/>'+
+    '<text x="20" y="25" text-anchor="middle" style="font-family:\'Press Start 2P\';font-size:11px;fill:#FFF8F0;paint-order:stroke;stroke:rgba(0,0,0,.4);stroke-width:2px">'+t.charAt(0)+'</text></svg>';
+}
+function medalsHTML(){
+  if(!state.game)return '';
+  var mds=medalList(),got=0,cells='';
+  mds.forEach(function(md){
+    var c=medalCaught(md),full=c>=md.species.length;
+    if(full)got++;
+    cells+='<button class="pstripbtn" data-action="show-medal" data-t="'+md.t+'" style="width:54px;margin-bottom:4px">'+
+      medalSVG(md.t,full,38)+
+      '<div class="plv" style="font-size:12px;line-height:1.1;margin-top:1px'+(full?';color:#2E8B48':'')+'">'+md.t.toUpperCase().slice(0,6)+'<br>'+(full?'★':c+'/'+md.species.length)+'</div></button>';
+  });
+  return '<div class="panel"><h3>TYPE MEDALS<span class="bestchip">'+got+' / '+mds.length+'</span></h3>'+
+    '<div style="display:flex;flex-wrap:wrap;justify-content:space-between">'+cells+'</div>'+
+    '<div class="plv" style="margin-top:4px">Catch every POKéMON of a type to earn its medal — tap one to see what’s missing.</div></div>';
+}
+function showMedalModal(t){
+  if(!state.game)return;
+  var md=null;
+  medalList().forEach(function(x){if(x.t===t)md=x;});
+  if(!md)return;
+  var c=medalCaught(md),full=c>=md.species.length;
+  var h='<div style="text-align:center">'+medalSVG(t,full,56)+'</div>'+
+    '<h3 style="text-align:center">'+t.toUpperCase()+' MEDAL</h3>'+
+    '<p style="text-align:center">'+(full?'Complete — every '+t+'-type caught!':c+' / '+md.species.length+' caught. The shadows are still out there.')+'</p>'+
+    '<div class="dexgrid" style="margin:0">';
+  md.species.forEach(function(sp){
+    var d=state.game.dex[sp],has=d&&d.c;
+    h+='<div class="dexcell'+(has?'':' unk')+'"><img src="'+sprPath(sp,!!(d&&d.s))+'" alt="">'+
+      '<div class="dexname">'+(has?DEX[sp].n:(state.game.seen[sp]?DEX[sp].n:'?????'))+'</div></div>';
+  });
+  h+='</div><div class="mbtns"><button class="btn acc" data-action="close-modal">CLOSE</button></div>';
+  showModal(h);
+  modalOk=null;
+}
 function moveFx(t){
   var el=$('#fx');if(!el)return;
   var cls=FX_OF[t]||'fximpact';
@@ -1775,14 +1922,16 @@ function resolveBossSet(am,entry,vol,id){
   var stA=statsFor(am);
   var boosted=!!state.session.xatkArmed;
   if(boosted){state.session.xatkArmed=false;state.session.xatkUsed=true;}
-  var dmg=Math.round(vol*eff*(1+Math.max(stA.atk,stA.spa)/250)*(boosted?1.5:1));
+  // speed = crit chance, the gen-1 way (capped at 25%)
+  var crit=Math.random()<Math.min(0.25,stA.spe/400);
+  var dmg=Math.round(vol*eff*(1+Math.max(stA.atk,stA.spa)/250)*(boosted?1.5:1)*(crit?1.5:1));
   var ehpFrom=Math.round(bz.memberHp/Math.max(1,bz.memberMax)*100);
   var hpBefore=state.game.boss.hp;
   state.game.boss.hp-=dmg;
   entry.dmg=dmg;entry.bidx=bz.idx;
   var effTxt=eff>=2?" It's super effective!":(eff<=0.3?' It barely affects it…':(eff<1?" It's not very effective…":''));
-  var hitSfx=eff>=2?'superhit':(eff<=0.3?'weakhit':'hit');
-  var atkMsg=DEX[am.sp].n+' used '+mvName+'!'+(boosted?' X ATTACK boost!':'')+effTxt;
+  var hitSfx=(crit||eff>=2)?'superhit':(eff<=0.3?'weakhit':'hit');
+  var atkMsg=DEX[am.sp].n+' used '+mvName+'!'+(crit?' A critical hit!':'')+(boosted?' X ATTACK boost!':'')+effTxt;
   state.session.bmsg=atkMsg+' '+dmg.toLocaleString()+' dmg.';
   var steps=[];
   if(state.game.boss.hp<=0){
@@ -2532,7 +2681,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v4.9 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.0 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -2705,15 +2854,16 @@ function saveLogEntry(){
       else if(state.session&&state.session.mode==='train'&&state.session.wild){
         var wd=state.session.wild;
         var stT=statsFor(am);
-        var dmgT=Math.round(vol*(1+Math.max(stT.atk,stT.spa)/250));
+        var wCrit=Math.random()<Math.min(0.25,stT.spe/400);
+        var dmgT=Math.round(vol*(1+Math.max(stT.atk,stT.spa)/250)*(wCrit?1.5:1));
         var wPre={sp:wd.sp,lv:wd.lv,hp:Math.max(0,wd.hp),max:wd.max,shiny:wd.shiny,tr:wd.tr};
         var wFrom=Math.round(wPre.hp/wd.max*100);
         wd.hp-=dmgT;
         var wTo=Math.round(Math.max(0,wd.hp)/wd.max*100);
         var wKm=knownMoves(am);
         var wMv=wKm[Math.floor(Math.random()*wKm.length)];
-        var wAtk=DEX[am.sp].n+' used '+wMv+'!';
-        var wSteps=[{msg:wAtk,sfx:'hit',lunge:'player',blink:'enemy',ehp:[wFrom,wTo],dmg:['enemy',dmgT],fx:moveTypeOf(wMv)}];
+        var wAtk=DEX[am.sp].n+' used '+wMv+'!'+(wCrit?' A critical hit!':'');
+        var wSteps=[{msg:wAtk,sfx:wCrit?'superhit':'hit',lunge:'player',blink:'enemy',ehp:[wFrom,wTo],dmg:['enemy',dmgT],fx:moveTypeOf(wMv)}];
         if(wd.hp<=0){
           var wbonus=Math.round(wd.max/(wd.tr?8:10));
           state.session.xpg=(state.session.xpg||0)+wbonus;
@@ -2772,7 +2922,7 @@ function saveLogEntry(){
       if(state.game.egg){
         state.game.egg.left-=entry.s;
         if(state.game.egg.left<=0){
-          var HATCH=['pidgey','pikachu','machop','geodude','abra','growlithe','gastly','magikarp','dratini','eevee'];
+          var HATCH=['pidgey','pikachu','machop','geodude','abra','growlithe','gastly','magikarp','dratini','eevee','rattata','oddish','poliwag','ponyta','magnemite','voltorb'];
           var hsp=HATCH[Math.floor(Math.random()*HATCH.length)];
           var hshiny=Math.random()<0.2;
           state.game.egg=null;
@@ -3025,6 +3175,10 @@ function applyImport(txt){
           .map(function(t){return {sp:t.sp,lv:Math.max(1,Math.min(100,parseInt(t.lv,10)||1)),shiny:!!t.shiny};})};}):[];
     gm.partyIds=Array.isArray(d.game.partyIds)?d.game.partyIds.filter(function(x){return typeof x==='string';}).slice(0,6):null;
     if(gm.partyIds&&!gm.partyIds.length)gm.partyIds=null;
+    gm.medals={};
+    if(d.game.medals&&typeof d.game.medals==='object'){
+      MEDAL_ORDER.forEach(function(t){if(d.game.medals[t])gm.medals[t]=1;});
+    }
   }
   state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0,sound:d.sound!==false};
   save();
@@ -3224,6 +3378,7 @@ document.addEventListener('click',function(e){
     }else closeModal();
   }
   else if(a==='show-hof'){showHofModal();}
+  else if(a==='show-medal'){showMedalModal(b.dataset.t);}
   else if(a==='edit-party'){pendingParty=null;showPartyManager();}
   else if(a==='pm-toggle'){
     if(pendingParty){
@@ -3280,7 +3435,7 @@ document.addEventListener('click',function(e){
     var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
     state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},round:1,
       boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'},
-      money:3000,bag:{},hof:[],partyIds:null,egg:null};
+      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{}};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;
