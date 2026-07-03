@@ -269,7 +269,7 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
 .bob{animation:bob 1.6s ease-in-out infinite}
 @keyframes blinkc{0%,55%{opacity:1}56%,100%{opacity:0}}
 .blinkc{display:inline-block;color:var(--red);animation:blinkc 1s steps(1) infinite;margin-right:6px}
-#bt-msg.msgdone::after{content:'▼';color:var(--red);font-size:13px;margin-left:5px;
+.bt-msg.msgdone::after{content:'▼';color:var(--red);font-size:13px;margin-left:5px;
   display:inline-block;animation:bob 0.8s steps(2) infinite}
 .hpcrit{animation:pulse 1s ease-in-out infinite}
 /* full-screen move effects on the #fx overlay */
@@ -295,16 +295,22 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
 #fx.fxleaf{animation:fxleaf .65s ease forwards}
 @keyframes fxleaf{0%{opacity:0;background:linear-gradient(100deg,transparent 40%,rgba(120,200,80,.45) 50%,transparent 60%)}
   45%{opacity:1;background:linear-gradient(100deg,transparent 8%,rgba(120,200,80,.5) 50%,transparent 92%)}100%{opacity:0}}
-/* follow-me stroll on the town map */
-@keyframes stroll{0%,100%{transform:translateX(0)}50%{transform:translateX(48px)}}
-.stroll{animation:stroll 7s ease-in-out infinite,bob 1.2s ease-in-out infinite}
-.stroll.follow{animation-delay:.4s,.15s}
 .mapwrap img.mapimg{filter:var(--townf,none)}
 html.theme-night .mapwrap img.mapimg{filter:var(--townf,none) brightness(.62) saturate(.85)}
-/* official FRLG battle scene */
-.arenabg{background-size:cover;background-position:center bottom;image-rendering:pixelated;
-  border:2px solid var(--bord);border-radius:6px;padding:7px}
-.databox{background:rgba(255,255,255,.86);border:2px solid var(--bord);border-radius:6px;padding:5px 8px}
+/* official FRLG battle scene: fixed 240:112 stage, sprites on the ground,
+   compact databoxes, text box glued underneath */
+.arenabg{position:relative;aspect-ratio:240/112;background-size:cover;background-position:center;
+  image-rendering:pixelated;border:2px solid var(--bord);border-radius:6px 6px 0 0;overflow:hidden}
+.bt-layer{position:absolute;inset:0;pointer-events:none}
+.databox{background:rgba(255,255,255,.9);border:2px solid var(--bord);border-radius:5px;padding:3px 7px 4px}
+.databox .pname{font-size:15px;line-height:1.15}
+.databox .plv{font-size:13px}
+.databox .barlab{font-size:7px;padding:1px 3px}
+.databox .gbar{padding:1px}
+.databox .gbar>div{height:5px}
+.databox .gbar.exp>div{height:4px}
+.btmemo{background:var(--boxw);border:2px solid var(--bord);border-radius:0 0 5px 5px;
+  padding:8px 10px;margin-top:-2px;min-height:42px}
 .effchip{font-family:'Press Start 2P';font-size:9px;color:#FFF8F0;padding:3px 6px;border-radius:3px;flex:none}
 @keyframes slr{from{transform:translateX(90px);opacity:0}to{transform:none;opacity:1}}
 @keyframes sll{from{transform:translateX(-90px);opacity:0}to{transform:none;opacity:1}}
@@ -458,7 +464,7 @@ function dayTops(id){
 function trendOf(id){var t=dayTops(id);if(t.length<2)return 0;return t[t.length-1].w-t[t.length-2].w;}
 
 /* ===== app state ===== */
-var tab='summary', editMode=false, sheetEx=null, openScrollY=0;
+var tab='summary', editMode=false, sheetEx=null, openScrollY=0, justStarted=false;
 
 /* ===== render: tabs ===== */
 var lastRenderedTab=null;
@@ -549,6 +555,7 @@ function startWorkout(mode){
     state.session.bmsg='LUCKY EGG is glowing — 2× XP this workout! '+(state.session.bmsg||'');
   }
   save();ensureTicker();
+  justStarted=true;
   tab='workout';editMode=false;render();
   var fx=$('#fx');
   if(fx){fx.classList.remove('go');void fx.offsetWidth;fx.classList.add('go');setTimeout(function(){fx.classList.remove('go');},950);}
@@ -1621,7 +1628,7 @@ function moveFx(t){
   void el.offsetWidth;
   el.classList.add(cls);
   setTimeout(function(){el.classList.remove(cls);},820);
-  if(cls==='fxrock'){var bw=$('#bt-wrap');if(bw){bw.classList.remove('shake');void bw.offsetWidth;bw.classList.add('shake');}}
+  if(cls==='fxrock'){var bwrap=bw();if(bwrap){bwrap.classList.remove('shake');void bwrap.offsetWidth;bwrap.classList.add('shake');}}
 }
 function backSprPath(m){return 'sprites/back/'+(m.shiny?'shiny/':'')+DEX[m.sp].id+'.png';}
 function hpFor(idx,round){return Math.round(BOSSES[idx].hp*Math.pow(2,(round||1)-1));}
@@ -1857,26 +1864,24 @@ function wildPanelHTML(anim,ov){
   if(anim)btPrevPct=pct;
   return '<div class="panel" style="padding:11px 12px">'+
     '<div class="arenabg" style="background-image:url('+arenaFile('Grass')+')">'+
-    '<div id="bt-scene" style="position:relative;display:flex;align-items:center;gap:8px">'+
-      '<div class="databox" style="flex:1;min-width:0"><div class="pname">'+
-      (w.tr?'<img src="sprites/trainers/'+w.tr.cls+'.png" alt="" style="width:22px;height:22px;image-rendering:pixelated;vertical-align:-5px"> '+w.tr.name+"'S "+d.n
-           :'WILD '+d.n+(w.shiny?' <span class="shinystar">★</span>':''))+
-      ' <span class="plv">:L'+w.lv+'</span></div>'+
-      '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div id="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
-      '<div class="plv" style="margin-top:3px">'+Math.max(0,w.hp).toLocaleString()+' / '+w.max.toLocaleString()+' kg</div></div>'+
-      '<div style="position:relative;flex:none;padding-bottom:5px">'+
-        '<img id="bt-espr" class="'+(anim?'slidein-r':'')+(w.shiny?' shinyglow':'')+'" src="'+sprPath(w.sp,w.shiny)+'" alt="'+d.n+'" style="width:68px;height:68px;image-rendering:pixelated;position:relative">'+
-      '</div>'+
+    '<div class="bt-scene bt-layer">'+
+      '<div class="databox" style="position:absolute;left:5px;top:5px;width:57%">'+
+        '<div class="pname">'+
+        (w.tr?'<img src="sprites/trainers/'+w.tr.cls+'.png" alt="" style="width:16px;height:16px;image-rendering:pixelated;vertical-align:-3px"> '+w.tr.name+"'S "+d.n
+             :'WILD '+d.n+(w.shiny?' <span class="shinystar">★</span>':''))+
+        ' <span class="plv">:L'+w.lv+'</span></div>'+
+        '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab">HP</span><div class="gbar"><div class="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
+        '<div class="plv" style="margin-top:2px">'+Math.max(0,w.hp).toLocaleString()+' / '+w.max.toLocaleString()+' kg</div></div>'+
+      '<img class="bt-espr'+(anim?' slidein-r':'')+(w.shiny?' shinyglow':'')+'" src="'+sprPath(w.sp,w.shiny)+'" alt="'+d.n+'" style="position:absolute;right:5%;top:7%;width:72px;height:72px;image-rendering:pixelated">'+
     '</div>'+
-    '<div id="bt-pscene" style="position:relative;display:flex;align-items:flex-end;gap:8px;margin-top:2px">'+
-      '<div style="position:relative;flex:none;padding-bottom:5px">'+
-        '<img id="bt-pspr" class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative">'+
-      '</div>'+
-      '<div class="databox" style="flex:1;min-width:0"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+'</div>'+
-      '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div id="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div></div>'+
+    '<div class="bt-pscene bt-layer">'+
+      '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-2px;width:76px;height:76px;image-rendering:pixelated">'+
+      '<div class="databox" style="position:absolute;right:5px;bottom:5px;width:56%">'+
+        '<div class="pname">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span></div>'+
+        '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div class="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div></div>'+
     '</div>'+
     '</div>'+
-    '<div class="memo" id="bt-msg" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
+    '<div class="memo btmemo bt-msg">'+
     esc(state.session.bmsg||('A wild '+d.n+' appeared! Log a set to attack.'))+'</div></div>';
 }
 function battlePanelHTML(anim,ov){
@@ -1925,25 +1930,23 @@ function battlePanelHTML(anim,ov){
   }
   return '<div class="panel" style="padding:11px 12px">'+
     '<div class="arenabg" style="background-image:url('+arenaFile(bz.idx===12?'Champion':bz.type)+')">'+
-    '<div id="bt-scene" style="position:relative;display:flex;align-items:center;gap:8px">'+
-      '<div class="databox" style="flex:1;min-width:0"><div class="pname">'+bz.mon+' <span class="plv">:L'+bz.lv+(bz.round>1?' · R'+bz.round:'')+'</span><span style="float:right">'+dots+'</span></div>'+
-      '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div id="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
-      '<div class="plv" style="margin-top:3px">'+bz.memberHp.toLocaleString()+' / '+bz.memberMax.toLocaleString()+' kg · '+bz.aliveLeft+' left</div></div>'+
-      '<div style="position:relative;flex:none;padding-bottom:5px">'+
-        '<img id="bt-espr" class="'+(anim?'slidein-r':'')+'" src="sprites/'+bz.monId+'.png" alt="'+bz.mon+'" style="width:76px;height:76px;image-rendering:pixelated;position:relative">'+
-      '</div>'+
+    '<div class="bt-scene bt-layer">'+
+      '<div class="databox" style="position:absolute;left:5px;top:5px;width:58%">'+
+        '<div class="pname">'+bz.mon+' <span class="plv">:L'+bz.lv+(bz.round>1?' · R'+bz.round:'')+'</span><span style="float:right">'+dots+'</span></div>'+
+        '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab">HP</span><div class="gbar"><div class="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
+        '<div class="plv" style="margin-top:2px">'+bz.memberHp.toLocaleString()+' / '+bz.memberMax.toLocaleString()+' kg · '+bz.aliveLeft+' left</div></div>'+
+      '<img class="bt-espr'+(anim?' slidein-r':'')+'" src="sprites/'+bz.monId+'.png" alt="'+bz.mon+'" style="position:absolute;right:5%;top:7%;width:76px;height:76px;image-rendering:pixelated">'+
     '</div>'+
-    '<div id="bt-pscene" style="position:relative;display:flex;align-items:flex-end;gap:8px;margin-top:2px">'+
-      '<div style="position:relative;flex:none;padding-bottom:5px">'+
-        '<img id="bt-pspr" class="'+(anim?'slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="width:64px;height:64px;image-rendering:pixelated;position:relative'+(php<=0?';opacity:.4':'')+'">'+
-      '</div>'+
-      '<div class="databox" style="flex:1;min-width:0"><div class="plv">'+DEX[m.sp].n+' :L'+monLevel(m.xp)+' <span style="vertical-align:1px">'+pdots+'</span></div>'+
-      '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div id="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
-      '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div id="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div>'+
-      '<div class="plv" style="margin-top:3px">'+php+' / '+pmax+' HP</div></div>'+
+    '<div class="bt-pscene bt-layer">'+
+      '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-2px;width:76px;height:76px;image-rendering:pixelated'+(php<=0?';opacity:.4':'')+'">'+
+      '<div class="databox" style="position:absolute;right:5px;bottom:5px;width:58%">'+
+        '<div class="pname">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span> <span style="vertical-align:1px">'+pdots+'</span></div>'+
+        '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div class="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
+        '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div class="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div>'+
+        '<div class="plv" style="margin-top:2px">'+php+' / '+pmax+' HP</div></div>'+
     '</div>'+
     '</div>'+
-    '<div class="memo" id="bt-msg" style="background:var(--boxw);border:2px solid var(--bord);border-radius:5px;padding:8px 10px;margin-top:6px;min-height:42px">'+
+    '<div class="memo btmemo bt-msg">'+
     esc(state.session.bmsg||(bz.n+' sent out '+bz.mon+'! Log a set to attack.'))+'</div>'+
     mvrow+brow+'</div>';
 }
@@ -1967,12 +1970,15 @@ function showMoveModal(){
 }
 /* ---- battle playback: one logged set becomes a staged FRLG exchange ---- */
 var pendingSteps=null,pendingExp=null,animTimers=[],typeTimer=null;
+/* the panel renders on the GYM tab AND in the exercise sheet — always talk to the topmost one */
+function bw(){var els=document.querySelectorAll('.btwrap');return els.length?els[els.length-1]:null;}
+function bq(sel){var w=bw();return w?w.querySelector(sel):null;}
 function clearBattleAnim(){
   animTimers.forEach(clearTimeout);animTimers=[];
   if(typeTimer){clearInterval(typeTimer);typeTimer=null;}
 }
 function typeMsg(txt){
-  var el=$('#bt-msg');if(!el)return;
+  var el=bq('.bt-msg');if(!el)return;
   if(typeTimer)clearInterval(typeTimer);
   el.classList.remove('msgdone');
   el.textContent='';
@@ -1984,7 +1990,7 @@ function typeMsg(txt){
   },16);
 }
 function setBarNow(sel,pct,isHp){
-  var el=$(sel);if(!el)return;
+  var el=bq(sel);if(!el)return;
   el.style.transition='none';
   el.style.width=pct+'%';
   if(isHp)el.style.background=hpColor(pct);
@@ -1992,26 +1998,26 @@ function setBarNow(sel,pct,isHp){
   el.style.transition='';
 }
 function driftBar(sel,to,isHp){
-  var el=$(sel);if(!el)return;
+  var el=bq(sel);if(!el)return;
   el.style.width=to+'%';
   if(isHp){
     el.style.background=hpColor(to);
-    if(sel==='#bt-php')el.classList.toggle('hpcrit',to<=20&&to>0);
+    if(sel==='.bt-php')el.classList.toggle('hpcrit',to<=20&&to>0);
   }
 }
 function dmgFloat(side,val){
-  var sc=$(side==='player'?'#bt-pscene':'#bt-scene');
+  var sc=bq(side==='player'?'.bt-pscene':'.bt-scene');
   if(!sc)return;
   var f=document.createElement('span');
   f.className='dmgfloat';
-  if(side==='player'){f.style.color='#3878C8';f.style.left='14px';f.style.top='2px';}
-  else{f.style.right='14px';f.style.top='4px';}
+  if(side==='player'){f.style.color='#3878C8';f.style.left='24%';f.style.top='34%';}
+  else{f.style.right='9%';f.style.top='7%';}
   f.textContent='-'+Number(val).toLocaleString();
   sc.appendChild(f);
   setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},950);
 }
 function sprFx(sel,cls){
-  var el=$(sel);if(!el)return;
+  var el=bq(sel);if(!el)return;
   el.classList.remove('lunge-l','lunge-r','blink','faintdrop');
   void el.offsetWidth;
   el.classList.add(cls);
@@ -2025,29 +2031,29 @@ function syncPrevBars(){
 }
 function runBattleStep(st){
   if(st.refresh){
-    var w=$('#bt-wrap');
+    var w=bw();
     if(w){
       w.innerHTML=battlePanelHTML(false);
-      if(st.slide==='enemy')sprFx('#bt-espr','slidein-r');
-      if(st.slide==='player')sprFx('#bt-pspr','slidein-l');
+      if(st.slide==='enemy')sprFx('.bt-espr','slidein-r');
+      if(st.slide==='player')sprFx('.bt-pspr','slidein-l');
       syncPrevBars();
     }
   }
   if(st.sfx)sfx(st.sfx);
   if(st.msg)typeMsg(st.msg);
-  if(st.lunge==='player')sprFx('#bt-pspr','lunge-l');
-  if(st.lunge==='enemy')sprFx('#bt-espr','lunge-r');
-  if(st.blink==='enemy')animTimers.push(setTimeout(function(){sprFx('#bt-espr','blink');},240));
-  if(st.blink==='player')animTimers.push(setTimeout(function(){sprFx('#bt-pspr','blink');},240));
-  if(st.faint==='enemy')sprFx('#bt-espr','faintdrop');
-  if(st.faint==='player')sprFx('#bt-pspr','faintdrop');
+  if(st.lunge==='player')sprFx('.bt-pspr','lunge-l');
+  if(st.lunge==='enemy')sprFx('.bt-espr','lunge-r');
+  if(st.blink==='enemy')animTimers.push(setTimeout(function(){sprFx('.bt-espr','blink');},240));
+  if(st.blink==='player')animTimers.push(setTimeout(function(){sprFx('.bt-pspr','blink');},240));
+  if(st.faint==='enemy')sprFx('.bt-espr','faintdrop');
+  if(st.faint==='player')sprFx('.bt-pspr','faintdrop');
   if(st.fx)animTimers.push(setTimeout(function(){moveFx(st.fx);},180));
   if(st.quake){
-    var qw=$('#bt-wrap');
+    var qw=bw();
     if(qw){qw.classList.remove('shake');void qw.offsetWidth;qw.classList.add('shake');}
   }
-  if(st.ehp)animTimers.push(setTimeout(function(){driftBar('#bt-ehp',st.ehp[1],true);},300));
-  if(st.php)animTimers.push(setTimeout(function(){driftBar('#bt-php',st.php[1],true);},300));
+  if(st.ehp)animTimers.push(setTimeout(function(){driftBar('.bt-ehp',st.ehp[1],true);},300));
+  if(st.php)animTimers.push(setTimeout(function(){driftBar('.bt-php',st.php[1],true);},300));
   if(st.dmg)animTimers.push(setTimeout(function(){dmgFloat(st.dmg[0],st.dmg[1]);},260));
 }
 function stepHold(st){
@@ -2066,69 +2072,51 @@ function playBattleSteps(steps){
     (function(xa){
       animTimers.push(setTimeout(function(){
         if(xa.wrap){
-          driftBar('#bt-pexp',100,false);
-          animTimers.push(setTimeout(function(){setBarNow('#bt-pexp',0,false);driftBar('#bt-pexp',xa.to,false);},460));
-        }else driftBar('#bt-pexp',xa.to,false);
+          driftBar('.bt-pexp',100,false);
+          animTimers.push(setTimeout(function(){setBarNow('.bt-pexp',0,false);driftBar('.bt-pexp',xa.to,false);},460));
+        }else driftBar('.bt-pexp',xa.to,false);
       },420));
     })(pendingExp);
     pendingExp=null;
   }
 }
 function updateBattlePanel(){
-  var w=$('#bt-wrap');if(!w)return;
+  var w=bw();if(!w)return;
   clearBattleAnim();
   if(pendingSteps){
     var plan=pendingSteps;pendingSteps=null;
     w.innerHTML=battlePanelHTML(false,plan.ov);
     // prime bars at their pre-attack values so drains play out
     plan.list.forEach(function(st){
-      if(st.ehp&&st.ehp.length>1&&st._p!==1){setBarNow('#bt-ehp',st.ehp[0],true);st._p=1;}
-      if(st.php&&st.php.length>1&&st._q!==1){setBarNow('#bt-php',st.php[0],true);st._q=1;}
+      if(st.ehp&&st.ehp.length>1&&st._p!==1){setBarNow('.bt-ehp',st.ehp[0],true);st._p=1;}
+      if(st.php&&st.php.length>1&&st._q!==1){setBarNow('.bt-php',st.php[0],true);st._q=1;}
     });
-    if(plan.exp){setBarNow('#bt-pexp',plan.exp.from,false);pendingExp=plan.exp;}
-    var m0=$('#bt-msg');if(m0){m0.textContent='';m0.classList.remove('msgdone');}
+    if(plan.exp){setBarNow('.bt-pexp',plan.exp.from,false);pendingExp=plan.exp;}
+    var m0=bq('.bt-msg');if(m0){m0.textContent='';m0.classList.remove('msgdone');}
     playBattleSteps(plan.list);
     return;
   }
   w.innerHTML=battlePanelHTML(false);
   // plain refresh (switch, potion, panel rebuild): gentle bar catch-up
-  var bar=$('#bt-ehp'),newPct=curBattlePct();
+  var bar=bq('.bt-ehp'),newPct=curBattlePct();
   var isBoss=state.session&&state.session.mode==='boss';
   var bz=isBoss?bossInfo():null;
   var curMember=bz?bz.memberIdx:-1;
   if(bar&&newPct!==null&&btPrevPct!==null&&btPrevPct!==newPct&&!(isBoss&&btPrevMember!==null&&curMember!==btPrevMember)){
-    setBarNow('#bt-ehp',btPrevPct,true);
-    requestAnimationFrame(function(){requestAnimationFrame(function(){driftBar('#bt-ehp',newPct,true);});});
+    setBarNow('.bt-ehp',btPrevPct,true);
+    requestAnimationFrame(function(){requestAnimationFrame(function(){driftBar('.bt-ehp',newPct,true);});});
   }
   if(isBoss){
-    var lead=leadMon(),pbar=$('#bt-php');
+    var lead=leadMon(),pbar=bq('.bt-php');
     if(pbar&&lead){
       var npp=Math.round(Math.max(0,curHpOf(lead))/Math.max(1,maxHpOf(lead))*100);
       if(btPrevPhp!==null&&btPrevPhp!==npp){
-        setBarNow('#bt-php',btPrevPhp,true);
-        requestAnimationFrame(function(){requestAnimationFrame(function(){driftBar('#bt-php',npp,true);});});
+        setBarNow('.bt-php',btPrevPhp,true);
+        requestAnimationFrame(function(){requestAnimationFrame(function(){driftBar('.bt-php',npp,true);});});
       }
     }
   }
   syncPrevBars();
-}
-function bossStripHTML(){
-  if(!state.session)return '';
-  if(state.session.mode==='train'&&state.session.wild&&state.game){
-    var w=state.session.wild,d=DEX[w.sp];
-    var wpct=Math.round(Math.max(0,w.hp)/w.max*100);
-    return '<div class="card" style="margin-top:0"><img class="pspr" style="width:40px;height:40px'+(w.shiny?';filter:drop-shadow(0 0 5px rgba(248,200,40,.8))':'')+'" src="'+sprPath(w.sp,w.shiny)+'" alt="">'+
-      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+(w.tr?w.tr.clsN+' '+w.tr.name:'WILD '+d.n+(w.shiny?' ★':''))+'</div>'+
-      '<div class="gbar" style="margin-top:5px"><div style="width:'+wpct+'%;background:'+hpColor(wpct)+'"></div></div></div>'+
-      '<span class="plv">'+fmtVol(Math.max(0,w.hp))+'</span></div>';
-  }
-  if(state.session.mode!=='boss')return '';
-  var bz=bossInfo();if(!bz)return '';
-  var pct=Math.round(bz.memberHp/Math.max(1,bz.memberMax)*100);
-  return '<div class="card" style="margin-top:0"><img class="pspr" style="width:40px;height:40px" src="sprites/'+bz.monId+'.png" alt="">'+
-    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+' <span class="plv">'+bz.aliveLeft+' left</span></div>'+
-    '<div class="gbar" style="margin-top:5px"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
-    '<span class="plv">'+fmtVol(bz.memberHp)+'</span></div>';
 }
 function bossCardHTML(){
   if(!state.game)return '';
@@ -2315,7 +2303,6 @@ function partyStripHTML(){
 function mapHTML(){
   var encAlert=(state.game&&state.game.enc&&Object.keys(state.game.enc).length>0);
   var ti=townIdx(),tw=TOWNS[ti];
-  var lead=activeMon();
   function spot(key,label,extra){
     var b=tw.hs[key];
     return '<button class="hotspot" data-action="bld" data-b="'+key+'" style="left:'+b[0]+'%;top:'+b[1]+'%;width:'+b[2]+'%;height:'+b[3]+'%" aria-label="'+label+'">'+(extra||'')+'<span class="maptag">'+label+'</span></button>';
@@ -2327,10 +2314,6 @@ function mapHTML(){
     spot('boss','BOSS')+
     spot('mart','SHOP')+
     spot('train','TRAIN',encAlert?'<span class="mapalert">!</span>':'')+
-    '<div style="position:absolute;left:'+tw.wp[0]+'%;bottom:'+tw.wp[1]+'%;pointer-events:none;display:flex;align-items:flex-end">'+
-      '<img class="stroll" src="sprites/trainers/'+playerSpr()+'.png" alt="" style="width:34px;height:34px;image-rendering:pixelated">'+
-      (lead?'<img class="stroll follow" src="'+sprPath(lead.sp,lead.shiny)+'" alt="" style="width:30px;height:30px;image-rendering:pixelated;margin-left:-8px">':'')+
-    '</div>'+
     '</div>'+
     partyStripHTML();
   if(state.session)h+=heroHTML();
@@ -2446,9 +2429,11 @@ function workoutHTML(){
   var d=new Date();
   var h='';
   if(state.session&&!editMode){
+    var anim0=justStarted;justStarted=false;
     h+='<div class="livebar"><span class="pulse"></span><span class="elapsed">'+fmtElapsed(Date.now()-state.session.start)+'</span>'+
       '<span class="lb-sets">'+sessionSets()+' sets</span>'+
-      '<button class="btn small" data-action="end-workout">End</button></div><div class="lvspace"></div>'+bossStripHTML();
+      '<button class="btn small" data-action="end-workout">End</button></div><div class="lvspace"></div>'+
+      '<div class="btwrap">'+battlePanelHTML(anim0)+'</div>';
   }
   h+='<div class="titlebar"><h1>GYM</h1><button class="textbtn" data-action="toggle-edit">'+(editMode?'DONE':'EDIT')+'</button></div>'+
     '<div class="subtitle">'+DAYSF[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate()+'</div>';
@@ -2547,7 +2532,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v4.8 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v4.9 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -2585,7 +2570,7 @@ function sheetHTML(ex,group,color){
     (state.session?'<span class="bestchip elapsed" style="margin:6px 10px 0 0;flex:none">'+fmtElapsed(Date.now()-state.session.start)+'</span>':'')+
     '<button class="roundbtn" data-action="close-sheet" aria-label="Close">✕</button></div>'+
 
-  '<div id="bt-wrap">'+battlePanelHTML(true)+'</div>'+
+  '<div class="btwrap">'+battlePanelHTML(true)+'</div>'+
 
   '<div class="panel"><h3>Log a set — today</h3>'+
     '<div class="steprow"><label>Weight</label>'+
@@ -2611,12 +2596,14 @@ function sheetHTML(ex,group,color){
 }
 
 function histListHTML(id){
+  // only the previous training for this exercise — the full log lives in HISTORY
   var logs=logsOf(id).slice().sort(function(a,b){return b.ts-a.ts;});
+  if(state.session)logs=logs.filter(function(l){return l.ts<state.session.start;});
   if(!logs.length)return '<div class="chart-empty" style="padding-bottom:30px">No history yet — your sets will show up here.</div>';
-  var h='', curr='';
+  var lastKey=dateKey(logs[0].ts);
+  var h='<div class="histday">LAST TRAINING · '+fmtDayKey(lastKey)+'</div>';
   logs.forEach(function(l){
-    var k=dateKey(l.ts);
-    if(k!==curr){curr=k;h+='<div class="histday">'+fmtDayKey(k)+'</div>';}
+    if(dateKey(l.ts)!==lastKey)return;
     h+='<div class="hrow"><div class="meta"><div class="hname">'+fmtW(l.w)+' '+state.unit+
       ' <span class="hsub" style="font-size:13px">× '+l.r+(l.s>1?' × '+l.s+' sets':'')+'</span></div></div>'+
       '<div class="hsub">'+fmtTime(l.ts)+'</div>'+
