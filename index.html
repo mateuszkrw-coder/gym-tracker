@@ -87,9 +87,10 @@ button.card:active{background:var(--cream2)}
 .banner .binfo b{color:var(--red);font-weight:400}
 
 /* ---------- bottom tab bar ---------- */
-#tabbar{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));
-  display:flex;justify-content:space-between;gap:1px;background:var(--boxw);border:3px solid var(--frame);
-  border-radius:8px;padding:4px 3px;z-index:50}
+#tabbar{position:fixed;left:0;right:0;bottom:0;
+  display:flex;justify-content:space-evenly;gap:0;background:var(--boxw);
+  border:none;border-top:3px solid var(--frame);
+  border-radius:0;padding:4px 6px calc(6px + env(safe-area-inset-bottom));z-index:50}
 #tabbar button{flex:none;border:none;background:none;color:var(--mut);
   font-family:'Press Start 2P';font-size:9px;padding:13px 4px 11px;border-radius:4px;line-height:1}
 #view svg g[data-action]:active{opacity:.7}
@@ -907,6 +908,40 @@ CATCH_QUEUES.shoulders.push(['venonat',14000]);
 CATCH_QUEUES.biceps.push(['magnemite',14000],['voltorb',20000]);
 CATCH_QUEUES.triceps.push(['ponyta',14000]);
 CATCH_QUEUES.pecs.push(['grimer',9000]);
+/* v5.2 content drop: eleven more catchable lines (23 species) */
+DEX.ekans={n:'EKANS',id:23,t:['Poison'],bs:[35,60,44,40,54,55],evo:{lv:22,to:'arbok'}};
+DEX.arbok={n:'ARBOK',id:24,t:['Poison'],bs:[60,85,69,65,79,80]};
+DEX.nidoranf={n:'NIDORAN F',id:29,t:['Poison'],bs:[55,47,52,40,40,41],evo:{lv:16,to:'nidorina'}};
+DEX.nidorina={n:'NIDORINA',id:30,t:['Poison'],bs:[70,62,67,55,55,56],evo:{lv:36,to:'nidoqueen'}};
+DEX.nidoqueen={n:'NIDOQUEEN',id:31,t:['Poison','Ground'],bs:[90,82,87,75,85,76]};
+DEX.nidoranm={n:'NIDORAN M',id:32,t:['Poison'],bs:[46,57,40,40,40,50],evo:{lv:16,to:'nidorino'}};
+DEX.nidorino={n:'NIDORINO',id:33,t:['Poison'],bs:[61,72,57,55,55,65],evo:{lv:36,to:'nidoking'}};
+DEX.nidoking={n:'NIDOKING',id:34,t:['Poison','Ground'],bs:[81,92,77,85,75,85]};
+DEX.clefairy={n:'CLEFAIRY',id:35,t:['Normal'],bs:[70,45,48,60,65,35],evo:{lv:30,to:'clefable'}};
+DEX.clefable={n:'CLEFABLE',id:36,t:['Normal'],bs:[95,70,73,85,90,60]};
+DEX.jigglypuff={n:'JIGGLYPUFF',id:39,t:['Normal'],bs:[115,45,20,45,25,20],evo:{lv:30,to:'wigglytuff'}};
+DEX.wigglytuff={n:'WIGGLYTUFF',id:40,t:['Normal'],bs:[140,70,45,75,50,45]};
+DEX.diglett={n:'DIGLETT',id:50,t:['Ground'],bs:[10,55,25,35,45,95],evo:{lv:26,to:'dugtrio'}};
+DEX.dugtrio={n:'DUGTRIO',id:51,t:['Ground'],bs:[35,80,50,50,70,120]};
+DEX.mankey={n:'MANKEY',id:56,t:['Fighting'],bs:[40,80,35,35,45,70],evo:{lv:28,to:'primeape'}};
+DEX.bellsprout={n:'BELLSPROUT',id:69,t:['Grass','Poison'],bs:[50,75,35,70,30,40],evo:{lv:21,to:'weepinbell'}};
+DEX.weepinbell={n:'WEEPINBELL',id:70,t:['Grass','Poison'],bs:[65,90,50,85,45,55],evo:{lv:36,to:'victreebel'}};
+DEX.victreebel={n:'VICTREEBEL',id:71,t:['Grass','Poison'],bs:[80,105,65,100,70,70]};
+DEX.tentacool={n:'TENTACOOL',id:72,t:['Water','Poison'],bs:[40,40,35,50,100,70],evo:{lv:30,to:'tentacruel'}};
+DEX.tentacruel={n:'TENTACRUEL',id:73,t:['Water','Poison'],bs:[80,70,65,80,120,100]};
+DEX.koffing={n:'KOFFING',id:109,t:['Poison'],bs:[40,65,95,60,45,35],evo:{lv:35,to:'weezing'}};
+DEX.weezing={n:'WEEZING',id:110,t:['Poison'],bs:[65,90,120,85,70,60]};
+DEX.rhyhorn={n:'RHYHORN',id:111,t:['Ground','Rock'],bs:[80,85,95,30,30,25],evo:{lv:42,to:'rhydon'}};
+DEX_ORDER.push('ekans','arbok','nidoranf','nidorina','nidoqueen','nidoranm','nidorino','nidoking',
+  'clefairy','clefable','jigglypuff','wigglytuff','diglett','dugtrio','mankey',
+  'bellsprout','weepinbell','victreebel','tentacool','tentacruel','koffing','weezing','rhyhorn');
+CATCH_QUEUES.pecs.push(['koffing',26000]);
+CATCH_QUEUES.back.push(['nidoranm',20000],['tentacool',26000]);
+CATCH_QUEUES.shoulders.push(['clefairy',20000],['jigglypuff',26000]);
+CATCH_QUEUES.biceps.push(['diglett',26000],['ekans',32000]);
+CATCH_QUEUES.triceps.push(['mankey',20000],['nidoranf',26000]);
+CATCH_QUEUES.forearm.push(['rhyhorn',24000]);
+CATCH_QUEUES.legs.push(['bellsprout',28000]);
 var WILD_STAGES=[
   ['pidgey','rattata','caterpie','metapod','weedle','kakuna','pikachu','spearow','mankey','nidoranf','nidoranm'],
   ['zubat','geodude','paras','clefairy','jigglypuff','sandshrew','ekans','magikarp'],
@@ -1008,7 +1043,30 @@ var MOVESETS={
   voltorb:[[8,'SPARK'],[15,'ROLLOUT'],[27,'SELFDESTRUCT'],[42,'EXPLOSION']],
   electrode:[[8,'SPARK'],[30,'ROLLOUT'],[41,'SELFDESTRUCT'],[54,'EXPLOSION']],
   staryu:[[7,'WATER GUN'],[18,'SWIFT'],[31,'BUBBLEBEAM'],[42,'HYDRO PUMP']],
-  starmie:[[7,'WATER GUN'],[36,'BUBBLEBEAM'],[48,'PSYCHIC'],[60,'HYDRO PUMP']]
+  starmie:[[7,'WATER GUN'],[36,'BUBBLEBEAM'],[48,'PSYCHIC'],[60,'HYDRO PUMP']],
+  ekans:[[8,'POISON STING'],[20,'BITE'],[32,'GLARE'],[44,'SLUDGE BOMB']],
+  arbok:[[8,'POISON STING'],[28,'BITE'],[42,'GLARE'],[56,'SLUDGE BOMB']],
+  nidoranf:[[8,'SCRATCH'],[17,'POISON STING'],[30,'BITE'],[43,'CRUNCH']],
+  nidorina:[[8,'SCRATCH'],[23,'POISON STING'],[38,'BITE'],[52,'CRUNCH']],
+  nidoqueen:[[22,'POISON STING'],[43,'BODY SLAM'],[58,'SUPERPOWER']],
+  nidoranm:[[8,'PECK'],[17,'POISON STING'],[30,'HORN ATTACK'],[43,'HORN DRILL']],
+  nidorino:[[8,'PECK'],[23,'POISON STING'],[38,'HORN ATTACK'],[52,'HORN DRILL']],
+  nidoking:[[22,'POISON STING'],[43,'THRASH'],[58,'MEGAHORN']],
+  clefairy:[[9,'SING'],[17,'DOUBLESLAP'],[31,'METRONOME'],[45,'BODY SLAM']],
+  clefable:[[9,'SING'],[34,'DOUBLESLAP'],[46,'METRONOME'],[58,'BODY SLAM']],
+  jigglypuff:[[9,'SING'],[14,'POUND'],[24,'ROLLOUT'],[34,'DOUBLE-EDGE']],
+  wigglytuff:[[9,'SING'],[34,'POUND'],[44,'ROLLOUT'],[54,'DOUBLE-EDGE']],
+  diglett:[[9,'SCRATCH'],[17,'DIG'],[33,'SLASH'],[41,'EARTHQUAKE']],
+  dugtrio:[[9,'SCRATCH'],[29,'DIG'],[41,'SLASH'],[51,'EARTHQUAKE']],
+  mankey:[[9,'KARATE CHOP'],[15,'FURY SWIPES'],[27,'CROSS CHOP'],[39,'THRASH']],
+  bellsprout:[[7,'VINE WHIP'],[15,'ACID'],[29,'RAZOR LEAF'],[41,'SLAM']],
+  weepinbell:[[7,'VINE WHIP'],[24,'ACID'],[38,'RAZOR LEAF'],[49,'SLAM']],
+  victreebel:[[7,'VINE WHIP'],[39,'ACID'],[52,'RAZOR LEAF'],[64,'SOLARBEAM']],
+  tentacool:[[8,'POISON STING'],[19,'BUBBLEBEAM'],[31,'BARRIER'],[43,'HYDRO PUMP']],
+  tentacruel:[[8,'POISON STING'],[33,'BUBBLEBEAM'],[44,'BARRIER'],[56,'HYDRO PUMP']],
+  koffing:[[9,'SMOG'],[17,'TACKLE'],[29,'SLUDGE'],[41,'EXPLOSION']],
+  weezing:[[9,'SMOG'],[38,'TACKLE'],[48,'SLUDGE'],[58,'EXPLOSION']],
+  rhyhorn:[[10,'HORN ATTACK'],[20,'STOMP'],[38,'ROCK BLAST'],[52,'EARTHQUAKE']]
 };
 function movesFor(sp){return MOVESETS[sp]||[];}
 function eggSVG(size){
@@ -1297,6 +1355,23 @@ function checkGameEvents(){
           modalOk=function(){closeModal();render(true);};
         });
       })(md.t);
+    }
+  });
+  // trainer feat medals announce once too
+  SPECIAL_MEDALS.forEach(function(sm){
+    if(g.medals[sm.k])return;
+    if(sm.done()){
+      g.medals[sm.k]=1;changed=true;
+      (function(s2){
+        queueModal(function(){
+          sfx('badge');
+          showModal('<div style="text-align:center">'+medalSVG(s2.k,true,64,s2.color,s2.letter)+'</div>'+
+            '<h3 style="text-align:center">'+s2.n+' MEDAL GET! 🎖</h3>'+
+            '<p style="text-align:center">'+s2.d+'</p>'+
+            '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+          modalOk=function(){closeModal();render(true);};
+        });
+      })(sm);
     }
   });
   // Oak's eggs at badges 1, 4 and 7
@@ -1651,7 +1726,9 @@ var MOVE_TYPES={
   'STUN SPORE':'Grass','SPORE':'Grass','SLEEP POWDER':'Grass',
   'ACID':'Poison','POISONPOWDER':'Poison','SLUDGE':'Poison','SLUDGE BOMB':'Poison','GUNK SHOT':'Poison',
   'LEECH LIFE':'Bug','SPARK':'Electric','ZAP CANNON':'Electric','ROLLOUT':'Rock',
-  'BUBBLEBEAM':'Water','SUBMISSION':'Fighting','MIND READER':'Normal'
+  'BUBBLEBEAM':'Water','SUBMISSION':'Fighting','MIND READER':'Normal',
+  'POISON STING':'Poison','CRUNCH':'Dark','SUPERPOWER':'Fighting','DIG':'Ground',
+  'VINE WHIP':'Grass','RAZOR LEAF':'Grass','BARRIER':'Psychic','ROCK BLAST':'Rock'
 };
 function moveTypeOf(n){return MOVE_TYPES[n]||'Normal';}
 function effOfType(at,dt){return (MOVE_EFF[at]&&MOVE_EFF[at][dt]!==undefined)?MOVE_EFF[at][dt]:1;}
@@ -1715,17 +1792,38 @@ function medalCaught(md){
   md.species.forEach(function(sp){var d=state.game&&state.game.dex[sp];if(d&&d.c)c++;});
   return c;
 }
-function medalSVG(t,earned,size){
-  var c=earned?(TYPE_COLORS[t]||'#888888'):'#A8A8A0';
+function medalSVG(t,earned,size,color,letter){
+  var c=earned?(color||TYPE_COLORS[t]||'#888888'):'#A8A8A0';
   return '<svg viewBox="0 0 40 40" width="'+size+'" height="'+size+'" aria-hidden="true">'+
     '<circle cx="20" cy="20" r="18" fill="'+(earned?'#E8D890':'#C8C8C0')+'" stroke="#585048" stroke-width="2"/>'+
     '<circle cx="20" cy="20" r="13" fill="'+c+'" stroke="rgba(0,0,0,.25)" stroke-width="2"/>'+
     '<ellipse cx="15" cy="14" rx="5" ry="3" fill="rgba(255,255,255,'+(earned?'.55':'.3')+')" transform="rotate(-25 15 14)"/>'+
-    '<text x="20" y="25" text-anchor="middle" style="font-family:\'Press Start 2P\';font-size:11px;fill:#FFF8F0;paint-order:stroke;stroke:rgba(0,0,0,.4);stroke-width:2px">'+t.charAt(0)+'</text></svg>';
+    '<text x="20" y="25" text-anchor="middle" style="font-family:\'Press Start 2P\';font-size:11px;fill:#FFF8F0;paint-order:stroke;stroke:rgba(0,0,0,.4);stroke-width:2px">'+(letter||t.charAt(0))+'</text></svg>';
 }
+function dexCaughtCount(){
+  var c=0;
+  if(state.game)DEX_ORDER.forEach(function(sp){var d=state.game.dex[sp];if(d&&d.c)c++;});
+  return c;
+}
+function maxMonLevel(){
+  var l=0;
+  if(state.game)state.game.mons.forEach(function(m){var ml=monLevel(m.xp);if(ml>l)l=ml;});
+  return l;
+}
+var SPECIAL_MEDALS=[
+  {k:'Champion',n:'CHAMPION',letter:'C',color:'#E8A010',d:'Defeat the CHAMPION and enter the Hall of Fame.',
+    done:function(){return !!(state.game&&(state.game.flags.champion||(state.game.hof&&state.game.hof.length)));},
+    prog:function(){return state.game&&state.game.boss?Math.min(13,state.game.boss.idx)+'/13':'0/13';}},
+  {k:'Master',n:'LV.100',letter:'M',color:'#D03028',d:'Raise one POKéMON all the way to LV.100.',
+    done:function(){return maxMonLevel()>=100;},
+    prog:function(){return ':L'+maxMonLevel();}},
+  {k:'FullDex',n:'FULL DEX',letter:'D',color:'#4890F8',d:'Catch every single POKéMON in the DEX.',
+    done:function(){return dexCaughtCount()>=DEX_ORDER.length;},
+    prog:function(){return dexCaughtCount()+'/'+DEX_ORDER.length;}}
+];
 function medalsHTML(){
   if(!state.game)return '';
-  var mds=medalList(),got=0,cells='';
+  var mds=medalList(),got=0,total=mds.length+SPECIAL_MEDALS.length,cells='';
   mds.forEach(function(md){
     var c=medalCaught(md),full=c>=md.species.length;
     if(full)got++;
@@ -1733,12 +1831,31 @@ function medalsHTML(){
       medalSVG(md.t,full,38)+
       '<div class="plv" style="font-size:12px;line-height:1.1;margin-top:1px'+(full?';color:#2E8B48':'')+'">'+md.t.toUpperCase().slice(0,6)+'<br>'+(full?'★':c+'/'+md.species.length)+'</div></button>';
   });
-  return '<div class="panel"><h3>TYPE MEDALS<span class="bestchip">'+got+' / '+mds.length+'</span></h3>'+
+  SPECIAL_MEDALS.forEach(function(sm){
+    var full=sm.done();
+    if(full)got++;
+    cells+='<button class="pstripbtn" data-action="show-medal" data-t="'+sm.k+'" style="width:54px;margin-bottom:4px">'+
+      medalSVG(sm.k,full,38,sm.color,sm.letter)+
+      '<div class="plv" style="font-size:12px;line-height:1.1;margin-top:1px'+(full?';color:#2E8B48':'')+'">'+sm.n+'<br>'+(full?'★':sm.prog())+'</div></button>';
+  });
+  return '<div class="panel"><h3>MEDALS<span class="bestchip">'+got+' / '+total+'</span></h3>'+
     '<div style="display:flex;flex-wrap:wrap;justify-content:space-between">'+cells+'</div>'+
-    '<div class="plv" style="margin-top:4px">Catch every POKéMON of a type to earn its medal — tap one to see what’s missing.</div></div>';
+    '<div class="plv" style="margin-top:4px">Catch every POKéMON of a type — plus three trainer feats. Tap a medal for details.</div></div>';
 }
 function showMedalModal(t){
   if(!state.game)return;
+  var sm=null;
+  SPECIAL_MEDALS.forEach(function(x){if(x.k===t)sm=x;});
+  if(sm){
+    var done=sm.done();
+    showModal('<div style="text-align:center">'+medalSVG(sm.k,done,56,sm.color,sm.letter)+'</div>'+
+      '<h3 style="text-align:center">'+sm.n+' MEDAL</h3>'+
+      '<p style="text-align:center">'+sm.d+'</p>'+
+      '<p style="text-align:center"><b>'+(done?'Earned! ★':'Progress: '+sm.prog())+'</b></p>'+
+      '<div class="mbtns"><button class="btn acc" data-action="close-modal">CLOSE</button></div>');
+    modalOk=null;
+    return;
+  }
   var md=null;
   medalList().forEach(function(x){if(x.t===t)md=x;});
   if(!md)return;
@@ -2635,7 +2752,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.1 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.2 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -2876,7 +2993,7 @@ function saveLogEntry(){
       if(state.game.egg){
         state.game.egg.left-=entry.s;
         if(state.game.egg.left<=0){
-          var HATCH=['pidgey','pikachu','machop','geodude','abra','growlithe','gastly','magikarp','dratini','eevee','rattata','oddish','poliwag','ponyta','magnemite','voltorb'];
+          var HATCH=['pidgey','pikachu','machop','geodude','abra','growlithe','gastly','magikarp','dratini','eevee','rattata','oddish','poliwag','ponyta','magnemite','voltorb','clefairy','jigglypuff','diglett','mankey'];
           var hsp=HATCH[Math.floor(Math.random()*HATCH.length)];
           var hshiny=Math.random()<0.2;
           state.game.egg=null;
