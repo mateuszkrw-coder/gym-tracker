@@ -543,7 +543,8 @@ function startWorkout(mode){
   state.session={start:Date.now(),mode:mode==='boss'?'boss':'train'};
   if(state.game&&state.session.mode==='train'){
     state.session.wild=spawnWild();
-    state.session.bmsg='A wild '+DEX[state.session.wild.sp].n+' appeared! Log a set to attack.';
+    initBossSession();
+    state.session.bmsg='A wild '+DEX[state.session.wild.sp].n+' appeared! Log a set to attack — it fights back!';
   }
   if(state.game&&state.session.mode==='boss'&&state.game.boss){
     initBossSession();
@@ -568,6 +569,11 @@ function endWorkout(){
   var ses=state.session;if(!ses)return;
   var end=Date.now();
   var st=sessionStats(ses.start,end);
+  // battle wounds walk home with you — the POKéMON CENTER heals them
+  if(state.game&&ses.phps){
+    state.game.hurt=state.game.hurt||{};
+    Object.keys(ses.phps).forEach(function(k){state.game.hurt[k]=ses.phps[k];});
+  }
   state.session=null;ensureTicker();
   // back to town after every workout, like leaving the gym
   tab='map';editMode=false;
@@ -671,6 +677,7 @@ function migrateState(){
     if(!Array.isArray(state.game.hof)){state.game.hof=[];changed=true;}
     if(state.game.partyIds===undefined){state.game.partyIds=null;changed=true;}
     if(!state.game.medals){state.game.medals={};changed=true;}
+    if(!state.game.hurt){state.game.hurt={};changed=true;}
   }
   if(!(state.version>=9)){state.version=9;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
@@ -1434,10 +1441,11 @@ function showBossPartyModal(){
     '<p>Your top '+party.length+' fight as a team. Tap one to lead — it can faint, so SWITCH anytime. If all faint, you black out.</p>';
   party.forEach(function(m){
     var l=monLevel(m.xp),st=statsFor(m);
+    var curP=Math.max(0,Math.min(st.hp,curHpOf(m)));
     h+='<button class="prow" data-action="pre-lead" data-m="'+m.uid+'">'+
-      '<img class="pspr" src="'+sprPath(m.sp,m.shiny)+'" alt="">'+
-      '<span style="flex:1;min-width:0"><span class="pname">'+DEX[m.sp].n+(m.shiny?' <span class="shinystar">★</span>':'')+(m.uid===leadUid?' <span class="leadchip">LEAD</span>':'')+'</span><br>'+
-      '<span class="plv">:L'+l+' · '+st.hp+' HP</span></span></button>';
+      '<img class="pspr" src="'+sprPath(m.sp,m.shiny)+'" alt=""'+(curP<=0?' style="filter:grayscale(1);opacity:.6"':'')+'>'+
+      '<span style="flex:1;min-width:0"><span class="pname">'+DEX[m.sp].n+(m.shiny?' <span class="shinystar">★</span>':'')+(m.uid===leadUid?' <span class="leadchip">LEAD</span>':'')+(curP<=0?' <span class="plv" style="color:#D03028">FNT</span>':'')+'</span><br>'+
+      '<span class="plv">:L'+l+' · '+curP+'/'+st.hp+' HP</span></span></button>';
   });
   h+='<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button>'+
      '<button class="btn acc" data-action="party-go">CHALLENGE</button></div>';
@@ -1462,7 +1470,7 @@ function showSwitchModal(){
   modalOk=null;
 }
 function showBattleBag(){
-  if(!state.session||state.session.mode!=='boss'||state.session.blackout)return;
+  if(!state.session||!state.session.party||state.session.blackout)return;
   var bag=bagOf(),lead=leadMon();if(!lead)return;
   var mx=maxHpOf(lead),cur=Math.max(0,curHpOf(lead));
   var h='<h3>BAG</h3><p>'+DEX[lead.sp].n+': '+cur+' / '+mx+' HP</p>';
@@ -1522,12 +1530,15 @@ function teamHTML(){
     state.game.mons.forEach(function(m){
       var l=monLevel(m.xp),st=statsFor(m);
       var into=m.xp-xpFloor(l),span=Math.max(1,xpFloor(l+1)-xpFloor(l));
+      var mxT=st.hp,curT=Math.max(0,Math.min(mxT,curHpOf(m)));
+      var pcT=Math.round(curT/Math.max(1,mxT)*100);
       h+='<button class="prow" data-action="open-mon" data-m="'+m.uid+'">'+
-        '<img class="pspr" src="'+sprPath(m.sp,m.shiny)+'" alt="">'+
+        '<img class="pspr" src="'+sprPath(m.sp,m.shiny)+'" alt=""'+(curT<=0?' style="filter:grayscale(1);opacity:.6"':'')+'>'+
         '<div style="flex:1;min-width:0">'+
         '<div class="pname">'+DEX[m.sp].n+(m.shiny?' <span class="shinystar">★</span>':'')+' <span class="plv">:L'+l+'</span>'+
-        (state.game.active===m.uid?' <span class="leadchip">LEAD</span>':'')+'</div>'+
-        '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div style="width:100%"></div></div><span class="barnum">'+st.hp+'/'+st.hp+'</span></div>'+
+        (state.game.active===m.uid?' <span class="leadchip">LEAD</span>':'')+
+        (curT<=0?' <span class="plv" style="color:#D03028">FNT</span>':'')+'</div>'+
+        '<div style="display:flex;align-items:center;gap:5px;margin-top:6px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pcT+'%;background:'+hpColor(pcT)+'"></div></div><span class="barnum">'+curT+'/'+mxT+'</span></div>'+
         '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div style="width:'+Math.min(100,Math.round(into/span*100))+'%"></div></div></div>'+
         '</div></button>';
     });
@@ -1929,6 +1940,8 @@ function battleParty(){
 function maxHpOf(m){return statsFor(m).hp;}
 function curHpOf(m){
   if(state.session&&state.session.phps&&state.session.phps[m.uid]!==undefined)return state.session.phps[m.uid];
+  // battle scars persist between workouts — heal at the POKéMON CENTER on the map
+  if(state.game&&state.game.hurt&&state.game.hurt[m.uid]!==undefined)return Math.min(state.game.hurt[m.uid],maxHpOf(m));
   return maxHpOf(m);
 }
 function leadMon(){
@@ -1943,10 +1956,26 @@ function alivePartyMons(){return partyMons().filter(function(m){return curHpOf(m
 function initBossSession(){
   if(!state.game||!state.session)return;
   var party=battleParty();
-  state.session.party=party.map(function(m){return m.uid;});
+  var ids=party.map(function(m){return m.uid;});
+  // the XP mon chosen at start always joins the squad, even outside the top six
+  if(state.game.active&&ids.indexOf(state.game.active)<0){
+    var extra=findMon(state.game.active);
+    if(extra){party.push(extra);ids.push(extra.uid);}
+  }
+  state.session.party=ids;
   state.session.phps={};
-  party.forEach(function(m){state.session.phps[m.uid]=maxHpOf(m);});
-  var lead=(state.game.active&&state.session.party.indexOf(state.game.active)>=0)?state.game.active:(party[0]?party[0].uid:null);
+  var hurt=(state.game.hurt||{});
+  party.forEach(function(m){
+    var hv=hurt[m.uid];
+    state.session.phps[m.uid]=(hv!==undefined)?Math.max(0,Math.min(hv,maxHpOf(m))):maxHpOf(m);
+  });
+  var lead=(state.game.active&&ids.indexOf(state.game.active)>=0)?state.game.active:(ids[0]||null);
+  if(lead&&state.session.phps[lead]<=0){
+    var alive=null;
+    ids.forEach(function(u){if(!alive&&state.session.phps[u]>0)alive=u;});
+    if(alive)lead=alive;
+    else state.session.blackout=true;
+  }
   state.session.lead=lead;if(lead)state.game.active=lead;
   save();
 }
@@ -1973,6 +2002,28 @@ function applyBossCounter(bz,lead){
   var to=Math.round(state.session.phps[lead.uid]/Math.max(1,mx)*100);
   var ctxt=c.eff>=2?' A heavy blow!':(c.eff>1?' It hit hard!':(c.eff<1?' '+DEX[lead.sp].n+' shrugged it off.':''));
   var res={dmg:c.dmg,php:[from,to],msg:bz.mon+' struck back — '+c.dmg+' dmg!'+ctxt,fainted:false,faintMsg:null,goMsg:null};
+  state.session.bmsg+=' '+res.msg;
+  if(state.session.phps[lead.uid]<=0){
+    res.fainted=true;
+    var f=handleLeadFaint(lead);
+    res.faintMsg=f.msg;res.goMsg=f.goMsg;
+  }
+  return res;
+}
+/* wilds bite back too — lighter than bosses, route trainers hit harder */
+function applyWildCounter(wd,lead){
+  if(!state.session.phps)state.session.phps={};
+  var st=statsFor(lead);
+  var atype=(DEX[wd.sp].t&&DEX[wd.sp].t[0])||null;
+  var eff=atype?typeEffAgainst(atype,DEX[lead.sp].t):1;
+  var raw=(wd.lv*(wd.tr?1.6:1.15)+3)*eff;
+  var def=(st.def+st.spd)/2;
+  var dmg=Math.max(1,Math.round(raw*45/(45+def)));
+  var mx=maxHpOf(lead);
+  var from=Math.round(Math.max(0,curHpOf(lead))/Math.max(1,mx)*100);
+  state.session.phps[lead.uid]=Math.max(0,curHpOf(lead)-dmg);
+  var to=Math.round(state.session.phps[lead.uid]/Math.max(1,mx)*100);
+  var res={dmg:dmg,php:[from,to],msg:(wd.tr?DEX[wd.sp].n:'Wild '+DEX[wd.sp].n)+' fought back — '+dmg+' dmg!',fainted:false,faintMsg:null,goMsg:null};
   state.session.bmsg+=' '+res.msg;
   if(state.session.phps[lead.uid]<=0){
     res.fainted=true;
@@ -2112,11 +2163,28 @@ function expPctOf(m){
   return Math.min(100,Math.round(into/span*100));
 }
 function wildPanelHTML(anim,ov){
+  if(state.game&&state.session&&!state.session.party)initBossSession();
   var w=(ov&&ov.wild)||state.session.wild;
-  var m=(ov&&ov.lead)||activeMon();if(!m)return '';
+  var m=(ov&&ov.lead)||leadMon();if(!m)return '';
   var d=DEX[w.sp];
   var pct=Math.round(Math.max(0,w.hp)/w.max*100);
   if(anim)btPrevPct=pct;
+  var pmax=maxHpOf(m),php=Math.max(0,curHpOf(m)),ppct=Math.round(php/Math.max(1,pmax)*100);
+  if(anim)btPrevPhp=ppct;
+  var pdots='';
+  partyMons().forEach(function(q){
+    var up=curHpOf(q)>0;
+    pdots+='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:2px;border:1px solid #585048;background:'+(up?(q.uid===m.uid?'#D03028':'#58C868'):'transparent')+'"></span>';
+  });
+  var wbrow='';
+  if(state.session.blackout){
+    wbrow='<div style="font-family:\'Press Start 2P\';font-size:9px;color:#D03028;margin-top:9px;text-align:center;line-height:1.6">ALL POKéMON FAINTED — XP ONLY<br>HEAL AT THE POKéMON CENTER</div>';
+  }else{
+    var alive=alivePartyMons().length,total=partyMons().length;
+    wbrow='<div style="display:flex;gap:8px;margin-top:8px">'+
+      (total>1?'<button class="btn'+(alive>1?' acc':'')+'" data-action="switch-mon" style="flex:1"'+(alive>1?'':' disabled')+'>SWITCH</button>':'')+
+      '<button class="btn" data-action="battle-bag" style="flex:1">BAG</button></div>';
+  }
   return '<div class="panel" style="padding:11px 12px">'+
     '<div class="arenabg" style="background-image:url('+arenaFile('Grass')+')">'+
     '<div class="bt-scene bt-layer">'+
@@ -2130,14 +2198,17 @@ function wildPanelHTML(anim,ov){
       '<img class="bt-espr'+(anim?' slidein-r':'')+(w.shiny?' shinyglow':'')+'" src="'+sprPath(w.sp,w.shiny)+'" alt="'+d.n+'" style="position:absolute;right:5%;top:7%;width:72px;height:72px;image-rendering:pixelated">'+
     '</div>'+
     '<div class="bt-pscene bt-layer">'+
-      '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-2px;width:76px;height:76px;image-rendering:pixelated">'+
-      '<div class="databox" style="position:absolute;right:5px;bottom:5px;width:56%">'+
-        '<div class="pname">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span></div>'+
-        '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div class="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div></div>'+
+      '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-9px;width:76px;height:76px;image-rendering:pixelated">'+
+      '<div class="databox" style="position:absolute;right:5px;bottom:5px;width:58%">'+
+        '<div class="pname">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span> <span style="vertical-align:1px">'+pdots+'</span></div>'+
+        '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div class="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
+        '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div class="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div>'+
+        '<div class="plv" style="margin-top:2px">'+php+' / '+pmax+' HP</div></div>'+
     '</div>'+
     '</div>'+
     '<div class="memo btmemo bt-msg">'+
-    esc(state.session.bmsg||('A wild '+d.n+' appeared! Log a set to attack.'))+'</div></div>';
+    esc(state.session.bmsg||('A wild '+d.n+' appeared! Log a set to attack.'))+'</div>'+
+    wbrow+'</div>';
 }
 function battlePanelHTML(anim,ov){
   if(!state.session)return '';
@@ -2193,7 +2264,7 @@ function battlePanelHTML(anim,ov){
       '<img class="bt-espr'+(anim?' slidein-r':'')+'" src="sprites/'+bz.monId+'.png" alt="'+bz.mon+'" style="position:absolute;right:5%;top:7%;width:76px;height:76px;image-rendering:pixelated">'+
     '</div>'+
     '<div class="bt-pscene bt-layer">'+
-      '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-2px;width:76px;height:76px;image-rendering:pixelated'+(php<=0?';opacity:.4':'')+'">'+
+      '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-9px;width:76px;height:76px;image-rendering:pixelated'+(php<=0?';opacity:.4':'')+'">'+
       '<div class="databox" style="position:absolute;right:5px;bottom:5px;width:58%">'+
         '<div class="pname">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span> <span style="vertical-align:1px">'+pdots+'</span></div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div class="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
@@ -2361,7 +2432,7 @@ function updateBattlePanel(){
     setBarNow('.bt-ehp',btPrevPct,true);
     requestAnimationFrame(function(){requestAnimationFrame(function(){driftBar('.bt-ehp',newPct,true);});});
   }
-  if(isBoss){
+  if(state.session&&state.session.party){
     var lead=leadMon(),pbar=bq('.bt-php');
     if(pbar&&lead){
       var npp=Math.round(Math.max(0,curHpOf(lead))/Math.max(1,maxHpOf(lead))*100);
@@ -2572,24 +2643,26 @@ function showPartyManager(){
 function partyStripHTML(){
   if(!state.game||!state.game.mons.length)return '';
   var party=battleParty();
-  var inBoss=state.session&&state.session.mode==='boss'&&state.session.phps;
+  var anyHurt=false;
+  state.game.mons.forEach(function(m){if(curHpOf(m)<maxHpOf(m))anyHurt=true;});
   var h='<div class="panel" style="margin-top:10px">'+
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+
     '<img src="sprites/trainers/'+playerSpr()+'.png" alt="" style="width:44px;height:44px;image-rendering:pixelated;flex:none">'+
     '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+esc(playerName())+'</div>'+
     '<div class="plv">'+state.game.mons.length+' POKéMON · '+badgeCount()+'/8 badges · ₽'+money().toLocaleString()+'</div></div>'+
-    '<img src="'+itemIcon('pokeball')+'" alt="" style="width:24px;height:24px;image-rendering:pixelated;flex:none"></div>'+
+    '<button class="btn'+(anyHurt?'':'')+'" data-action="pokecenter" style="flex:none;padding:9px 9px'+(anyHurt?';color:#D03028':'')+'">'+
+    '<img src="'+itemIcon('potion')+'" alt="" style="width:15px;height:15px;image-rendering:pixelated;vertical-align:-3px"> HEAL'+(anyHurt?' !':'')+'</button></div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
   party.forEach(function(m){
     var l=monLevel(m.xp);
-    var pct=100;
-    if(inBoss&&state.session.phps[m.uid]!==undefined)pct=Math.round(Math.max(0,state.session.phps[m.uid])/Math.max(1,maxHpOf(m))*100);
+    var mx=maxHpOf(m),cur=Math.max(0,Math.min(mx,curHpOf(m)));
+    var pct=Math.round(cur/Math.max(1,mx)*100);
     h+='<button class="pslot" data-action="open-mon" data-m="'+m.uid+'">'+
-      '<img src="'+sprPath(m.sp,m.shiny)+'" alt="" style="width:40px;height:40px;image-rendering:pixelated;flex:none'+(m.shiny?';filter:drop-shadow(0 0 4px rgba(248,200,40,.8))':'')+'">'+
+      '<img src="'+sprPath(m.sp,m.shiny)+'" alt="" style="width:40px;height:40px;image-rendering:pixelated;flex:none'+(cur<=0?';filter:grayscale(1);opacity:.6':(m.shiny?';filter:drop-shadow(0 0 4px rgba(248,200,40,.8))':''))+'">'+
       '<div style="flex:1;min-width:0">'+
       '<div class="pname" style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+DEX[m.sp].n+'</div>'+
       '<div style="display:flex;align-items:center;gap:4px;margin:2px 0"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
-      '<div class="plv" style="font-size:12px;line-height:1">:L'+l+(state.game.active===m.uid?' · LEAD':'')+'</div>'+
+      '<div class="plv" style="font-size:12px;line-height:1">:L'+l+(state.game.active===m.uid?' · LEAD':'')+(cur<=0?' · <span style="color:#D03028">FNT</span>':'')+'</div>'+
       '</div></button>';
   });
   for(var i=party.length;i<6;i++){
@@ -2781,7 +2854,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.3 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.4 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -2951,7 +3024,12 @@ function saveLogEntry(){
       if(state.session&&state.session.mode==='boss'&&state.game.boss){
         resolveBossSet(am,entry,vol,id);
       }
+      else if(state.session&&state.session.mode==='train'&&state.session.wild&&state.session.blackout){
+        state.session.bmsg=DEX[am.sp].n+' keeps training! +'+(entry.xpg||0)+' XP. (Blacked out — no battles this workout.)';
+        pendingSteps={ov:null,list:[{msg:state.session.bmsg}]};
+      }
       else if(state.session&&state.session.mode==='train'&&state.session.wild){
+        if(!state.session.party)initBossSession();
         var wd=state.session.wild;
         var stT=statsFor(am);
         var wCrit=Math.random()<Math.min(0.25,stT.spe/400);
@@ -3002,7 +3080,15 @@ function saveLogEntry(){
           }
         }else{
           state.session.bmsg=wAtk+' '+dmgT.toLocaleString()+' dmg.';
-          wSteps.push({refresh:true,hold:0});
+          var wct=applyWildCounter(wd,am);
+          wSteps.push({msg:wct.msg,sfx:'hit',lunge:'enemy',blink:'player',php:wct.php,dmg:['player',wct.dmg],quake:true});
+          if(wct.fainted){
+            wSteps.push({msg:wct.faintMsg,sfx:'faint',faint:'player',hold:1100});
+            if(wct.goMsg)wSteps.push({msg:wct.goMsg,sfx:'battlestart',refresh:true,slide:'player'});
+            else wSteps.push({msg:'Your whole team fainted! You blacked out…',refresh:true,hold:1400});
+          }else{
+            wSteps.push({refresh:true,hold:0});
+          }
         }
         pendingSteps={ov:{wild:wPre,lead:am},list:wSteps};
       }
@@ -3279,6 +3365,13 @@ function applyImport(txt){
     if(d.game.medals&&typeof d.game.medals==='object'){
       MEDAL_ORDER.forEach(function(t){if(d.game.medals[t])gm.medals[t]=1;});
     }
+    gm.hurt={};
+    if(d.game.hurt&&typeof d.game.hurt==='object'){
+      gm.mons.forEach(function(m){
+        var hv=parseInt(d.game.hurt[m.uid],10);
+        if(hv>=0&&isFinite(hv))gm.hurt[m.uid]=hv;
+      });
+    }
   }
   state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0,sound:d.sound!==false};
   save();
@@ -3479,6 +3572,24 @@ document.addEventListener('click',function(e){
   }
   else if(a==='show-hof'){showHofModal();}
   else if(a==='show-medal'){showMedalModal(b.dataset.t);}
+  else if(a==='pokecenter'){
+    if(!state.game)return;
+    if(state.session){toast('Finish your workout first!');}
+    else{
+      var anyH=false;
+      state.game.mons.forEach(function(m){if(curHpOf(m)<maxHpOf(m))anyH=true;});
+      if(!anyH){toast('Your team is already fighting fit!');}
+      else{
+        state.game.hurt={};
+        save();sfx('levelup');
+        showModal('<div style="text-align:center;padding-bottom:4px"><img src="'+itemIcon('potion')+'" alt="" style="width:40px;height:40px;image-rendering:pixelated"></div>'+
+          '<h3>POKéMON CENTER</h3><p>Welcome! …There. Your POKéMON are fully healed. Come back anytime!</p>'+
+          '<div class="mbtns"><button class="btn acc" data-action="close-modal">THANKS</button></div>');
+        modalOk=null;
+        render(true);
+      }
+    }
+  }
   else if(a==='edit-party'){pendingParty=null;showPartyManager();}
   else if(a==='pm-toggle'){
     if(pendingParty){
@@ -3535,7 +3646,7 @@ document.addEventListener('click',function(e){
     var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
     state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},round:1,
       boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'},
-      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{}};
+      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{}};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;
