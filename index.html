@@ -473,6 +473,7 @@ var tab='summary', editMode=false, sheetEx=null, openScrollY=0, justStarted=fals
 /* ===== render: tabs ===== */
 var lastRenderedTab=null;
 function render(keepScroll){
+  resolveRests();
   document.querySelectorAll('#tabbar button').forEach(function(b){b.classList.toggle('on',b.dataset.tab===tab);});
   var v=$('#view');
   if(tab==='summary')v.innerHTML=summaryHTML();
@@ -480,6 +481,7 @@ function render(keepScroll){
   else if(tab==='workout')v.innerHTML=workoutHTML();
   else if(tab==='team')v.innerHTML=teamHTML();
   else if(tab==='lab')v.innerHTML=labHTML();
+  else if(tab==='center')v.innerHTML=centerHTML();
   else v.innerHTML=settingsHTML();
   if(tab!==lastRenderedTab){
     v.classList.remove('pagein');void v.offsetWidth;v.classList.add('pagein');
@@ -542,6 +544,7 @@ function tickElapsed(){
 }
 function startWorkout(mode){
   if(state.session)return;
+  resolveRests(); // finished Center rests apply before the squad's HP is seeded
   state.session={start:Date.now(),mode:mode==='boss'?'boss':'train'};
   if(state.game&&state.session.mode==='train'){
     state.session.wild=spawnWild();
@@ -681,6 +684,11 @@ function migrateState(){
     if(!state.game.medals){state.game.medals={};changed=true;}
     if(!state.game.hurt){state.game.hurt={};changed=true;}
     if(state.game.raid===undefined){state.game.raid=null;changed=true;}
+    if(!state.game.rest){state.game.rest={};changed=true;}
+    if(state.game.bag&&state.game.bag.xattack){
+      state.game.bag.fullrestore=(state.game.bag.fullrestore||0)+state.game.bag.xattack;
+      delete state.game.bag.xattack;changed=true;
+    }
   }
   if(!(state.version>=9)){state.version=9;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
@@ -1140,7 +1148,7 @@ var ITEMS={
   pokeball:{n:'POKé BALL',p:200,d:'Fills a catch bar by 10%',ball:0.10,t:0},
   greatball:{n:'GREAT BALL',p:600,d:'Fills a catch bar by 25%',ball:0.25,t:2},
   ultraball:{n:'ULTRA BALL',p:1200,d:'Fills a catch bar by 50%',ball:0.50,t:4},
-  xattack:{n:'X ATTACK',p:500,d:'One extra +50% set in a boss fight',t:0},
+  fullrestore:{n:'FULL RESTORE',p:2500,d:'Fully heals one POKéMON instantly — no 10h wait at the POKéMON CENTER',heal:9999,t:0},
   luckyegg:{n:'LUCKY EGG',p:1500,d:'2× XP for your whole next workout',t:1},
   hpup:{n:'HP UP',p:3000,d:'+5 MAX HP — a bigger tank in boss fights',v:'hp',t:5},
   protein:{n:'PROTEIN',p:3000,d:'+5 ATTACK — your sets hit harder',v:'atk',t:5},
@@ -1150,11 +1158,32 @@ var ITEMS={
   carbos:{n:'CARBOS',p:3000,d:'+5 SPEED — more critical hits',v:'spe',t:5},
   rarecandy:{n:'RARE CANDY',p:4800,d:'Instantly levels up one POKéMON',t:6}
 };
-var ITEMS_ORDER=['potion','superpotion','hyperpotion','revive','pokeball','greatball','ultraball','xattack','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy'];
+var ITEMS_ORDER=['potion','superpotion','hyperpotion','fullrestore','revive','pokeball','greatball','ultraball','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy'];
 function itemIcon(k){return 'sprites/items/'+k+'.png';}
 function money(){return (state.game&&state.game.money)||0;}
 function addMoney(n){if(state.game&&n>0)state.game.money=(state.game.money||0)+n;}
 function bagOf(){if(!state.game)return {};if(!state.game.bag)state.game.bag={};return state.game.bag;}
+/* the POKéMON CENTER: hurt mons rest 10 hours each, or burn a FULL RESTORE for right now */
+var REST_MS=10*3600000;
+function restOf(){if(!state.game)return {};if(!state.game.rest)state.game.rest={};return state.game.rest;}
+function resolveRests(){
+  if(!state.game||state.session)return;
+  var r=restOf(),now=Date.now(),changed=false;
+  Object.keys(r).forEach(function(uid){
+    if(r[uid]<=now){
+      delete r[uid];
+      if(state.game.hurt)delete state.game.hurt[uid];
+      changed=true;
+    }
+  });
+  if(changed)save();
+}
+function restLeftLabel(uid){
+  var ms=Math.max(0,restOf()[uid]-Date.now());
+  var hh=Math.floor(ms/3600000),mm=Math.ceil(ms%3600000/60000);
+  if(mm===60){hh++;mm=0;}
+  return hh>0?hh+'h '+mm+'m':mm+'m';
+}
 
 /* ===== game: route trainers ===== */
 var TRAINER_CLASSES=[
@@ -1403,7 +1432,7 @@ function checkGameEvents(){
       (function(t){
         queueModal(function(){
           sfx('badge');
-          showModal('<div style="text-align:center">'+medalSVG(t,true,64)+'</div>'+
+          showModal('<div style="text-align:center">'+badgeImg(t,true,64)+'</div>'+
             '<h3 style="text-align:center">'+t.toUpperCase()+' MEDAL GET! 🎖</h3>'+
             '<p style="text-align:center">You caught every '+t+'-type POKéMON!</p>'+
             '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
@@ -1558,13 +1587,13 @@ function showBattleBag(){
   var mx=maxHpOf(lead),cur=Math.max(0,curHpOf(lead));
   var h='<h3>BAG</h3><p>'+DEX[lead.sp].n+': '+cur+' / '+mx+' HP</p>';
   var any=false;
-  ['potion','superpotion','hyperpotion'].forEach(function(k){
+  ['potion','superpotion','hyperpotion','fullrestore'].forEach(function(k){
     var c=bag[k]||0;if(!c)return;any=true;
     var ok=cur>0&&cur<mx;
     h+='<button class="prow" style="padding:7px 10px'+(ok?'':';opacity:.55')+'" '+(ok?'data-action="use-potion" data-it="'+k+'"':'disabled')+'>'+
       '<img src="'+itemIcon(k)+'" alt="" style="width:28px;height:28px;image-rendering:pixelated">'+
       '<span style="flex:1;min-width:0" class="pname">'+ITEMS[k].n+' <span class="plv">×'+c+'</span></span>'+
-      '<span class="plv">+'+ITEMS[k].heal+' HP</span></button>';
+      '<span class="plv">'+(k==='fullrestore'?'FULL':'+'+ITEMS[k].heal+' HP')+'</span></button>';
   });
   var rc=bag.revive||0;
   if(rc>0){
@@ -1848,23 +1877,23 @@ function curMoveFor(m,bz){
    hs boxes are [left%,top%,width%,height%] over each town's map image; wp = walker [left%,bottom%] */
 var TOWNS=[
   {n:'VIRIDIAN CITY',sub:'The eternally green paradise',img:'map/viridian.png',
-    hs:{boss:[64,13,22,19],mart:[67,37.5,16,14.5],train:[64,53.5,21,16.5]},wp:[14,8]},
+    hs:{boss:[64,13,22,19],mart:[67,37.5,16,14.5],train:[64,53.5,21,16.5],center:[49,55,12,13]},wp:[14,8]},
   {n:'PEWTER CITY',sub:'A quiet town carved from grey stone',img:'map/pewter.png',
-    hs:{boss:[24,30,17,17],mart:[52,37,12,12],train:[52,55,30,24]},wp:[18,18]},
+    hs:{boss:[24,30,17,17],mart:[52,37,12,12],train:[52,55,30,24],center:[30,53,14,12]},wp:[18,18]},
   {n:'CERULEAN CITY',sub:'A splash of blue between the hills',img:'map/cerulean.png',
-    hs:{boss:[54,44,17,12],mart:[54,65,12,11],train:[2,60,22,30]},wp:[25,23]},
+    hs:{boss:[54,44,17,12],mart:[54,65,12,11],train:[2,60,22,30],center:[41,39,12,12]},wp:[25,23]},
   {n:'VERMILION CITY',sub:'A sunset harbour humming with current',img:'map/vermilion.png',
-    hs:{boss:[23,55,17,12],mart:[55,38,11,10],train:[63,3,26,17]},wp:[40,20]},
+    hs:{boss:[23,55,17,12],mart:[55,38,11,10],train:[63,3,26,17],center:[26,7,12,11]},wp:[40,20]},
   {n:'CELADON CITY',sub:'The rainbow town of big spenders',img:'map/celadon.png',
-    hs:{boss:[14,68,11,12],mart:[15,15,14,26],train:[38,42,14,21]},wp:[30,25]},
+    hs:{boss:[14,68,11,12],mart:[15,15,14,26],train:[38,42,14,21],center:[76,19,10,13]},wp:[30,25]},
   {n:'FUCHSIA CITY',sub:'A pink-walled town of safari secrets',img:'map/fuchsia.png',
-    hs:{boss:[13,70,15,13],mart:[18,32,10,11],train:[11,17,28,12]},wp:[35,44]},
+    hs:{boss:[13,70,15,13],mart:[18,32,10,11],train:[11,17,28,12],center:[38,69,11,12]},wp:[35,44]},
   {n:'SAFFRON CITY',sub:'A golden city of unblinking minds',img:'map/saffron.png',
-    hs:{boss:[65,16,11,10],mart:[55.5,31.5,9,10],train:[0.5,1,21,35]},wp:[40,12]},
+    hs:{boss:[65,16,11,10],mart:[55.5,31.5,9,10],train:[0.5,1,21,35],center:[32,61,11,11]},wp:[40,12]},
   {n:'CINNABAR ISLAND',sub:'A volcanic isle of burning research',img:'map/cinnabar.png',
-    hs:{boss:[70,10,17,15],mart:[70,40,14,19],train:[6,64,57,27]},wp:[30,30]},
+    hs:{boss:[70,10,17,15],mart:[70,40,14,19],train:[6,64,57,27],center:[50,40,21,19]},wp:[30,30]},
   {n:'INDIGO PLATEAU',sub:'Where only champions walk',img:'map/indigo.png',
-    hs:{boss:[21,6,55,32],mart:[3,34,18,26],train:[10,64,80,33]},wp:[35,45]}
+    hs:{boss:[21,6,55,32],mart:[3,34,18,26],train:[10,64,80,33],center:[59,34,18,26]},wp:[35,45]}
 ];
 function townIdx(){return Math.min(badgeCount(),8);}
 /* official FRLG battle backgrounds per boss type */
@@ -1888,6 +1917,11 @@ function medalCaught(md){
   var c=0;
   md.species.forEach(function(sp){var d=state.game&&state.game.dex[sp];if(d&&d.c)c++;});
   return c;
+}
+/* type medals wear the official GYM badge art (Kanto + Johto); feat medals keep the enamel SVG */
+function badgeImg(t,earned,size){
+  return '<img src="sprites/badges/'+t.toLowerCase()+'.png" alt="'+t+' badge" style="width:'+size+'px;height:'+size+'px;object-fit:contain'+
+    (earned?'':';filter:grayscale(1) contrast(.55);opacity:.38')+'">';
 }
 function medalSVG(t,earned,size,color,letter){
   var c=earned?(color||TYPE_COLORS[t]||'#888888'):'#A8A8A0';
@@ -1934,7 +1968,7 @@ function medalsHTML(){
     var c=medalCaught(md),full=c>=md.species.length;
     if(full)got++;
     cells+='<button class="pstripbtn" data-action="show-medal" data-t="'+md.t+'" style="width:54px;margin-bottom:4px">'+
-      medalSVG(md.t,full,38)+
+      badgeImg(md.t,full,38)+
       '<div class="plv" style="font-size:12px;line-height:1.1;margin-top:1px'+(full?';color:#2E8B48':'')+'">'+md.t.toUpperCase().slice(0,6)+'<br>'+(full?'★':c+'/'+md.species.length)+'</div></button>';
   });
   SPECIAL_MEDALS.forEach(function(sm){
@@ -1966,7 +2000,7 @@ function showMedalModal(t){
   medalList().forEach(function(x){if(x.t===t)md=x;});
   if(!md)return;
   var c=medalCaught(md),full=c>=md.species.length;
-  var h='<div style="text-align:center">'+medalSVG(t,full,56)+'</div>'+
+  var h='<div style="text-align:center">'+badgeImg(t,full,56)+'</div>'+
     '<h3 style="text-align:center">'+t.toUpperCase()+' MEDAL</h3>'+
     '<p style="text-align:center">'+(full?'Complete — every '+t+'-type caught!':c+' / '+md.species.length+' caught. The shadows are still out there.')+'</p>'+
     '<div class="dexgrid" style="margin:0">';
@@ -2326,15 +2360,13 @@ function battlePanelHTML(anim,ov){
   });
   var alive=alivePartyMons().length, total=partyMons().length, brow;
   if(state.session.blackout){
-    brow='<div style="font-family:\'Press Start 2P\';font-size:9px;color:#D03028;margin-top:9px;text-align:center;line-height:1.6">ALL POKéMON FAINTED — XP ONLY<br>HEAL BY YOUR NEXT WORKOUT</div>';
+    brow='<div style="font-family:\'Press Start 2P\';font-size:9px;color:#D03028;margin-top:9px;text-align:center;line-height:1.6">ALL POKéMON FAINTED — XP ONLY<br>HEAL AT THE POKéMON CENTER</div>';
   }else{
     var bag=bagOf(),xrow='';
     if(state.session.xatkArmed){
       xrow='<div style="flex:1;font-family:\'Press Start 2P\';font-size:9px;color:#D03028;text-align:center;align-self:center;line-height:1.4">X ATK ARMED ▲</div>';
     }else if(!state.session.xatkUsed){
       xrow='<button class="btn" data-action="use-xatk" style="flex:1">X ATK</button>';
-    }else if((bag.xattack||0)>0){
-      xrow='<button class="btn" data-action="use-xatk-item" style="flex:1"><img src="'+itemIcon('xattack')+'" alt="" style="width:16px;height:16px;image-rendering:pixelated;vertical-align:-3px"> ×'+bag.xattack+'</button>';
     }
     var swrow=(total>1)?'<button class="btn'+(alive>1?' acc':'')+'" data-action="switch-mon" style="flex:1"'+(alive>1?'':' disabled')+'>SWITCH</button>':'';
     var bagrow='<button class="btn" data-action="battle-bag" style="flex:1">BAG</button>';
@@ -2833,9 +2865,51 @@ function mapHTML(){
     spot('boss','BOSS')+
     spot('mart','SHOP')+
     spot('train','TRAIN',encAlert?'<span class="mapalert">!</span>':'')+
+    (tw.hs.center?spot('center','HEAL'):'')+
     '</div>'+
     partyStripHTML();
   if(state.session)h+=heroHTML();
+  return h;
+}
+function centerHTML(){
+  var h='<div class="titlebar"><h1>POKéMON CENTER</h1></div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  var g=state.game,rest=restOf(),bag=bagOf();
+  h+='<div class="subtitle">'+TOWNS[townIdx()].n+' branch</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="map/center.png" alt="Pokémon Center" style="width:100%;display:block;image-rendering:pixelated"></div>'+
+    '<div class="panel"><h3>NURSE</h3><div class="plv" style="line-height:1.35">Welcome! Leave a POKéMON with me and it will be fighting fit in <b>10 hours</b>. In a hurry? A FULL RESTORE from the MART heals instantly — you have <b>'+(bag.fullrestore||0)+'</b> in your bag.</div></div>';
+  if(state.session){
+    h+='<div class="panel"><div class="plv" style="color:#D03028">The nurse can’t treat a team mid-battle — finish your workout first!</div></div>';
+  }
+  var rows='',needy=0;
+  g.mons.forEach(function(m){
+    var mx=maxHpOf(m),cur=Math.max(0,Math.min(mx,curHpOf(m)));
+    var resting=!!rest[m.uid];
+    if(cur>=mx&&!resting)return;
+    needy++;
+    var pct=Math.round(cur/Math.max(1,mx)*100);
+    var status,btns='';
+    if(resting){
+      status='<span style="color:#4890F8">Resting… ready in '+restLeftLabel(m.uid)+'</span>';
+      if(!state.session&&(bag.fullrestore||0)>0)btns='<button class="btn" data-action="restore-mon" data-m="'+m.uid+'"><img src="'+itemIcon('fullrestore')+'" alt="" style="width:15px;height:15px;image-rendering:pixelated;vertical-align:-3px"> NOW</button>';
+    }else if(!state.session){
+      btns='<button class="btn acc" data-action="rest-mon" data-m="'+m.uid+'">REST 10H</button>'+
+        ((bag.fullrestore||0)>0?' <button class="btn" data-action="restore-mon" data-m="'+m.uid+'"><img src="'+itemIcon('fullrestore')+'" alt="" style="width:15px;height:15px;image-rendering:pixelated;vertical-align:-3px"> NOW</button>':'');
+      status=cur<=0?'<span style="color:#D03028">FAINTED</span>':'Hurt';
+    }else{
+      status=cur<=0?'<span style="color:#D03028">FAINTED</span>':'Hurt';
+    }
+    rows+='<div class="prow" style="padding:8px 10px">'+
+      '<img class="pspr" src="'+sprPath(m.sp,m.shiny)+'" alt=""'+(cur<=0?' style="filter:grayscale(1);opacity:.6"':'')+'>'+
+      '<div style="flex:1;min-width:0">'+
+      '<div class="pname">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span></div>'+
+      '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div><span class="barnum">'+cur+'/'+mx+'</span></div>'+
+      '<div class="plv" style="margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+status+btns+'</div>'+
+      '</div></div>';
+  });
+  if(needy)h+='<div class="panel"><h3>SICK BAY<span class="bestchip">'+needy+'</span></h3>'+rows+'</div>';
+  else h+='<div class="panel"><div class="plv">Your whole team is fighting fit! Come back after a rough battle.</div></div>';
+  h+='<div style="margin:10px 12px"><button class="btn" data-action="tab" data-tab="map" style="width:100%">← BACK TO TOWN</button></div>';
   return h;
 }
 
@@ -3002,7 +3076,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.5 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.6 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -3498,9 +3572,10 @@ function applyImport(txt){
     gm.bag={};
     if(d.game.bag&&typeof d.game.bag==='object'){
       Object.keys(d.game.bag).forEach(function(bk){
-        if(!ITEMS[bk])return;
+        var key=bk==='xattack'?'fullrestore':bk;
+        if(!ITEMS[key])return;
         var bc=parseInt(d.game.bag[bk],10);
-        if(bc>0)gm.bag[bk]=Math.min(99,bc);
+        if(bc>0)gm.bag[key]=Math.min(99,(gm.bag[key]||0)+bc);
       });
     }
     gm.hof=Array.isArray(d.game.hof)?d.game.hof.filter(function(e){return e&&isFinite(e.ts)&&Array.isArray(e.team);})
@@ -3523,6 +3598,13 @@ function applyImport(txt){
     }
     gm.raid=(d.game.raid&&RAID_SPECIES[d.game.raid.k]&&isFinite(d.game.raid.startTs))?
       {k:d.game.raid.k,startTs:+d.game.raid.startTs}:null;
+    gm.rest={};
+    if(d.game.rest&&typeof d.game.rest==='object'){
+      gm.mons.forEach(function(m){
+        var rv=+d.game.rest[m.uid];
+        if(isFinite(rv)&&rv>0)gm.rest[m.uid]=rv;
+      });
+    }
   }
   state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0,sound:d.sound!==false};
   save();
@@ -3648,19 +3730,15 @@ document.addEventListener('click',function(e){
       if(state.game)showMartModal();
       else toast('Meet PROF. OAK first!');
     }
+    else if(bid==='center'){
+      if(state.game){tab='center';render();}
+      else toast('Meet PROF. OAK first!');
+    }
   }
   else if(a==='use-xatk'){
     if(state.session&&state.session.mode==='boss'&&!state.session.xatkUsed&&!state.session.xatkArmed){
       state.session.xatkArmed=true;
       state.session.bmsg=playerName()+' used X ATTACK! The next set hits 50% harder!';
-      save();sfx('pr');updateBattlePanel();
-    }
-  }
-  else if(a==='use-xatk-item'){
-    if(state.session&&state.session.mode==='boss'&&!state.session.xatkArmed&&(bagOf().xattack||0)>0){
-      bagOf().xattack--;
-      state.session.xatkArmed=true;
-      state.session.bmsg=playerName()+' used an X ATTACK from the bag! The next set hits 50% harder!';
       save();sfx('pr');updateBattlePanel();
     }
   }
@@ -3725,20 +3803,28 @@ document.addEventListener('click',function(e){
   else if(a==='show-medal'){showMedalModal(b.dataset.t);}
   else if(a==='pokecenter'){
     if(!state.game)return;
-    if(state.session){toast('Finish your workout first!');}
-    else{
-      var anyH=false;
-      state.game.mons.forEach(function(m){if(curHpOf(m)<maxHpOf(m))anyH=true;});
-      if(!anyH){toast('Your team is already fighting fit!');}
-      else{
-        state.game.hurt={};
-        save();sfx('levelup');
-        showModal('<div style="text-align:center;padding-bottom:4px"><img src="'+itemIcon('potion')+'" alt="" style="width:40px;height:40px;image-rendering:pixelated"></div>'+
-          '<h3>POKéMON CENTER</h3><p>Welcome! …There. Your POKéMON are fully healed. Come back anytime!</p>'+
-          '<div class="mbtns"><button class="btn acc" data-action="close-modal">THANKS</button></div>');
-        modalOk=null;
-        render(true);
-      }
+    tab='center';render();
+  }
+  else if(a==='rest-mon'){
+    if(!state.game)return;
+    if(state.session){toast('Finish your workout first!');return;}
+    var rmM=findMon(b.dataset.m);
+    if(rmM&&curHpOf(rmM)<maxHpOf(rmM)&&!restOf()[rmM.uid]){
+      restOf()[rmM.uid]=Date.now()+REST_MS;
+      save();sfx('save');render(true);
+      toast(DEX[rmM.sp].n+' is resting — back in 10h');
+    }
+  }
+  else if(a==='restore-mon'){
+    if(!state.game)return;
+    if(state.session){toast('Use the BAG in battle instead!');return;}
+    var frM=findMon(b.dataset.m);
+    if(frM&&(bagOf().fullrestore||0)>0&&curHpOf(frM)<maxHpOf(frM)){
+      bagOf().fullrestore--;
+      if(state.game.hurt)delete state.game.hurt[frM.uid];
+      delete restOf()[frM.uid];
+      save();sfx('levelup');render(true);
+      toast(DEX[frM.sp].n+' is fully healed!');
     }
   }
   else if(a==='raid-start'){
@@ -3822,7 +3908,7 @@ document.addEventListener('click',function(e){
     var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
     state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},round:1,
       boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'},
-      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null};
+      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{}};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;

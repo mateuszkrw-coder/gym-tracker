@@ -1,6 +1,6 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v27';
+const CACHE = 'gym-tracker-v28';
 const TOWN_MAPS = ['viridian','pewter','cerulean','vermilion','celadon','fuchsia','saffron','cinnabar','indigo'];
 const ARENAS = ['gym','grass','water','cave','pond','ice','sand','poison','teal','psychic'];
 /* Catchable lines (have front + shiny + back + back-shiny sprites). */
@@ -11,7 +11,8 @@ const BOSS_IDS = [87,114,124];
 const WILD_IDS = [10,11,13,14,84,86,90,98,102,116,118];
 const TRAINERS = ['red','leaf','oak','brock','misty','ltsurge','erika','koga','sabrina','blaine','giovanni','lorelei','bruno','agatha','lance','blue',
   'bugcatcher','youngster','lass','hiker','fisherman','picnicker'];
-const ITEM_KEYS = ['potion','superpotion','hyperpotion','revive','pokeball','greatball','ultraball','xattack','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy'];
+const ITEM_KEYS = ['potion','superpotion','hyperpotion','fullrestore','revive','pokeball','greatball','ultraball','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy'];
+const BADGE_TYPES = ['normal','fire','water','electric','grass','psychic','fighting','flying','poison','ground','rock','bug','ghost','dragon','steel'];
 const ASSETS = [
   './',
   './index.html',
@@ -32,7 +33,9 @@ const ASSETS = [
   .concat(TRAINERS.map((t) => './sprites/trainers/' + t + '.png'))
   .concat(ITEM_KEYS.map((k) => './sprites/items/' + k + '.png'))
   .concat(TOWN_MAPS.map((t) => './map/' + t + '.png'))
-  .concat(ARENAS.map((a) => './sprites/arenas/' + a + '.png'));
+  .concat(ARENAS.map((a) => './sprites/arenas/' + a + '.png'))
+  .concat(BADGE_TYPES.map((t) => './sprites/badges/' + t + '.png'))
+  .concat(['./map/center.png']);
 
 self.addEventListener('install', (e) => {
   // Add each asset individually so one missing file can't abort the whole install.
