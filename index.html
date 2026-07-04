@@ -499,6 +499,8 @@ function render(keepScroll){
   else if(tab==='lab')v.innerHTML=labHTML();
   else if(tab==='center')v.innerHTML=centerHTML();
   else if(tab==='trophy')v.innerHTML=trophyHTML();
+  else if(tab==='mart')v.innerHTML=martHTML();
+  else if(tab==='gymhall')v.innerHTML=gymhallHTML();
   else v.innerHTML=settingsHTML();
   if(tab!==lastRenderedTab){
     v.classList.remove('pagein');void v.offsetWidth;v.classList.add('pagein');
@@ -586,6 +588,12 @@ function startWorkout(mode){
   var fx=$('#fx');
   if(fx){fx.classList.remove('go');void fx.offsetWidth;fx.classList.add('go');setTimeout(function(){fx.classList.remove('go');},950);}
   sfx(state.game?'battlestart':'save');
+  // the opponent announces itself once the flash clears
+  if(state.game&&state.session){
+    var cw=state.session.wild?state.session.wild.sp:null;
+    var cb=(!cw&&state.session.mode==='boss')?bossInfo():null;
+    setTimeout(function(){if(cw)cry(cw);else if(cb)cryById(cb.monId);},1050);
+  }
   toast(mode==='boss'?'Boss battle started! ⚔️':'Training battle started! 🔥');
 }
 function endWorkout(){
@@ -607,12 +615,19 @@ function endWorkout(){
   if(state.game&&st.volume){cut=Math.round(st.volume/20);addMoney(cut);}
   save();render();
   sfx('victory');
-  showModal('<h3>Workout complete 💪</h3>'+
-    '<p style="line-height:1.6;font-size:20px">Duration <b>'+fmtDur(end-ses.start)+'</b><br>'+
-    'Exercises <b>'+st.exercises+'</b> · Sets <b>'+st.sets+'</b><br>'+
-    'Volume <b>'+fmtVol(st.volume)+' '+esc(state.unit)+'</b>'+
-    (ses.xpg?'<br>XP earned <b>+'+ses.xpg+'</b>':'')+
-    (cut?'<br>Earned <b>₽'+cut.toLocaleString()+'</b>':'')+'</p>'+
+  var amEnd=state.game?activeMon():null;
+  function srow(icon,label,val){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:20px">'+
+      '<img src="'+itemIcon(icon)+'" alt="" style="width:20px;height:20px;image-rendering:pixelated;flex:none">'+
+      '<span style="flex:1;color:var(--mut)">'+label+'</span><b>'+val+'</b></div>';
+  }
+  showModal('<h3 style="text-align:center">Workout complete! 💪</h3>'+
+    (amEnd?'<div style="text-align:center;padding:2px 0 6px"><img class="bigspr'+(amEnd.shiny?' shinyglow':'')+'" src="'+sprPath(amEnd.sp,amEnd.shiny)+'" alt="" style="width:72px;height:72px"></div>':'')+
+    srow('greatball','Duration',fmtDur(end-ses.start))+
+    srow('protein','Exercises · Sets',st.exercises+' · '+st.sets)+
+    srow('iron','Volume',fmtVol(st.volume)+' '+esc(state.unit))+
+    (ses.xpg?srow('luckyegg','XP earned','+'+ses.xpg):'')+
+    (cut?srow('pokeball','Purse','₽'+cut.toLocaleString()):'')+
     '<div class="mbtns"><button class="btn acc" data-action="close-modal">DONE</button></div>');
   if(state.game)checkGameEvents();
 }
@@ -1464,6 +1479,7 @@ function daysSinceGameStart(){
 }
 function announceEncounter(gk,sp,target){
   queueModal(function(){
+    cry(sp);
     showModal('<h3>A wild '+esc(DEX[sp].n)+' appeared!</h3>'+
       '<div style="text-align:center;padding:8px 0"><img class="bigspr" src="'+sprPath(sp,false)+'" alt=""></div>'+
       '<p>Catch it by moving '+fmtVol(target)+' '+esc(state.unit)+' of '+gk.toUpperCase()+' volume. Track it in the POKEDEX — it can’t run away.</p>'+
@@ -1474,6 +1490,7 @@ function announceEncounter(gk,sp,target){
 function announceCatch(sp,shiny){
   queueModal(function(){
     sfx('catch');
+    cry(sp);
     if(shiny)setTimeout(function(){sfx('shiny');},600);
     showModal('<h3>Gotcha!</h3><p>'+esc(DEX[sp].n)+' was caught!'+(shiny?' ✨ It’s SHINY!':'')+'</p>'+
       '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(shiny?' shinyglow':'')+'" src="'+sprPath(sp,shiny)+'" alt=""></div>'+
@@ -1605,6 +1622,7 @@ function checkGameEvents(){
       (function(sp2,sh2,lv2){
         queueModal(function(){
           sfx('catch');
+          cry(sp2);
           if(sh2)setTimeout(function(){sfx('shiny');},600);
           showModal('<h3>RAID CLEARED! 🎉</h3><p>All that iron paid off — '+DEX[sp2].n+' gave in and joined your team at :L'+lv2+'!'+(sh2?' ✨ It’s SHINY!':'')+'</p>'+
             '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(sh2?' shinyglow':'')+'" src="'+sprPath(sp2,sh2)+'" alt=""></div>'+
@@ -1818,6 +1836,7 @@ function dexHTML(){
 function openMon(u){
   var m=findMon(u);if(!m)return;
   monOpen=u;
+  cry(m.sp);
   var l=monLevel(m.xp),st=statsFor(m),d=DEX[m.sp];
   var into=m.xp-xpFloor(l),span=Math.max(1,xpFloor(l+1)-xpFloor(l));
   var chips='';
@@ -2390,7 +2409,7 @@ function resolveBossSet(am,entry,vol,id){
   var steps=[];
   if(state.game.boss.hp<=0){
     steps.push({msg:atkMsg,sfx:hitSfx,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg],fx:mvType});
-    steps.push({msg:'Foe '+bz.mon+' is unable to battle!',sfx:'faint',faint:'enemy',hold:1100});
+    steps.push({msg:'Foe '+bz.mon+' is unable to battle!',sfx:'faint',cryId:bz.monId,faint:'enemy',hold:1100});
     // the beaten leader steps back out to concede
     steps.push({msg:bz.n+' was defeated!',sfx:'badge',trainer:bz.tr,hold:1600});
     steps.push({refresh:true,hold:0});
@@ -2407,8 +2426,8 @@ function resolveBossSet(am,entry,vol,id){
     applyXP(am,ko);
     state.session.bmsg+=' Foe '+bz.mon+' is unable to battle! +'+ko+' XP! '+bz.n+' sent out '+after.mon+'!';
     steps.push({msg:atkMsg,sfx:hitSfx,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg],fx:mvType});
-    steps.push({msg:'Foe '+bz.mon+' is unable to battle! +'+ko+' XP!',sfx:'faint',faint:'enemy',hold:1100});
-    steps.push({msg:bz.n+' sent out '+after.mon+'!',sfx:'battlestart',refresh:true,slide:'enemy'});
+    steps.push({msg:'Foe '+bz.mon+' is unable to battle! +'+ko+' XP!',sfx:'faint',cryId:bz.monId,faint:'enemy',hold:1100});
+    steps.push({msg:bz.n+' sent out '+after.mon+'!',sfx:'battlestart',cryId:after.monId,refresh:true,slide:'enemy'});
   }else{
     // member survives → your strike lands first, THEN it hits back
     var ehpTo=Math.round(after.memberHp/Math.max(1,after.memberMax)*100);
@@ -2416,8 +2435,8 @@ function resolveBossSet(am,entry,vol,id){
     var ct=applyBossCounter(after,am);
     steps.push({msg:ct.msg,sfx:'hit',lunge:'enemy',blink:'player',php:ct.php,dmg:['player',ct.dmg],quake:true});
     if(ct.fainted){
-      steps.push({msg:ct.faintMsg,sfx:'faint',faint:'player',hold:1100});
-      if(ct.goMsg)steps.push({msg:ct.goMsg,sfx:'battlestart',refresh:true,slide:'player'});
+      steps.push({msg:ct.faintMsg,sfx:'faint',cry:am.sp,faint:'player',hold:1100});
+      if(ct.goMsg)steps.push({msg:ct.goMsg,sfx:'battlestart',cry:(findMon(state.session.lead)||{}).sp,refresh:true,slide:'player'});
       else steps.push({msg:'Your whole team fainted! You blacked out…',refresh:true,hold:1400});
     }else{
       steps.push({refresh:true,hold:0});
@@ -2666,6 +2685,8 @@ function runBattleStep(st){
     }
   }
   if(st.sfx)sfx(st.sfx);
+  if(st.cry)cry(st.cry);
+  if(st.cryId)cryById(st.cryId);
   if(st.msg)typeMsg(st.msg);
   if(st.lunge==='player')sprFx('.bt-pspr','lunge-l');
   if(st.lunge==='enemy')sprFx('.bt-espr','lunge-r');
@@ -2878,7 +2899,13 @@ function bossDefeated(){
     g.boss={idx:0,hp:hpFor(0,g.round)};
   }
   else g.boss={idx:bz.idx+1,hp:hpFor(bz.idx+1,g.round||1)};
-  if(state.session)state.session.bmsg='Foe '+bz.mon+' is unable to battle!'+(isChamp?' You are the CHAMPION!':' '+BOSSES[bz.idx+1].n+' steps up next!');
+  // the rest of the workout goes back to normal training — the next boss waits at the GYM
+  if(state.session){
+    state.session.mode='train';
+    state.session.wild=spawnWild();
+    state.session.moveSel={};
+    state.session.bmsg='A wild '+DEX[state.session.wild.sp].n+' appeared!';
+  }
   save();
   // let the final KO animation land before the victory modals
   setTimeout(function(){
@@ -2929,34 +2956,79 @@ function showStadiumModal(){
     '<button class="btn acc" data-action="stadium-go">CHALLENGE</button></div>');
   modalOk=null;
 }
-function showMartModal(){
-  var g=state.game;if(!g)return;
+function martHTML(){
+  var h='<div class="titlebar"><h1>POKE MART</h1></div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
   var bag=bagOf();
   var ti=townIdx();
-  var h='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
-    '<img src="'+itemIcon('pokeball')+'" alt="" style="width:30px;height:30px;image-rendering:pixelated">'+
-    '<h3 style="margin:0;flex:1">POKE MART</h3>'+
-    '<span class="bestchip">₽'+money().toLocaleString()+'</span></div>'+
-    '<p style="margin-bottom:8px">'+TOWNS[ti].n+' branch — each new town stocks more!</p>';
+  h+='<div class="subtitle">'+TOWNS[ti].n+' branch — each new town stocks more</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="map/mart.png" alt="Poke Mart" style="width:100%;display:block;image-rendering:pixelated">'+
+    '<img class="npc" src="sprites/npc/chef.png" alt="" style="left:17%;top:40%;width:9%">'+
+    '<img class="npc" src="sprites/npc/youngster.png" alt="" style="left:58%;top:72%;width:9%">'+
+    '</div>'+
+    '<div class="panel"><h3>CLERK<span class="bestchip">₽'+money().toLocaleString()+'</span></h3>'+
+    '<div class="plv">Welcome! Take your time — the shelves go deeper with every badge.</div></div>';
+  var rows='';
   ITEMS_ORDER.forEach(function(k){
     var it=ITEMS[k],locked=(it.t||0)>ti,afford=money()>=it.p;
     if(locked){
-      h+='<div class="prow" style="padding:6px 10px;opacity:.5">'+
+      rows+='<div class="prow" style="padding:6px 10px;opacity:.5">'+
         '<img src="'+itemIcon(k)+'" alt="" style="width:28px;height:28px;image-rendering:pixelated;flex:none;filter:grayscale(1)">'+
         '<div style="flex:1;min-width:0"><div class="pname" style="font-size:17px">'+it.n+'</div>'+
         '<div class="plv" style="font-size:14px;line-height:1.15">Sold in '+TOWNS[it.t].n+' — '+(it.t-ti)+' badge'+(it.t-ti===1?'':'s')+' away</div></div>'+
         '<span class="plv">🔒</span></div>';
       return;
     }
-    h+='<div class="prow" style="padding:6px 10px">'+
+    rows+='<div class="prow" style="padding:6px 10px">'+
       '<img src="'+itemIcon(k)+'" alt="" style="width:28px;height:28px;image-rendering:pixelated;flex:none">'+
       '<div style="flex:1;min-width:0"><div class="pname" style="font-size:17px">'+it.n+((bag[k]||0)>0?' <span class="plv">×'+bag[k]+'</span>':'')+'</div>'+
       '<div class="plv" style="font-size:14px;line-height:1.15">'+it.d+'</div></div>'+
       '<button class="btn'+(afford?' acc':'')+'" data-action="buy-item" data-it="'+k+'"'+(afford?'':' disabled style="opacity:.5"')+'>₽'+it.p+'</button></div>';
   });
-  h+='<div class="mbtns"><button class="btn" data-action="close-modal">LEAVE</button></div>';
-  showModal(h);
-  modalOk=null;
+  h+='<div class="panel"><h3>FOR SALE</h3>'+rows+'</div>'+
+    '<div style="margin:10px 12px"><button class="btn" data-action="tab" data-tab="map" style="width:100%">← BACK TO TOWN</button></div>';
+  return h;
+}
+/* the gym halls: official FRLG interiors, one per boss — the leader waits on their platform */
+var GYMS=[
+  {img:'map/gym/pewter.png',lx:50,ly:22},
+  {img:'map/gym/cerulean.png',lx:50,ly:15},
+  {img:'map/gym/vermilion.png',lx:50,ly:14},
+  {img:'map/gym/celadon.png',lx:50,ly:17},
+  {img:'map/gym/fuchsia.png',lx:50,ly:13},
+  {img:'map/gym/saffron.png',lx:50,ly:44},
+  {img:'map/gym/cinnabar.png',lx:14,ly:18},
+  {img:'map/gym/viridian.png',lx:50,ly:13},
+  {img:'map/gym/lorelei.png',lx:50,ly:24},
+  {img:'map/gym/bruno.png',lx:50,ly:24},
+  {img:'map/gym/agatha.png',lx:50,ly:24},
+  {img:'map/gym/lance.png',lx:32,ly:20},
+  {img:'map/gym/champion.png',lx:50,ly:20}
+];
+function gymhallHTML(){
+  var h='<div class="titlebar"><h1>GYM</h1></div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  var bz=bossInfo();
+  if(!bz)return h+'<div class="empty"><div class="big">🏆</div>The league is quiet… every boss is beaten.</div>';
+  var gy=GYMS[bz.idx]||GYMS[0];
+  h='<div class="titlebar"><h1>'+esc(bz.gym)+'</h1></div>'+
+    '<div class="subtitle">'+(bz.badge?esc(bz.badge)+' on the line':'The final challenge')+(bz.round>1?' · ROUND '+bz.round:'')+'</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="'+gy.img+'" alt="" style="width:100%;display:block;image-rendering:pixelated">'+
+    '<button data-action="gym-talk" aria-label="Talk to '+bz.n+'" style="position:absolute;left:'+gy.lx+'%;top:'+gy.ly+'%;transform:translate(-50%,-50%);background:none;border:none;padding:6px;text-align:center;line-height:1">'+
+    '<img class="bob" src="sprites/trainers/'+bz.tr+'.png" alt="" style="width:46px;height:46px;image-rendering:pixelated;display:block;margin:0 auto">'+
+    '<span class="maptag" style="display:inline-block;margin-top:2px">'+bz.n+' ▶</span></button>'+
+    '</div>';
+  var balls='';
+  for(var i=0;i<bz.teamSize;i++){
+    balls+='<img src="'+itemIcon('pokeball')+'" alt="" style="width:13px;height:13px;image-rendering:pixelated;margin-left:2px;vertical-align:-2px'+(i<bz.memberIdx?';filter:grayscale(1);opacity:.45':'')+'">';
+  }
+  var pct=Math.round(bz.hp/bz.max*100);
+  h+='<div class="panel"><h3>'+bz.n+'<span class="bestchip">'+balls+'</span></h3>'+
+    '<div class="plv" style="margin-bottom:6px">'+bz.mon+' :L'+bz.lv+' leads a team of '+bz.teamSize+'. Walk up and talk to challenge!</div>'+
+    '<div style="display:flex;align-items:center;gap:5px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
+    '<div class="plv" style="margin-top:4px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg</div></div>'+
+    '<div style="margin:10px 12px"><button class="btn" data-action="tab" data-tab="map" style="width:100%">← BACK TO TOWN</button></div>';
+  return h;
 }
 function hofCardHTML(){
   var g=state.game;
@@ -3045,9 +3117,6 @@ function mapHTML(){
     '<div class="subtitle">'+tw.sub+(ti>0?' · town '+(ti+1)+'/9':'')+'</div>'+
     '<div class="mapwrap">'+
     '<img class="mapimg" src="'+tw.img+'" alt="'+tw.n+'" style="width:100%;display:block;image-rendering:pixelated">'+
-    (tw.npc||[]).map(function(np){
-      return '<img class="npc" src="sprites/npc/'+np[0]+'.png" alt="" style="left:'+np[1]+'%;top:'+np[2]+'%">';
-    }).join('')+
     spot('boss','BOSS')+
     spot('mart','SHOP')+
     spot('train','TRAIN',encAlert?'<span class="mapalert">!</span>':'')+
@@ -3145,6 +3214,35 @@ function tone(t0,freq,dur,type,vol,endFreq){
   o.connect(g);g.connect(c.destination);
   o.start(t0);o.stop(t0+dur+0.03);
 }
+/* official cries (bundled mp3 rips) — fetched lazily, cached as decoded buffers */
+var cryBufs={},SP_BY_ID=null;
+var EXTRA_CRIES={87:'dewgong',114:'tangela',124:'jynx'};
+function spById(id){
+  if(!SP_BY_ID){
+    SP_BY_ID={};
+    Object.keys(DEX).forEach(function(k){if(SP_BY_ID[DEX[k].id]===undefined)SP_BY_ID[DEX[k].id]=k;});
+  }
+  return SP_BY_ID[id]||EXTRA_CRIES[id];
+}
+function cry(sp){
+  if(state.sound===false||!sp)return;
+  var c=ac();if(!c)return;
+  function play(buf){
+    try{
+      var src=c.createBufferSource(),g=c.createGain();
+      g.gain.value=0.25;
+      src.buffer=buf;src.connect(g);g.connect(c.destination);
+      src.start();
+    }catch(e){}
+  }
+  if(cryBufs[sp]){if(cryBufs[sp]!=='x')play(cryBufs[sp]);return;}
+  fetch('sounds/cries/'+sp+'.mp3')
+    .then(function(r){if(!r.ok)throw 0;return r.arrayBuffer();})
+    .then(function(b){return new Promise(function(res,rej){c.decodeAudioData(b,res,rej);});})
+    .then(function(buf){cryBufs[sp]=buf;play(buf);})
+    .catch(function(){cryBufs[sp]='x';});
+}
+function cryById(id){cry(spById(id));}
 function sfx(name){
   if(state.sound===false)return;
   if(!ac())return;
@@ -3268,7 +3366,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.7 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.8 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -3467,13 +3565,13 @@ function saveLogEntry(){
             // trainer beaten — payout, like the games
             addMoney(wd.tr.purse);
             state.session.bmsg=wd.tr.clsN+' '+wd.tr.name+' was defeated! Won ₽'+wd.tr.purse+'! +'+wbonus+' XP! A wild '+newN+' appeared!';
-            wSteps.push({msg:'Foe '+oldN+' is unable to battle! +'+wbonus+' XP!',sfx:'faint',faint:'enemy',hold:1100});
+            wSteps.push({msg:'Foe '+oldN+' is unable to battle! +'+wbonus+' XP!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
             wSteps.push({msg:wd.tr.clsN+' '+wd.tr.name+' was defeated! Won ₽'+wd.tr.purse+'!',sfx:'badge',hold:1300});
-            wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',refresh:true,slide:'enemy'});
+            wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
           }else{
             state.session.bmsg='Wild '+oldN+' fainted! +'+wbonus+' XP! A wild '+newN+' appeared!';
-            wSteps.push({msg:'Wild '+oldN+' fainted! +'+wbonus+' XP!',sfx:'faint',faint:'enemy',hold:1100});
-            wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',refresh:true,slide:'enemy'});
+            wSteps.push({msg:'Wild '+oldN+' fainted! +'+wbonus+' XP!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
+            wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
             // sometimes a route trainer ambushes you (optional fight, pays ₽)
             if(Math.random()<0.25){
               pendingAmbush=rollAmbush();
@@ -3497,8 +3595,8 @@ function saveLogEntry(){
           var wct=applyWildCounter(wd,am);
           wSteps.push({msg:wct.msg,sfx:'hit',lunge:'enemy',blink:'player',php:wct.php,dmg:['player',wct.dmg],quake:true});
           if(wct.fainted){
-            wSteps.push({msg:wct.faintMsg,sfx:'faint',faint:'player',hold:1100});
-            if(wct.goMsg)wSteps.push({msg:wct.goMsg,sfx:'battlestart',refresh:true,slide:'player'});
+            wSteps.push({msg:wct.faintMsg,sfx:'faint',cry:am.sp,faint:'player',hold:1100});
+            if(wct.goMsg)wSteps.push({msg:wct.goMsg,sfx:'battlestart',cry:(findMon(state.session.lead)||{}).sp,refresh:true,slide:'player'});
             else wSteps.push({msg:'Your whole team fainted! You blacked out…',refresh:true,hold:1400});
           }else{
             wSteps.push({refresh:true,hold:0});
@@ -3919,9 +4017,13 @@ document.addEventListener('click',function(e){
   else if(a==='bld'){
     var bid=b.dataset.b;
     if(bid==='train'){if(state.session){tab='workout';render();}else showChooserThenStart('train');}
-    else if(bid==='boss'){if(state.session){tab='workout';render();}else showStadiumModal();}
+    else if(bid==='boss'){
+      if(state.session){tab='workout';render();}
+      else if(state.game){tab='gymhall';render();}
+      else toast('Meet PROF. OAK first!');
+    }
     else if(bid==='mart'){
-      if(state.game)showMartModal();
+      if(state.game){tab='mart';render();}
       else toast('Meet PROF. OAK first!');
     }
     else if(bid==='center'){
@@ -3937,6 +4039,7 @@ document.addEventListener('click',function(e){
     }
   }
   else if(a==='battle-bag'){showBattleBag();}
+  else if(a==='gym-talk'){showStadiumModal();}
   else if(a==='pick-move'){showMoveModal();}
   else if(a==='set-move'){
     var smLead=leadMon();
@@ -3970,7 +4073,7 @@ document.addEventListener('click',function(e){
       state.game.money-=bit.p;
       bagOf()[bik]=(bagOf()[bik]||0)+1;
       sfx('save');save();
-      showMartModal();
+      render(true);
       toast('Bought '+bit.n+'!');
     }
   }
