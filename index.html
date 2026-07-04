@@ -378,6 +378,7 @@ html.theme-night .mapwrap img.mapimg{filter:var(--townf,none) brightness(.62) sa
   <button data-action="tab" data-tab="summary" aria-label="Trainer">TRAINER</button>
   <button data-action="tab" data-tab="map" aria-label="Town map">MAP</button>
   <button data-action="tab" data-tab="team" aria-label="Pokemon">TEAM</button>
+  <button data-action="tab" data-tab="lab" aria-label="Lab">LAB</button>
   <button data-action="tab" data-tab="settings" aria-label="Options">OPTION</button>
 </nav>
 
@@ -478,6 +479,7 @@ function render(keepScroll){
   else if(tab==='map')v.innerHTML=mapHTML();
   else if(tab==='workout')v.innerHTML=workoutHTML();
   else if(tab==='team')v.innerHTML=teamHTML();
+  else if(tab==='lab')v.innerHTML=labHTML();
   else v.innerHTML=settingsHTML();
   if(tab!==lastRenderedTab){
     v.classList.remove('pagein');void v.offsetWidth;v.classList.add('pagein');
@@ -678,6 +680,7 @@ function migrateState(){
     if(state.game.partyIds===undefined){state.game.partyIds=null;changed=true;}
     if(!state.game.medals){state.game.medals={};changed=true;}
     if(!state.game.hurt){state.game.hurt={};changed=true;}
+    if(state.game.raid===undefined){state.game.raid=null;changed=true;}
   }
   if(!(state.version>=9)){state.version=9;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
@@ -950,21 +953,59 @@ CATCH_QUEUES.biceps.push(['diglett',26000],['ekans',32000]);
 CATCH_QUEUES.triceps.push(['mankey',20000],['nidoranf',26000]);
 CATCH_QUEUES.forearm.push(['rhyhorn',24000]);
 CATCH_QUEUES.legs.push(['bellsprout',28000]);
+/* v5.5 raid species: rare + legendary POKéMON hunted via LAB raids, not catch bars */
+DEX.kangaskhan={n:'KANGASKHAN',id:115,t:['Normal'],bs:[105,95,80,40,80,90]};
+DEX.aerodactyl={n:'AERODACTYL',id:142,t:['Rock','Flying'],bs:[80,105,65,60,75,130]};
+DEX.articuno={n:'ARTICUNO',id:144,t:['Ice','Flying'],bs:[90,85,100,95,125,85]};
+DEX.zapdos={n:'ZAPDOS',id:145,t:['Electric','Flying'],bs:[90,90,85,125,90,100]};
+DEX.moltres={n:'MOLTRES',id:146,t:['Fire','Flying'],bs:[90,100,90,125,85,90]};
+DEX.mew={n:'MEW',id:151,t:['Psychic'],bs:[100,100,100,100,100,100]};
+DEX_ORDER.push('kangaskhan','aerodactyl','articuno','zapdos','moltres','mew');
+/* one raid at a time: every kg you lift (any exercise) wears the target down */
+var RAIDS=[
+  {k:'kangaskhan',req:1,target:15000,lv:20,flavor:'A rare beast prowls the Safari outskirts.'},
+  {k:'aerodactyl',req:2,target:30000,lv:25,flavor:'A fossil terror circles Mt. Moon.'},
+  {k:'articuno',req:3,target:60000,lv:35,flavor:'The frozen bird sleeps in the Seafoam Islands.'},
+  {k:'zapdos',req:5,target:80000,lv:35,flavor:'Thunder rolls over the abandoned Power Plant.'},
+  {k:'moltres',req:7,target:100000,lv:35,flavor:'Flames dance on the peak of Mt. Ember.'},
+  {k:'mew',req:'champion',target:150000,lv:40,flavor:'The rarest of them all. A myth… until now.'}
+];
+var RAID_SPECIES={};RAIDS.forEach(function(r){RAID_SPECIES[r.k]=1;});
+function raidDef(k){var out=null;RAIDS.forEach(function(r){if(r.k===k)out=r;});return out;}
+function raidUnlocked(r){
+  if(!state.game)return false;
+  if(r.req==='champion')return !!(state.game.flags.champion||(state.game.hof&&state.game.hof.length));
+  return badgeCount()>=r.req;
+}
+function raidCaught(k){var d=state.game&&state.game.dex[k];return !!(d&&d.c);}
+function volumeSince(ts){
+  var v=0;
+  allLogsFlat().forEach(function(o){if(o.l.ts>=ts)v+=o.l.w*o.l.r*o.l.s;});
+  return v;
+}
+function raidProgress(){
+  var r=state.game&&state.game.raid;
+  if(!r)return 0;
+  return volumeSince(r.startTs);
+}
+/* wild pools per town (index = townIdx). Training spawns from the CURRENT town's
+   list plus every town before it — just like walking the routes back home. */
 var WILD_STAGES=[
-  ['pidgey','rattata','caterpie','metapod','weedle','kakuna','pikachu','spearow','mankey','nidoranf','nidoranm'],
-  ['zubat','geodude','paras','clefairy','jigglypuff','sandshrew','ekans','magikarp'],
-  ['oddish','bellsprout','abra','meowth','psyduck','diglett','magnemite','krabby'],
-  ['machop','onix','voltorb','drowzee'],
-  ['gastly','cubone','venonat','pidgeotto','koffing'],
-  ['doduo','exeggcute','rhyhorn','grimer','ponyta'],
-  ['tentacool','horsea','seel','shellder','staryu','goldeen','poliwag','vulpix'],
-  ['growlithe','dratini','machop','geodude','zubat','onix']
+  ['pidgey','rattata','caterpie','metapod','weedle','kakuna','pikachu','spearow','mankey','nidoranf','nidoranm'], /* Viridian */
+  ['zubat','geodude','paras','clefairy','jigglypuff','sandshrew','ekans','magikarp'],                            /* Pewter */
+  ['oddish','bellsprout','abra','meowth','psyduck','diglett','magnemite','krabby'],                              /* Cerulean */
+  ['machop','onix','voltorb','drowzee'],                                                                         /* Vermilion */
+  ['gastly','cubone','venonat','pidgeotto','koffing','vulpix','growlithe'],                                      /* Celadon */
+  ['doduo','exeggcute','rhyhorn','grimer','ponyta'],                                                             /* Fuchsia */
+  ['abra','drowzee','voltorb','magnemite','gastly'],                                                             /* Saffron */
+  ['tentacool','horsea','seel','shellder','staryu','goldeen','poliwag'],                                         /* Cinnabar */
+  ['growlithe','dratini','machop','geodude','zubat','onix']                                                      /* Indigo */
 ];
 function wildPool(){
-  var stage=WILD_STAGES.length;
+  var stage=WILD_STAGES.length-1;
   if(state.game){
-    stage=state.game.boss?state.game.boss.idx:WILD_STAGES.length;
-    if((state.game.round||1)>1)stage=WILD_STAGES.length;
+    stage=townIdx();
+    if((state.game.round||1)>1)stage=WILD_STAGES.length-1; /* champions have walked every route */
   }
   var n=Math.min(WILD_STAGES.length,Math.max(1,stage+1));
   var pool=[];
@@ -1074,7 +1115,13 @@ var MOVESETS={
   tentacruel:[[8,'POISON STING'],[33,'BUBBLEBEAM'],[44,'BARRIER'],[56,'HYDRO PUMP']],
   koffing:[[9,'SMOG'],[17,'TACKLE'],[29,'SLUDGE'],[41,'EXPLOSION']],
   weezing:[[9,'SMOG'],[38,'TACKLE'],[48,'SLUDGE'],[58,'EXPLOSION']],
-  rhyhorn:[[10,'HORN ATTACK'],[20,'STOMP'],[38,'ROCK BLAST'],[52,'EARTHQUAKE']]
+  rhyhorn:[[10,'HORN ATTACK'],[20,'STOMP'],[38,'ROCK BLAST'],[52,'EARTHQUAKE']],
+  kangaskhan:[[7,'COMET PUNCH'],[19,'BITE'],[31,'MEGA PUNCH'],[43,'EARTHQUAKE']],
+  aerodactyl:[[8,'WING ATTACK'],[22,'BITE'],[36,'ANCIENTPOWER'],[50,'HYPER BEAM']],
+  articuno:[[9,'GUST'],[24,'ICE BEAM'],[42,'BLIZZARD'],[60,'SKY ATTACK']],
+  zapdos:[[9,'PECK'],[24,'THUNDERBOLT'],[42,'DRILL PECK'],[60,'THUNDER']],
+  moltres:[[9,'WING ATTACK'],[24,'FLAMETHROWER'],[42,'FIRE SPIN'],[60,'SKY ATTACK']],
+  mew:[[9,'POUND'],[24,'PSYCHIC'],[42,'ANCIENTPOWER'],[60,'AURORA BEAM']]
 };
 function movesFor(sp){return MOVESETS[sp]||[];}
 function eggSVG(size){
@@ -1382,6 +1429,42 @@ function checkGameEvents(){
       })(sm);
     }
   });
+  // raid sightings: each legend is rumored once its badge gate opens
+  RAIDS.forEach(function(r){
+    if(g.flags['sight_'+r.k]||raidCaught(r.k)||!raidUnlocked(r))return;
+    g.flags['sight_'+r.k]=1;g.seen[r.k]=1;changed=true;
+    (function(rr){
+      queueModal(function(){
+        sfx('battlestart');
+        showModal('<h3>RUMOR…</h3><p>'+esc(rr.flavor)+'</p>'+
+          '<div style="text-align:center;padding:8px 0"><img class="bigspr" src="sprites/'+DEX[rr.k].id+'.png" alt="" style="filter:brightness(0);opacity:.45"></div>'+
+          '<p style="text-align:center">'+DEX[rr.k].n+' was sighted! Open the LAB to start the raid.</p>'+
+          '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+        modalOk=function(){closeModal();render(true);};
+      });
+    })(r);
+  });
+  // active raid worn down to zero → the legend joins you
+  if(g.raid){
+    var rd=raidDef(g.raid.k);
+    if(!rd||raidCaught(g.raid.k)){g.raid=null;changed=true;}
+    else if(raidProgress()>=rd.target){
+      g.raid=null;changed=true;
+      var rsh=Math.random()<0.1;
+      var rm=addMon(rd.k,rsh);
+      rm.xp=xpFloor(rd.lv);
+      (function(sp2,sh2,lv2){
+        queueModal(function(){
+          sfx('catch');
+          if(sh2)setTimeout(function(){sfx('shiny');},600);
+          showModal('<h3>RAID CLEARED! 🎉</h3><p>All that iron paid off — '+DEX[sp2].n+' gave in and joined your team at :L'+lv2+'!'+(sh2?' ✨ It’s SHINY!':'')+'</p>'+
+            '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(sh2?' shinyglow':'')+'" src="'+sprPath(sp2,sh2)+'" alt=""></div>'+
+            '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+          modalOk=function(){closeModal();render(true);};
+        });
+      })(rd.k,rsh,rd.lv);
+    }
+  }
   // Oak's eggs at badges 1, 4 and 7
   var bc2=badgeCount();
   [['egg1',1],['egg2',4],['egg3',7]].forEach(function(eg){
@@ -1729,7 +1812,8 @@ var MOVE_TYPES={
   'ROCK THROW':'Rock','SANDSTORM':'Rock',
   'EARTHQUAKE':'Ground','SAND-ATTACK':'Ground','BONE CLUB':'Ground','BONEMERANG':'Ground','BONE RUSH':'Ground',
   'LICK':'Ghost','CURSE':'Ghost','SHADOW BALL':'Ghost','SHADOW PUNCH':'Ghost','NIGHTMARE':'Ghost',
-  'MIST':'Ice','ICE BEAM':'Ice','AURORA BEAM':'Ice',
+  'MIST':'Ice','ICE BEAM':'Ice','AURORA BEAM':'Ice','BLIZZARD':'Ice',
+  'SKY ATTACK':'Flying','ANCIENTPOWER':'Rock',
   'DRAGON RAGE':'Dragon',
   'ACID ARMOR':'Poison','SMOG':'Poison',
   'METAL CLAW':'Steel','BITE':'Dark','MEGAHORN':'Bug',
@@ -1794,7 +1878,8 @@ var FX_OF={Fire:'fxfire',Electric:'fxelec',Water:'fxwater',Ice:'fxwater',Rock:'f
 var MEDAL_ORDER=['Normal','Fire','Water','Electric','Grass','Psychic','Fighting','Flying','Poison','Ground','Rock','Bug','Ghost','Dragon','Steel'];
 function medalList(){
   var by={};
-  DEX_ORDER.forEach(function(sp){(DEX[sp].t||[]).forEach(function(t){(by[t]=by[t]||[]).push(sp);});});
+  /* raid legends are excluded — they have their own LEGEND medal */
+  DEX_ORDER.forEach(function(sp){if(RAID_SPECIES[sp])return;(DEX[sp].t||[]).forEach(function(t){(by[t]=by[t]||[]).push(sp);});});
   var out=[];
   MEDAL_ORDER.forEach(function(t){if(by[t]&&by[t].length>=2)out.push({t:t,species:by[t]});});
   return out;
@@ -1831,8 +1916,17 @@ var SPECIAL_MEDALS=[
     prog:function(){return ':L'+maxMonLevel();}},
   {k:'FullDex',n:'FULL DEX',letter:'D',color:'#4890F8',d:'Catch every single POKéMON in the DEX.',
     done:function(){return dexCaughtCount()>=DEX_ORDER.length;},
-    prog:function(){return dexCaughtCount()+'/'+DEX_ORDER.length;}}
+    prog:function(){return dexCaughtCount()+'/'+DEX_ORDER.length;}},
+  {k:'Legend',n:'LEGEND',letter:'L',color:'#7038F8',d:'Own all five legendary POKéMON — MEWTWO, ARTICUNO, ZAPDOS, MOLTRES and MEW.',
+    done:function(){return legendCount()>=LEGEND_KEYS.length;},
+    prog:function(){return legendCount()+'/'+LEGEND_KEYS.length;}}
 ];
+var LEGEND_KEYS=['mewtwo','articuno','zapdos','moltres','mew'];
+function legendCount(){
+  var c=0;
+  if(state.game)LEGEND_KEYS.forEach(function(k){var d=state.game.dex[k];if(d&&d.c)c++;});
+  return c;
+}
 function medalsHTML(){
   if(!state.game)return '';
   var mds=medalList(),got=0,total=mds.length+SPECIAL_MEDALS.length,cells='';
@@ -1852,7 +1946,7 @@ function medalsHTML(){
   });
   return '<div class="panel"><h3>MEDALS<span class="bestchip">'+got+' / '+total+'</span></h3>'+
     '<div style="display:flex;flex-wrap:wrap;justify-content:space-between">'+cells+'</div>'+
-    '<div class="plv" style="margin-top:4px">Catch every POKéMON of a type — plus three trainer feats. Tap a medal for details.</div></div>';
+    '<div class="plv" style="margin-top:4px">Catch every POKéMON of a type — plus four trainer feats. Tap a medal for details.</div></div>';
 }
 function showMedalModal(t){
   if(!state.game)return;
@@ -2470,23 +2564,77 @@ function bossLadderHTML(){
   BOSSES.forEach(function(b,i){
     var beaten=i<curIdx,current=i===curIdx;
     var nm=b.n.replace('CHAMPION ','');
-    var img='<img src="sprites/trainers/'+b.tr+'.png" alt="" style="width:40px;height:40px;image-rendering:pixelated'+
+    var img='<img src="sprites/trainers/'+b.tr+'.png" alt="" style="width:56px;height:56px;image-rendering:pixelated'+
       (beaten||current?'':';filter:brightness(0);opacity:.4')+'">';
     if(current){
-      cells+='<button class="pstripbtn" data-action="bld" data-b="boss" style="width:62px;margin-bottom:6px">'+img+
-        '<div class="plv" style="font-size:11px;line-height:1.15;color:#D03028">'+nm+'<br>NEXT ▶</div></button>';
+      cells+='<button class="pstripbtn" data-action="bld" data-b="boss" style="width:76px;margin-bottom:8px">'+img+
+        '<div class="plv" style="font-size:12px;line-height:1.2;color:#D03028">'+nm+'<br>NEXT ▶</div></button>';
     }else if(beaten){
-      cells+='<div class="pstripbtn" style="width:62px;margin-bottom:6px;cursor:default">'+img+
-        '<div class="plv" style="font-size:11px;line-height:1.15">'+nm+'<br><span style="color:#2E8B48">✓ WON</span></div></div>';
+      cells+='<div class="pstripbtn" style="width:76px;margin-bottom:8px;cursor:default">'+img+
+        '<div class="plv" style="font-size:12px;line-height:1.2">'+nm+'<br><span style="color:#2E8B48">✓ WON</span></div></div>';
     }else{
-      cells+='<div class="pstripbtn" style="width:62px;margin-bottom:6px;cursor:default">'+img+
-        '<div class="plv" style="font-size:11px;line-height:1.15;color:#A8A8A0">'+nm+'<br>· · ·</div></div>';
+      cells+='<div class="pstripbtn" style="width:76px;margin-bottom:8px;cursor:default">'+img+
+        '<div class="plv" style="font-size:12px;line-height:1.2;color:#A8A8A0">'+nm+'<br>· · ·</div></div>';
     }
   });
   return '<div class="panel"><h3>LEAGUE LADDER<span class="bestchip">'+
     (round>1?'R'+round+' · ':'')+beatenN+' / '+BOSSES.length+
     (g.hof&&g.hof.length?' · 🏆'+g.hof.length:'')+'</span></h3>'+
     '<div style="display:flex;flex-wrap:wrap;justify-content:space-between">'+cells+'</div></div>';
+}
+function labHTML(){
+  var h='<div class="titlebar"><h1>LAB</h1></div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  var g=state.game;
+  h+='<div class="subtitle">PROF. OAK’s research corner</div>';
+  /* the daycare incubator */
+  h+='<div class="panel"><h3>DAYCARE EGG</h3>';
+  if(g.egg){
+    var eleft=Math.max(1,g.egg.left);
+    h+='<div style="display:flex;align-items:center">'+eggSVG(44)+
+      '<div style="flex:1;min-width:0;margin-left:10px"><div class="pname">EGG</div>'+
+      '<div class="plv" style="margin:3px 0 5px">Hatches in '+eleft+' set'+(eleft===1?'':'s')+' — keep logging!</div>'+
+      '<div class="gbar exp"><div style="width:'+Math.max(0,Math.round((30-eleft)/30*100))+'%"></div></div></div></div>';
+  }else{
+    h+='<div class="plv">The incubator is empty. PROF. OAK hands an EGG over at 1, 4 and 7 badges — it hatches as you log sets.</div>';
+  }
+  h+='</div>';
+  /* the raid board */
+  var got=0;
+  RAIDS.forEach(function(r){if(raidCaught(r.k))got++;});
+  var cards='';
+  RAIDS.forEach(function(r){
+    var d=DEX[r.k],caught=raidCaught(r.k),unlocked=raidUnlocked(r);
+    var active=!!(g.raid&&g.raid.k===r.k);
+    var dd=g.dex[r.k];
+    var img='<img src="'+(caught?sprPath(r.k,!!(dd&&dd.s)):'sprites/'+d.id+'.png')+'" alt="" style="width:48px;height:48px;image-rendering:pixelated;flex:none'+
+      (caught||unlocked?'':';filter:brightness(0);opacity:.4')+'">';
+    var body='';
+    if(caught){
+      body='<div class="pname">'+d.n+(dd&&dd.s?' <span class="shinystar">★</span>':'')+'</div>'+
+        '<div class="plv" style="margin-top:3px;color:#2E8B48">CAUGHT ✓ — it fights on your team</div>';
+    }else if(active){
+      var prog=Math.min(r.target,raidProgress()),pc=Math.round(prog/r.target*100);
+      body='<div class="pname">'+d.n+' <span class="plv" style="color:#D03028">RAID ON</span></div>'+
+        '<div class="gbar" style="margin:6px 0 4px"><div style="width:'+pc+'%;background:#7848B0"></div></div>'+
+        '<div class="plv">'+Math.round(prog).toLocaleString()+' / '+r.target.toLocaleString()+' kg — every set counts</div>'+
+        '<div style="margin-top:6px"><button class="btn" data-action="raid-quit">GIVE UP</button></div>';
+    }else if(unlocked){
+      body='<div class="pname">'+d.n+'</div>'+
+        '<div class="plv" style="margin:3px 0 6px">Target: '+r.target.toLocaleString()+' kg of lifting · joins at :L'+r.lv+'</div>'+
+        (g.raid?'<div class="plv" style="color:#A8A8A0">Finish your current raid first</div>'
+               :'<button class="btn acc" data-action="raid-start" data-k="'+r.k+'">START RAID</button>');
+    }else{
+      body='<div class="pname" style="color:#A8A8A0">?????</div>'+
+        '<div class="plv" style="margin-top:3px">'+(r.req==='champion'?'Beat the CHAMPION to hear this rumor':'Rumored after '+r.req+' badge'+(r.req===1?'':'s'))+'</div>';
+    }
+    cards+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:2px solid rgba(0,0,0,.08)">'+img+
+      '<div style="flex:1;min-width:0">'+body+'</div></div>';
+  });
+  h+='<div class="panel"><h3>RAIDS<span class="bestchip">'+got+' / '+RAIDS.length+'</span></h3>'+
+    '<div class="plv" style="margin-bottom:2px">Long hunts for rare POKéMON. Start one — EVERY kg you lift wears it down, workout after workout. One raid at a time.</div>'+
+    cards+'</div>';
+  return h;
 }
 function bossDefeated(){
   var g=state.game;var bz=bossInfo();if(!bz)return;
@@ -2854,7 +3002,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.4 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.5 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -3364,6 +3512,7 @@ function applyImport(txt){
     gm.medals={};
     if(d.game.medals&&typeof d.game.medals==='object'){
       MEDAL_ORDER.forEach(function(t){if(d.game.medals[t])gm.medals[t]=1;});
+      SPECIAL_MEDALS.forEach(function(s2){if(d.game.medals[s2.k])gm.medals[s2.k]=1;});
     }
     gm.hurt={};
     if(d.game.hurt&&typeof d.game.hurt==='object'){
@@ -3372,6 +3521,8 @@ function applyImport(txt){
         if(hv>=0&&isFinite(hv))gm.hurt[m.uid]=hv;
       });
     }
+    gm.raid=(d.game.raid&&RAID_SPECIES[d.game.raid.k]&&isFinite(d.game.raid.startTs))?
+      {k:d.game.raid.k,startTs:+d.game.raid.startTs}:null;
   }
   state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0,sound:d.sound!==false};
   save();
@@ -3590,6 +3741,31 @@ document.addEventListener('click',function(e){
       }
     }
   }
+  else if(a==='raid-start'){
+    if(!state.game)return;
+    var rsD=raidDef(b.dataset.k);
+    if(!rsD||!raidUnlocked(rsD)||raidCaught(rsD.k))return;
+    if(state.game.raid){toast('Finish your current raid first!');return;}
+    state.game.raid={k:rsD.k,startTs:Date.now()};
+    save();sfx('battlestart');
+    showModal('<h3>RAID STARTED!</h3><p>'+esc(rsD.flavor)+'</p>'+
+      '<div style="text-align:center;padding:8px 0"><img class="bigspr" src="sprites/'+DEX[rsD.k].id+'.png" alt=""></div>'+
+      '<p style="text-align:center">Wear '+DEX[rsD.k].n+' down with '+rsD.target.toLocaleString()+' kg of lifting. Every set from now counts!</p>'+
+      '<div class="mbtns"><button class="btn acc" data-action="close-modal">LET’S GO</button></div>');
+    modalOk=null;
+    render(true);
+  }
+  else if(a==='raid-quit'){
+    if(state.game&&state.game.raid){
+      showModal('<h3>Give up the raid?</h3><p>'+DEX[state.game.raid.k].n+' escapes and your raid progress is lost.</p>'+
+        '<div class="mbtns"><button class="btn" data-action="close-modal">KEEP HUNTING</button><button class="btn acc" data-action="raid-quit-yes">GIVE UP</button></div>');
+      modalOk=null;
+    }
+  }
+  else if(a==='raid-quit-yes'){
+    if(state.game){state.game.raid=null;save();}
+    closeModal();render(true);
+  }
   else if(a==='edit-party'){pendingParty=null;showPartyManager();}
   else if(a==='pm-toggle'){
     if(pendingParty){
@@ -3646,7 +3822,7 @@ document.addEventListener('click',function(e){
     var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
     state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},round:1,
       boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'},
-      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{}};
+      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;
