@@ -2533,7 +2533,7 @@ function resolveBossSet(am,entry,vol,id){
   state.session.bmsg=atkMsg+' '+dmg.toLocaleString()+' dmg.';
   var steps=[];
   if(state.game.boss.hp<=0){
-    steps.push({msg:atkMsg,sfx:hitSfx,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg],fx:mvType});
+    steps.push({msg:atkMsg,sfx:hitSfx,movesfx:mvName,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg],fx:mvType});
     steps.push({msg:'Foe '+bz.mon+' is unable to battle!',sfx:'faint',cryId:bz.monId,faint:'enemy',hold:1100});
     // the beaten leader steps back out to concede
     steps.push({msg:bz.n+' was defeated!',sfx:'badge',trainer:bz.tr,hold:1600});
@@ -2550,13 +2550,13 @@ function resolveBossSet(am,entry,vol,id){
     state.session.xpg=(state.session.xpg||0)+ko;
     applyXP(am,ko);
     state.session.bmsg+=' Foe '+bz.mon+' is unable to battle! +'+ko+' XP! '+bz.n+' sent out '+after.mon+'!';
-    steps.push({msg:atkMsg,sfx:hitSfx,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg],fx:mvType});
+    steps.push({msg:atkMsg,sfx:hitSfx,movesfx:mvName,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg],fx:mvType});
     steps.push({msg:'Foe '+bz.mon+' is unable to battle! +'+ko+' XP!',sfx:'faint',cryId:bz.monId,faint:'enemy',hold:1100});
     steps.push({msg:bz.n+' sent out '+after.mon+'!',sfx:'battlestart',cryId:after.monId,refresh:true,slide:'enemy'});
   }else{
     // member survives → your strike lands first, THEN it hits back
     var ehpTo=Math.round(after.memberHp/Math.max(1,after.memberMax)*100);
-    steps.push({msg:atkMsg,sfx:hitSfx,lunge:'player',blink:'enemy',ehp:[ehpFrom,ehpTo],dmg:['enemy',dmg],fx:mvType});
+    steps.push({msg:atkMsg,sfx:hitSfx,movesfx:mvName,lunge:'player',blink:'enemy',ehp:[ehpFrom,ehpTo],dmg:['enemy',dmg],fx:mvType});
     var ct=applyBossCounter(after,am);
     steps.push({msg:ct.msg,sfx:'hit',lunge:'enemy',blink:'player',php:ct.php,dmg:['player',ct.dmg],quake:true});
     if(ct.fainted){
@@ -2810,6 +2810,7 @@ function runBattleStep(st){
     }
   }
   if(st.sfx)sfx(st.sfx);
+  if(st.movesfx)moveSfx(st.movesfx);
   if(st.cry)cry(st.cry);
   if(st.cryId)cryById(st.cryId);
   if(st.msg)typeMsg(st.msg);
@@ -3420,8 +3421,8 @@ function tone(t0,freq,dur,type,vol,endFreq){
   o.connect(g);g.connect(c.destination);
   o.start(t0);o.stop(t0+dur+0.03);
 }
-/* official cries (bundled mp3 rips) — fetched lazily, cached as decoded buffers */
-var cryBufs={},SP_BY_ID=null;
+/* species-id → cry key resolver (boss-only mons included) */
+var SP_BY_ID=null;
 var EXTRA_CRIES={87:'dewgong',114:'tangela',124:'jynx'};
 function spById(id){
   if(!SP_BY_ID){
@@ -3430,28 +3431,40 @@ function spById(id){
   }
   return SP_BY_ID[id]||EXTRA_CRIES[id];
 }
-/* cries are OFF until proper GBA-era cry files are sourced — flip CRIES_ON to bring them back */
-var CRIES_ON=false;
-function cry(sp){
-  if(!CRIES_ON)return;
-  if(state.sound===false||!sp)return;
+/* official Showdown cries (bundled) + authentic FRLG move SFX (khinsider, trimmed) */
+var CRIES_ON=true;
+var sndBufs={};
+function playBuf(buf,gain,maxSec){
   var c=ac();if(!c)return;
-  function play(buf){
-    try{
-      var src=c.createBufferSource(),g=c.createGain();
-      g.gain.value=0.25;
-      src.buffer=buf;src.connect(g);g.connect(c.destination);
-      src.start();
-    }catch(e){}
-  }
-  if(cryBufs[sp]){if(cryBufs[sp]!=='x')play(cryBufs[sp]);return;}
-  fetch('sounds/cries/'+sp+'.mp3')
+  try{
+    var src=c.createBufferSource(),g=c.createGain();
+    g.gain.value=gain||0.25;
+    src.buffer=buf;src.connect(g);g.connect(c.destination);
+    src.start();
+    if(maxSec)src.stop(c.currentTime+maxSec);
+  }catch(e){}
+}
+/* generic lazy loader: fetch → decode → cache buffer (or 'x' on miss), then play */
+function playSnd(url,key,gain,maxSec){
+  if(state.sound===false)return;
+  var c=ac();if(!c)return;
+  if(sndBufs[key]){if(sndBufs[key]!=='x')playBuf(sndBufs[key],gain,maxSec);return;}
+  fetch(url)
     .then(function(r){if(!r.ok)throw 0;return r.arrayBuffer();})
     .then(function(b){return new Promise(function(res,rej){c.decodeAudioData(b,res,rej);});})
-    .then(function(buf){cryBufs[sp]=buf;play(buf);})
-    .catch(function(){cryBufs[sp]='x';});
+    .then(function(buf){sndBufs[key]=buf;playBuf(buf,gain,maxSec);})
+    .catch(function(){sndBufs[key]='x';});
+}
+function cry(sp){
+  if(!CRIES_ON||!sp)return;
+  playSnd('sounds/cries/'+sp+'.mp3','cry_'+sp,0.22);
 }
 function cryById(id){cry(spById(id));}
+function moveSlug(name){return String(name||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
+function moveSfx(name){
+  var sg=moveSlug(name);if(!sg)return;
+  playSnd('sounds/moves/'+sg+'.mp3','mv_'+sg,0.5,1.5);
+}
 function sfx(name){
   if(state.sound===false)return;
   if(!ac())return;
@@ -3575,7 +3588,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.9 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.10 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -3762,7 +3775,7 @@ function saveLogEntry(){
         wd.hp-=dmgT;
         var wTo=Math.round(Math.max(0,wd.hp)/wd.max*100);
         var wAtk=DEX[am.sp].n+' used '+wMv+'!'+(wCrit?' A critical hit!':'');
-        var wSteps=[{msg:wAtk,sfx:wCrit?'superhit':'hit',lunge:'player',blink:'enemy',ehp:[wFrom,wTo],dmg:['enemy',dmgT],fx:moveTypeOf(wMv)}];
+        var wSteps=[{msg:wAtk,sfx:wCrit?'superhit':'hit',movesfx:wMv,lunge:'player',blink:'enemy',ehp:[wFrom,wTo],dmg:['enemy',dmgT],fx:moveTypeOf(wMv)}];
         if(wd.hp<=0){
           var wbonus=Math.round(wd.max/(wd.tr?8:10));
           state.session.xpg=(state.session.xpg||0)+wbonus;
