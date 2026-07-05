@@ -332,6 +332,22 @@ html.theme-night .mapwrap img.mapimg{filter:var(--townf,none) brightness(.62) sa
   animation:bosscameo 2.3s ease forwards}
 @keyframes bosscameo{0%{transform:translateX(84px);opacity:0}14%{transform:none;opacity:1}
   72%{transform:none;opacity:1}100%{transform:translateX(-48px);opacity:0}}
+/* victory screen */
+.vbanner{font-family:'Press Start 2P';font-size:20px;text-align:center;color:#E8A010;
+  text-shadow:2px 2px 0 rgba(0,0,0,.25);letter-spacing:2px;padding:6px 0 2px;animation:vpop .5s ease-out}
+@keyframes vpop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.12)}100%{transform:none;opacity:1}}
+.vrow{display:flex;align-items:center;gap:8px;font-size:20px;padding:3px 0}
+.vrow img{width:20px;height:20px;image-rendering:pixelated;flex:none}
+.vexp{height:5px;width:0;background:#4890F8;border-radius:2px;animation:vexpfill 1.6s ease-out .4s forwards}
+@keyframes vexpfill{to{width:100%}}
+/* the training screen wears green; boss fights keep the FireRed frame */
+.livebar.mode-train{border-bottom-color:#2E8B48}
+.btwrap.mode-train>.panel{border-color:#2E8B48;background:#EAF6EA}
+html.theme-night .btwrap.mode-train>.panel{background:#18261C;border-color:#2E6B48}
+.btwrap.mode-train .btmemo{border-color:#2E8B48}
+/* something is waiting on the QUEST page */
+#tabbar button.alert::after{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:#D03028;margin-left:3px;vertical-align:7px}
 .effchip{font-family:'Press Start 2P';font-size:9px;color:#FFF8F0;padding:3px 6px;border-radius:3px;flex:none}
 @keyframes slr{from{transform:translateX(90px);opacity:0}to{transform:none;opacity:1}}
 @keyframes sll{from{transform:translateX(-90px);opacity:0}to{transform:none;opacity:1}}
@@ -491,7 +507,10 @@ var tab='summary', editMode=false, sheetEx=null, openScrollY=0, justStarted=fals
 var lastRenderedTab=null;
 function render(keepScroll){
   resolveRests();
-  document.querySelectorAll('#tabbar button').forEach(function(b){b.classList.toggle('on',b.dataset.tab===tab);});
+  document.querySelectorAll('#tabbar button').forEach(function(b){
+    b.classList.toggle('on',b.dataset.tab===tab);
+    if(b.dataset.tab==='quests')b.classList.toggle('alert',!!(state.game&&anyClaimable()));
+  });
   var v=$('#view');
   if(tab==='summary')v.innerHTML=summaryHTML();
   else if(tab==='map')v.innerHTML=mapHTML();
@@ -728,6 +747,8 @@ function migrateState(){
     if(!state.game.hurt){state.game.hurt={};changed=true;}
     if(state.game.raid===undefined){state.game.raid=null;changed=true;}
     if(state.game.road===undefined){state.game.road=null;changed=true;}
+    if(state.game.daily===undefined){state.game.daily=null;changed=true;}
+    if(state.game.npcq===undefined){state.game.npcq=null;changed=true;}
     if(!state.game.rest){state.game.rest={};changed=true;}
     if(state.game.bag&&state.game.bag.xattack){
       state.game.bag.fullrestore=(state.game.bag.fullrestore||0)+state.game.bag.xattack;
@@ -1129,16 +1150,17 @@ function raidProgress(){
   return volumeSince(r.startTs);
 }
 /* ===== the road: NPC quests + roadblock trainers gate each gym ===== */
+/* each road wears its region: arena image banner + official-ish accent color */
 var ROAD_LOC=[
-  {n:'VIRIDIAN FOREST',arena:'grass'},
-  {n:'MT. MOON',arena:'cave'},
-  {n:'NUGGET BRIDGE',arena:'water'},
-  {n:'ROUTE 7',arena:'grass'},
-  {n:'ROCKET HIDEOUT',arena:'poison'},
-  {n:'SILPH CO.',arena:'psychic'},
-  {n:'CYCLING ROAD',arena:'sand'},
-  {n:'SEAFOAM ISLANDS',arena:'ice'},
-  {n:'VICTORY ROAD',arena:'cave'}
+  {n:'VIRIDIAN FOREST',arena:'grass',c:'#2E8B48'},
+  {n:'MT. MOON',arena:'cave',c:'#8A6E52'},
+  {n:'NUGGET BRIDGE',arena:'water',c:'#4890D8'},
+  {n:'ROUTE 7',arena:'grass',c:'#58A048'},
+  {n:'ROCKET HIDEOUT',arena:'poison',c:'#8E5AA8'},
+  {n:'SILPH CO.',arena:'psychic',c:'#D86890'},
+  {n:'CYCLING ROAD',arena:'sand',c:'#C8A050'},
+  {n:'SEAFOAM ISLANDS',arena:'ice',c:'#58B8D0'},
+  {n:'VICTORY ROAD',arena:'cave',c:'#7A6A58'}
 ];
 var QUEST_NPCS=[
   ['lass','LASS',['TIFFANY','SALLY','NINA']],
@@ -1168,15 +1190,28 @@ function questsFor(i){
   });
   return qs;
 }
+/* your RIVAL ambushes on these roads with the counter-starter, evolving as you go */
+var RIVAL_ROADS={0:0,3:1,5:1,8:2};
+function rivalLine(){
+  return (state.game&&state.game.starter==='squirtle')
+    ?['charmander','charmeleon','charizard']
+    :['squirtle','wartortle','blastoise'];
+}
 function mbFor(i,j){
-  var c=TRAINER_CLASSES[(i*2+j)%TRAINER_CLASSES.length];
   var b=BOSSES[i];
+  if(j===2&&RIVAL_ROADS[i]!==undefined){
+    var rsp=rivalLine()[RIVAL_ROADS[i]];
+    var rlv=Math.max(5,b.lv-1);
+    return {cls:'blue',clsN:'RIVAL',name:'BLUE',sp:rsp,lv:rlv,
+      hp:Math.round((600+rlv*60)*1.9),purse:rlv*60,arena:roadLoc(i).arena,rival:true};
+  }
+  var c=TRAINER_CLASSES[(i*2+j)%TRAINER_CLASSES.length];
   var lv=Math.max(4,b.lv-4+j*3);
   var hp=Math.round((600+lv*60)*1.35);
   return {cls:c[0],clsN:c[1],name:TRAINER_NAMES[(i*2+j)%TRAINER_NAMES.length],
     sp:c[2][(i+j)%c[2].length],lv:lv,hp:hp,purse:lv*30,arena:roadLoc(i).arena};
 }
-function roadMbCount(i){return 2;}
+function roadMbCount(i){return RIVAL_ROADS[i]!==undefined?3:2;}
 function ensureRoad(){
   var g=state.game;if(!g)return;
   if(!g.boss){if(g.road){g.road=null;save();}return;}
@@ -1205,16 +1240,122 @@ function questProg(q){
   if(q.t==='kills')return Math.min(q.target,r.kills||0);
   return 0;
 }
-function questDone(q,qi){
+/* a quest is READY when trained enough — the reward waits until YOU collect it */
+function questReady(q){return questProg(q)>=q.target;}
+function questClaimed(qi){
   var r=state.game&&state.game.road;
-  return !!(r&&(r.qdone[qi]||questProg(q)>=q.target));
+  return !!(r&&r.qdone&&r.qdone[qi]);
 }
 function roadClear(){
   if(!roadActive())return true;
   var r=state.game.road,qs=questsFor(r.idx);
-  for(var qi=0;qi<qs.length;qi++)if(!questDone(qs[qi],qi))return false;
+  for(var qi=0;qi<qs.length;qi++)if(!questClaimed(qi))return false;
   for(var j=0;j<roadMbCount(r.idx);j++)if(!r.mb[j])return false;
   return true;
+}
+/* ===== daily training quests: gentle, rest-day-proof ===== */
+function todayKey(){return dateKey(Date.now());}
+function dayGap(a,b){ /* calendar days between two YYYY-MM-DD keys */
+  try{return Math.round((new Date(b+'T12:00')-new Date(a+'T12:00'))/86400000);}catch(e){return 99;}
+}
+var DAILY_POOL=[
+  {t:'sets',target:10,ask:'Log 10 sets today',reward:200},
+  {t:'vol',target:5000,ask:'Move 5,000 '+'kg'+' today',reward:250},
+  {t:'kills',target:4,ask:'Tire out 4 wild POKEMON today',reward:200},
+  {t:'groups',target:2,ask:'Train 2 different muscle groups today',reward:200},
+  {t:'ex',target:4,ask:'Log sets in 4 different exercises today',reward:200},
+  {t:'session',target:1,ask:'Finish a workout today',reward:150}
+];
+function ensureDaily(){
+  var g=state.game;if(!g)return;
+  var tk=todayKey();
+  if(!g.daily||g.daily.date!==tk){
+    g.daily={date:tk,claimed:{},kills:(g.daily&&g.daily.date===tk?g.daily.kills:0)||0,
+      streak:(g.daily&&g.daily.streak)||0,lastDone:(g.daily&&g.daily.lastDone)||null};
+    save();
+  }
+}
+function dailyFor(){
+  var tk=todayKey();
+  var h=0;for(var i=0;i<tk.length;i++)h=(h*31+tk.charCodeAt(i))>>>0;
+  var picks=[],used={};
+  for(var j=0;j<3;j++){
+    var ix=(h+j*7)%DAILY_POOL.length;
+    while(used[ix])ix=(ix+1)%DAILY_POOL.length;
+    used[ix]=1;picks.push(DAILY_POOL[ix]);
+  }
+  return picks;
+}
+function dailyProg(q){
+  var tk=todayKey(),v=0,groups={},exs={};
+  if(q.t==='kills')return Math.min(q.target,(state.game&&state.game.daily&&state.game.daily.kills)||0);
+  if(q.t==='session'){
+    var n=0;(state.sessions||[]).forEach(function(s){if(dateKey(s.end)===tk)n++;});
+    return Math.min(q.target,n);
+  }
+  state.groups.forEach(function(g){
+    g.exercises.forEach(function(ex){
+      ((state.logs&&state.logs[ex.id])||[]).forEach(function(l){
+        if(dateKey(l.ts)!==tk)return;
+        if(q.t==='sets')v+=l.s;
+        else if(q.t==='vol')v+=l.w*l.r*l.s;
+        else if(q.t==='groups')groups[g.id]=1;
+        else if(q.t==='ex')exs[ex.id]=1;
+      });
+    });
+  });
+  if(q.t==='groups')v=Object.keys(groups).length;
+  if(q.t==='ex')v=Object.keys(exs).length;
+  return Math.min(q.target,Math.round(v));
+}
+function dailyBumpKill(){
+  var g=state.game;if(!g)return;
+  ensureDaily();
+  g.daily.kills=(g.daily.kills||0)+1;
+}
+/* ===== collector NPCs: one-time quests that pay in rare POKEMON ===== */
+var NPCQ=[
+  {k:'ditto',npc:'lass',who:'LASS SALLY',mon:'ditto',t:'ex',target:12,
+   ask:'My DITTO can transform into anything! Show it 12 different exercises and it is yours.'},
+  {k:'porygon',npc:'man',who:'SUPER NERD MIRO',mon:'porygon',t:'sets',target:80,
+   ask:'PORYGON runs on training data — log 80 sets and I will upload it to you!'},
+  {k:'omanyte',npc:'oldman',who:'PROF. BROWN',mon:'omanyte',t:'volume',target:20000,
+   ask:'This HELIX FOSSIL revives under heavy pressure: move 20,000 kg in total!'},
+  {k:'kabuto',npc:'oldman',who:'PROF. BROWN',mon:'kabuto',t:'days',target:8,
+   ask:'The DOME FOSSIL wakes slowly… train on 8 different days!'}
+];
+function ensureNpcq(){
+  var g=state.game;if(!g)return;
+  if(!g.npcq){g.npcq={startTs:Date.now(),claimed:{}};save();}
+}
+function distinctExercisesSince(ts){
+  var d={};allLogsFlat().forEach(function(o){if(o.l.ts>=ts)d[o.ex.id]=1;});
+  return Object.keys(d).length;
+}
+function npcqProg(q){
+  var g=state.game;if(!g||!g.npcq)return 0;
+  var ts=g.npcq.startTs;
+  if(q.t==='ex')return Math.min(q.target,distinctExercisesSince(ts));
+  if(q.t==='sets')return Math.min(q.target,setsSince(ts));
+  if(q.t==='volume')return Math.min(q.target,Math.round(volumeSince(ts)));
+  if(q.t==='days')return Math.min(q.target,daysSinceTs(ts));
+  return 0;
+}
+/* anything waiting to be collected? → red dot on the QUEST tab */
+function anyClaimable(){
+  var g=state.game;if(!g)return false;
+  if(roadActive()){
+    var qs=questsFor(g.road.idx);
+    for(var qi=0;qi<qs.length;qi++)if(questReady(qs[qi])&&!questClaimed(qi))return true;
+  }
+  if(g.daily){
+    var ds=dailyFor();
+    for(var di=0;di<ds.length;di++)if(dailyProg(ds[di])>=ds[di].target&&!g.daily.claimed[di])return true;
+  }
+  if(g.npcq){
+    for(var ni=0;ni<NPCQ.length;ni++)if(npcqProg(NPCQ[ni])>=NPCQ[ni].target&&!g.npcq.claimed[NPCQ[ni].k])return true;
+  }
+  return false;
 }
 /* wild pools per town (index = townIdx). Training spawns from the CURRENT town's
    list plus every town before it — just like walking the routes back home. */
@@ -1400,12 +1541,13 @@ DEX_ORDER.push('bulbasaur','ivysaur','venusaur','caterpie','metapod','butterfree
   'exeggcute','exeggutor','lickitung','chansey','tangela','horsea','seadra','goldeen','seaking','mrmime',
   'scyther','jynx','electabuzz','magmar','pinsir','tauros','ditto','porygon','omanyte','omastar','kabuto','kabutops');
 /* catch bars for the entry points — evolutions arrive by leveling */
-CATCH_QUEUES.pecs.push(['tauros',12000],['lickitung',16000],['ditto',24000],['chansey',30000]);
+/* ditto/porygon/omanyte/kabuto are COLLECTOR rewards (QUEST page), not catch bars */
+CATCH_QUEUES.pecs.push(['tauros',12000],['lickitung',16000],['chansey',30000]);
 CATCH_QUEUES.back.push(['caterpie',6000],['weedle',6000],['doduo',14000],['farfetchd',20000],['scyther',28000]);
-CATCH_QUEUES.shoulders.push(['exeggcute',16000],['mrmime',22000],['jynx',26000],['porygon',30000]);
+CATCH_QUEUES.shoulders.push(['exeggcute',16000],['mrmime',22000],['jynx',26000]);
 CATCH_QUEUES.biceps.push(['electabuzz',24000],['pinsir',30000]);
 CATCH_QUEUES.triceps.push(['bulbasaur',10000],['magmar',24000]);
-CATCH_QUEUES.forearm.push(['shellder',12000],['krabby',14000],['omanyte',20000],['kabuto',22000]);
+CATCH_QUEUES.forearm.push(['shellder',12000],['krabby',14000]);
 CATCH_QUEUES.legs.push(['goldeen',8000],['seel',10000],['slowpoke',12000],['horsea',14000],['tangela',26000]);
 MOVESETS.bulbasaur=[[7,'VINE WHIP'],[13,'POISONPOWDER'],[27,'RAZOR LEAF'],[41,'SOLARBEAM']];
 MOVESETS.ivysaur=[[7,'VINE WHIP'],[22,'RAZOR LEAF'],[38,'SLUDGE'],[53,'SOLARBEAM']];
@@ -1786,19 +1928,22 @@ function checkGameEvents(){
   });
   // the road refreshes whenever a new boss steps up
   ensureRoad();
+  ensureDaily();
+  ensureNpcq();
   if(roadActive()){
     var rr=g.road,rqs=questsFor(rr.idx);
+    if(!rr.qann)rr.qann={};
     rqs.forEach(function(q,qi){
-      if(rr.qdone[qi])return;
-      if(questProg(q)>=q.target){
-        rr.qdone[qi]=1;changed=true;
-        addMoney(q.reward);
+      if(rr.qann[qi]||rr.qdone[qi])return;
+      if(questReady(q)){
+        // no auto-pay: the NPC waits on the QUEST page with your reward
+        rr.qann[qi]=1;changed=true;
         (function(q2){
           queueModal(function(){
             sfx('badge');
             showModal('<div style="text-align:center;padding-bottom:2px"><img src="sprites/npc/'+q2.npc+'.png" alt="" style="width:34px;image-rendering:pixelated"></div>'+
               '<h3 style="text-align:center">QUEST COMPLETE!</h3>'+
-              '<p>'+q2.clsN+' '+q2.name+' is thrilled — and hands you <b>₽'+q2.reward.toLocaleString()+'</b>!</p>'+
+              '<p>'+q2.clsN+' '+q2.name+' is waiting on the QUEST page — collect your <b>₽'+q2.reward.toLocaleString()+'</b>!</p>'+
               '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
             modalOk=function(){closeModal();render(true);};
           });
@@ -2296,7 +2441,7 @@ var FX_OF={Fire:'fxfire',Electric:'fxelec',Water:'fxwater',Ice:'fxwater',Rock:'f
   Psychic:'fxpsy',Ghost:'fxpsy',Dragon:'fxpsy',Fighting:'fximpact',Normal:'fximpact',Steel:'fximpact',
   Grass:'fxleaf',Poison:'fxleaf',Bug:'fxleaf',Flying:'fxleaf'};
 /* collector medals: catch every catchable species of a type to earn it */
-var MEDAL_ORDER=['Normal','Fire','Water','Electric','Grass','Psychic','Fighting','Flying','Poison','Ground','Rock','Bug','Ghost','Dragon','Steel'];
+var MEDAL_ORDER=['Normal','Fire','Water','Electric','Grass','Psychic','Fighting','Flying','Poison','Ground','Rock','Bug','Ghost','Ice','Dragon','Steel'];
 function medalList(){
   var by={};
   /* raid legends are excluded — they have their own LEGEND medal */
@@ -2634,9 +2779,14 @@ function resolveBossSet(am,entry,vol,id){
     steps.push({msg:'Foe '+bz.mon+' is unable to battle!',sfx:'faint',cryId:bz.monId,faint:'enemy',hold:1100});
     // the beaten leader steps back out to concede
     steps.push({msg:bz.n+' was defeated!',sfx:'badge',trainer:bz.tr,hold:1600});
-    steps.push({refresh:true,hold:0});
+    bossDefeated(); // advances the league AND flips the session back to training
+    if(state.session&&state.session.mode==='train'&&state.session.wild){
+      steps.push({msg:'Back to normal training! A wild '+DEX[state.session.wild.sp].n+' appeared!',
+        sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy',hold:1400});
+    }else{
+      steps.push({refresh:true,hold:0});
+    }
     pendingSteps={ov:{enemy:bz,lead:am},list:steps};
-    bossDefeated();
     return;
   }
   var after=bossInfo();
@@ -3046,26 +3196,29 @@ function roadBarHTML(){
   if(!roadActive())return '';
   var r=state.game.road,qs=questsFor(r.idx),bz=bossInfo();
   if(!bz)return '';
+  var loc=roadLoc(r.idx),ac=loc.c||'#2E8B48';
   var nodes=[],doneCount=0;
   qs.forEach(function(q,qi){
-    var d=questDone(q,qi);if(d)doneCount++;
-    nodes.push({img:'sprites/npc/'+q.npc+'.png',w:18,d:d});
+    var d=questClaimed(qi),rdy=!d&&questReady(q);
+    if(d)doneCount++;
+    nodes.push({img:'sprites/npc/'+q.npc+'.png',w:18,d:d,rdy:rdy});
   });
   for(var j=0;j<roadMbCount(r.idx);j++){
     var dm=!!r.mb[j];if(dm)doneCount++;
-    nodes.push({img:'sprites/trainers/'+mbFor(r.idx,j).cls+'.png',w:26,d:dm});
+    nodes.push({img:'sprites/trainers/'+mbFor(r.idx,j).cls+'.png',w:26,d:dm,rdy:false});
   }
   var total=nodes.length;
   var pct=Math.round(doneCount/total*100);
-  var h='<div class="panel"><h3>THE TRACK<span class="bestchip">'+doneCount+' / '+total+'</span></h3>'+
+  var h='<div class="panel" style="border-color:'+ac+'"><h3>THE TRACK<span class="bestchip" style="border-color:'+ac+'">'+doneCount+' / '+total+'</span></h3>'+
     '<div style="position:relative;height:66px;margin-top:6px">'+
-    '<div class="gbar" style="position:absolute;left:16px;right:44px;top:24px;min-width:0"><div style="width:'+pct+'%;background:#58C868"></div></div>';
+    '<div class="gbar" style="position:absolute;left:16px;right:44px;top:24px;min-width:0"><div style="width:'+pct+'%;background:'+ac+'"></div></div>';
   nodes.forEach(function(nd,i){
     var left=total>1?(i/(total-1))*72:0;
+    var ring=nd.d?'#2E8B48':(nd.rdy?'#E8A010':'var(--bord)');
     h+='<div style="position:absolute;left:'+left+'%;top:6px;width:38px;text-align:center">'+
-      '<div style="width:36px;height:36px;margin:0 auto;border-radius:50%;border:3px solid '+(nd.d?'#2E8B48':'var(--bord)')+';background:var(--boxw);display:flex;align-items:center;justify-content:center;overflow:hidden">'+
-      '<img src="'+nd.img+'" alt="" style="width:'+nd.w+'px;image-rendering:pixelated'+(nd.d?'':';filter:grayscale(1);opacity:.55')+'"></div>'+
-      '<div class="plv" style="font-size:12px;line-height:1.5;color:'+(nd.d?'#2E8B48':'var(--mut)')+'">'+(nd.d?'✓':'·')+'</div></div>';
+      '<div style="width:36px;height:36px;margin:0 auto;border-radius:50%;border:3px solid '+ring+';background:var(--boxw);display:flex;align-items:center;justify-content:center;overflow:hidden">'+
+      '<img src="'+nd.img+'" alt="" style="width:'+nd.w+'px;image-rendering:pixelated'+(nd.d||nd.rdy?'':';filter:grayscale(1);opacity:.55')+'"></div>'+
+      '<div class="plv" style="font-size:12px;line-height:1.5;color:'+(nd.d?'#2E8B48':(nd.rdy?'#E8A010':'var(--mut)'))+'">'+(nd.d?'✓':(nd.rdy?'!':'·'))+'</div></div>';
   });
   var clear=roadClear();
   h+='<div style="position:absolute;right:0;top:0;width:46px;text-align:center">'+
@@ -3075,6 +3228,50 @@ function roadBarHTML(){
   h+='</div><div class="plv" style="margin-top:2px">'+(clear?'The road is clear — challenge '+bz.n+' at the GYM!':(total-doneCount)+' step'+(total-doneCount===1?'':'s')+' left before '+bz.n+' accepts your challenge.')+'</div></div>';
   return h;
 }
+function dailyPanelHTML(){
+  var g=state.game;if(!g)return '';
+  ensureDaily();
+  var ds=dailyFor(),rows='';
+  ds.forEach(function(q,di){
+    var prog=dailyProg(q),ready=prog>=q.target,claimed=!!g.daily.claimed[di];
+    var pc=Math.round(prog/q.target*100);
+    rows+='<div class="prow" style="padding:7px 10px'+(claimed?';opacity:.7':'')+'">'+
+      '<div style="flex:1;min-width:0">'+
+      '<div class="pname" style="font-size:16px">'+q.ask+(claimed?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+      (claimed?'<div class="plv" style="color:#2E8B48">Collected ₽'+q.reward.toLocaleString()+'</div>'
+        :'<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><div class="gbar"><div style="width:'+pc+'%;background:#E8A010"></div></div><span class="barnum">'+prog.toLocaleString()+'/'+q.target.toLocaleString()+'</span></div>')+
+      '</div>'+
+      (!claimed&&ready?'<button class="btn acc" data-action="daily-claim" data-di="'+di+'">COLLECT ₽'+q.reward+'</button>':'')+
+      '</div>';
+  });
+  return '<div class="panel"><h3>DAILY TRAINING<span class="bestchip">🔥 '+((g.daily&&g.daily.streak)||0)+'</span></h3>'+
+    rows+
+    '<div class="plv" style="margin-top:4px">Fresh quests every day. Your 🔥 streak grows each day you collect one — a rest day or two never breaks it.</div></div>';
+}
+function collectorsHTML(){
+  var g=state.game;if(!g)return '';
+  ensureNpcq();
+  var rows='';
+  NPCQ.forEach(function(q){
+    var claimed=!!g.npcq.claimed[q.k];
+    var prog=npcqProg(q),ready=prog>=q.target;
+    var pc=Math.round(prog/q.target*100);
+    var unitLab=q.t==='volume'?(' '+state.unit):(q.t==='days'?' days':q.t==='sets'?' sets':'');
+    rows+='<div class="prow" style="padding:8px 10px'+(claimed?';opacity:.7':'')+'">'+
+      '<img src="sprites/npc/'+q.npc+'.png" alt="" style="width:26px;image-rendering:pixelated;flex:none'+(claimed?';filter:grayscale(1)':'')+'">'+
+      '<div style="flex:1;min-width:0">'+
+      '<div class="pname" style="font-size:16px">'+q.who+(claimed?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+      '<div class="plv" style="margin:2px 0 5px;white-space:normal;line-height:1.25">“'+q.ask+'”</div>'+
+      (claimed?'<div class="plv" style="color:#2E8B48">'+DEX[q.mon].n+' collected!</div>'
+        :(ready?'<button class="btn acc" data-action="npcq-claim" data-k="'+q.k+'">COLLECT '+DEX[q.mon].n+'</button>'
+               :'<div style="display:flex;align-items:center;gap:5px"><div class="gbar"><div style="width:'+pc+'%;background:#7848B0"></div></div><span class="barnum">'+prog.toLocaleString()+'/'+q.target.toLocaleString()+unitLab+'</span></div>'))+
+      '</div>'+
+      '<img src="'+sprPath(q.mon,false)+'" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none'+(claimed?'':';filter:brightness(0);opacity:.45')+'">'+
+      '</div>';
+  });
+  return '<div class="panel"><h3>COLLECTORS</h3>'+
+    '<div class="plv" style="margin-bottom:4px">Rare requests, one-time rewards — earn POKEMON you cannot catch anywhere else.</div>'+rows+'</div>';
+}
 function questsHTML(){
   var h='<div class="titlebar"><h1>QUESTS</h1></div>';
   if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
@@ -3083,40 +3280,49 @@ function questsHTML(){
   if(!bz)return h+'<div class="empty"><div class="big">🏆</div>All roads conquered, CHAMPION.</div>';
   if(!roadActive()){
     return h+'<div class="subtitle">The league gauntlet</div>'+
-      '<div class="panel"><div class="memo">No side roads inside the INDIGO PLATEAU — only the league itself. Challenge '+esc(bz.n)+' straight from the GYM!</div></div>';
+      dailyPanelHTML()+
+      '<div class="panel"><div class="memo">No side roads inside the INDIGO PLATEAU — only the league itself. Challenge '+esc(bz.n)+' straight from the GYM!</div></div>'+
+      collectorsHTML();
   }
-  var r=g.road,qs=questsFor(r.idx),loc=roadLoc(r.idx);
+  var r=g.road,qs=questsFor(r.idx),loc=roadLoc(r.idx),ac=loc.c||'#2E8B48';
   h+='<div class="subtitle">Road to '+esc(bz.gym)+' · through '+loc.n+'</div>';
+  /* the region banner: this road's battle ground, moonlit at night like the maps */
+  h+='<div class="mapwrap" style="border-color:'+ac+'">'+
+    '<img class="mapimg" src="sprites/arenas/'+loc.arena+'.png" alt="'+loc.n+'" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/86;object-fit:cover">'+
+    '<span class="maptag" style="position:absolute;left:8px;bottom:8px;border-color:'+ac+'">'+loc.n+'</span></div>';
   h+=roadBarHTML();
+  h+=dailyPanelHTML();
   var qrows='';
   qs.forEach(function(q,qi){
-    var done=questDone(q,qi),prog=questProg(q);
+    var claimed=questClaimed(qi),ready=!claimed&&questReady(q),prog=questProg(q);
     var pc=Math.round(prog/q.target*100);
     var unitLab=q.t==='volume'?(' '+state.unit):(q.t==='days'?' days':q.t==='sets'?' sets':'');
-    qrows+='<div class="prow" style="padding:8px 10px'+(done?';opacity:.75':'')+'">'+
-      '<img src="sprites/npc/'+q.npc+'.png" alt="" style="width:26px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1)':'')+'">'+
+    qrows+='<div class="prow" style="padding:8px 10px'+(claimed?';opacity:.75':'')+'">'+
+      '<img src="sprites/npc/'+q.npc+'.png" alt="" style="width:26px;image-rendering:pixelated;flex:none'+(claimed?';filter:grayscale(1)':'')+'">'+
       '<div style="flex:1;min-width:0">'+
-      '<div class="pname" style="font-size:16px">'+q.clsN+' '+q.name+(done?' <span style="color:#2E8B48">✓ DONE</span>':'')+'</div>'+
+      '<div class="pname" style="font-size:16px">'+q.clsN+' '+q.name+(claimed?' <span style="color:#2E8B48">✓ DONE</span>':(ready?' <span style="color:#E8A010">! COMPLETE</span>':''))+'</div>'+
       '<div class="plv" style="margin:2px 0 5px;white-space:normal;line-height:1.25">“'+q.ask+'”</div>'+
-      (done?'<div class="plv" style="color:#2E8B48">Reward paid: ₽'+q.reward.toLocaleString()+'</div>'
-           :'<div style="display:flex;align-items:center;gap:5px"><div class="gbar"><div style="width:'+pc+'%;background:#7848B0"></div></div><span class="barnum">'+prog.toLocaleString()+'/'+q.target.toLocaleString()+unitLab+'</span></div>')+
+      (claimed?'<div class="plv" style="color:#2E8B48">Reward collected: ₽'+q.reward.toLocaleString()+'</div>'
+        :(ready?'<button class="btn acc" data-action="quest-claim" data-qi="'+qi+'">COLLECT ₽'+q.reward.toLocaleString()+'</button>'
+               :'<div style="display:flex;align-items:center;gap:5px"><div class="gbar"><div style="width:'+pc+'%;background:'+ac+'"></div></div><span class="barnum">'+prog.toLocaleString()+'/'+q.target.toLocaleString()+unitLab+'</span></div>'))+
       '</div></div>';
   });
-  h+='<div class="panel"><h3>SIDE QUESTS</h3>'+qrows+'</div>';
+  h+='<div class="panel" style="border-color:'+ac+'"><h3>SIDE QUESTS</h3>'+qrows+'</div>';
   var mrows='';
   for(var j=0;j<roadMbCount(r.idx);j++){
     var mb=mbFor(r.idx,j),dn=!!r.mb[j];
-    mrows+='<div class="prow" style="padding:8px 10px'+(dn?';opacity:.75':'')+'">'+
+    mrows+='<div class="prow" style="padding:8px 10px'+(dn?';opacity:.75':'')+(mb.rival?';border-color:#D03028':'')+'">'+
       '<img src="sprites/trainers/'+mb.cls+'.png" alt="" style="width:40px;height:40px;image-rendering:pixelated;flex:none'+(dn?';filter:grayscale(1)':'')+'">'+
       '<div style="flex:1;min-width:0">'+
-      '<div class="pname" style="font-size:16px">'+mb.clsN+' '+mb.name+(dn?' <span style="color:#2E8B48">✓ BEATEN</span>':'')+'</div>'+
-      '<div class="plv" style="margin-top:2px">'+DEX[mb.sp].n+' :L'+mb.lv+' · blocks '+loc.n+(dn?'':' · ₽'+mb.purse)+'</div>'+
+      '<div class="pname" style="font-size:16px'+(mb.rival?';color:#D03028':'')+'">'+mb.clsN+' '+mb.name+(dn?' <span style="color:#2E8B48">✓ BEATEN</span>':'')+'</div>'+
+      '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">'+(mb.rival?'Your rival wants to battle! ':'')+DEX[mb.sp].n+' :L'+mb.lv+' · '+loc.n+(dn?'':' · ₽'+mb.purse)+'</div>'+
       '</div>'+
       (dn?'':'<button class="btn acc" data-action="mb-fight" data-j="'+j+'">FIGHT</button>')+
       '</div>';
   }
-  h+='<div class="panel"><h3>ROADBLOCKS<span class="bestchip">'+loc.n+'</span></h3>'+
-    '<div class="plv" style="margin-bottom:4px">Trainers block the way to '+esc(bz.gym)+'. Beat BOTH to open the gym doors — they fight like the wilds, but harder.</div>'+mrows+'</div>';
+  h+='<div class="panel" style="border-color:'+ac+'"><h3>ROADBLOCKS<span class="bestchip" style="border-color:'+ac+'">'+loc.n+'</span></h3>'+
+    '<div class="plv" style="margin-bottom:4px">Trainers block the way to '+esc(bz.gym)+'. Beat them ALL to open the gym doors — they fight like the wilds, but harder.</div>'+mrows+'</div>';
+  h+=collectorsHTML();
   return h;
 }
 function labHTML(){
@@ -3208,14 +3414,18 @@ function bossDefeated(){
     state.session.bmsg='A wild '+DEX[state.session.wild.sp].n+' appeared!';
   }
   save();
-  // let the final KO animation land before the victory modals
+  var wildAfter=(state.session&&state.session.wild)?DEX[state.session.wild.sp].n:null;
+  // let the final KO animation land before the victory screen
   setTimeout(function(){
   queueModal(function(){
-    sfx('faint');
-    showModal('<h3>'+esc(bz.n)+' is out of POKEMON!</h3>'+
-      '<div style="display:flex;align-items:center;gap:12px;margin:4px 0">'+
-      '<img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:60px;height:60px;image-rendering:pixelated;flex:none">'+
-      '<p style="margin:0">'+esc(playerName())+' defeated '+esc(bz.n)+(bz.gym?' of '+esc(bz.gym):'')+'’s whole team! Your POKEMON are revitalised.</p></div>'+
+    sfx('victory');
+    showModal('<div class="vbanner">VICTORY!</div>'+
+      '<div style="text-align:center;padding:6px 0 2px"><img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:72px;height:72px;image-rendering:pixelated"></div>'+
+      '<p style="text-align:center;margin:2px 0 8px">'+esc(playerName())+' defeated '+esc(bz.n)+(bz.gym?' of '+esc(bz.gym):'')+'!</p>'+
+      '<div class="vrow"><img src="'+itemIcon('pokeball')+'" alt="">Prize money<b style="margin-left:auto">₽'+purse.toLocaleString()+'</b></div>'+
+      '<div class="vrow"><img src="'+itemIcon('luckyegg')+'" alt="">Whole team EXP<b style="margin-left:auto">+'+bonus.toLocaleString()+'</b></div>'+
+      '<div style="display:flex;align-items:center;gap:6px;margin:4px 0 2px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div class="vexp"></div></div></div>'+
+      (wildAfter?'<p style="text-align:center;margin:10px 0 0;color:var(--mut)">Your workout continues as <b style="color:#2E8B48">NORMAL TRAINING</b><br>— a wild '+wildAfter+' appeared!</p>':'')+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
     modalOk=function(){closeModal();};
   });
@@ -3237,7 +3447,7 @@ function bossDefeated(){
     });
     grantMon('mewtwo','mewtwo','A legend stirs…','You are the CHAMPION! MEWTWO acknowledges your strength and joins you!');
   }
-  },3900); // the KO + leader-concedes cameo play out first
+  },5600); // the KO + concede cameo + back-to-training step play out first
 }
 function showStadiumModal(){
   var bz=bossInfo();
@@ -3632,10 +3842,11 @@ function workoutHTML(){
   if(state.session&&!editMode){
     var anim0=justStarted;justStarted=false;
     var cam0=anim0&&introCameo;introCameo=false;
-    h+='<div class="livebar"><span class="pulse"></span><span class="elapsed">'+fmtElapsed(Date.now()-state.session.start)+'</span>'+
+    var modeCls=state.session.mode==='train'?' mode-train':' mode-boss';
+    h+='<div class="livebar'+modeCls+'"><span class="pulse"></span><span class="elapsed">'+fmtElapsed(Date.now()-state.session.start)+'</span>'+
       '<span class="lb-sets">'+sessionSets()+' sets</span>'+
       '<button class="btn small" data-action="end-workout">End</button></div><div class="lvspace"></div>'+
-      '<div class="btwrap">'+battlePanelHTML(anim0,null,cam0)+'</div>';
+      '<div class="btwrap'+modeCls+'">'+battlePanelHTML(anim0,null,cam0)+'</div>';
   }
   h+='<div class="titlebar"><h1>GYM</h1><button class="textbtn" data-action="toggle-edit">'+(editMode?'DONE':'EDIT')+'</button></div>'+
     '<div class="subtitle">'+DAYSF[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate()+'</div>';
@@ -3685,7 +3896,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.11 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.12 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -3723,7 +3934,7 @@ function sheetHTML(ex,group,color){
     (state.session?'<span class="bestchip elapsed" style="margin:6px 10px 0 0;flex:none">'+fmtElapsed(Date.now()-state.session.start)+'</span>':'')+
     '<button class="roundbtn" data-action="close-sheet" aria-label="Close">✕</button></div>'+
 
-  '<div class="btwrap">'+battlePanelHTML(true)+'</div>'+
+  '<div class="btwrap'+(state.session?(state.session.mode==='train'?' mode-train':' mode-boss'):'')+'">'+battlePanelHTML(true)+'</div>'+
 
   '<div class="panel"><h3>Log a set — today</h3>'+
     '<div class="steprow"><label>Weight</label>'+
@@ -3885,13 +4096,14 @@ function saveLogEntry(){
             addMoney(wd.tr.purse);
             var mbWin=(wd.tr.mb!==undefined&&state.game.road)?' ROADBLOCK CLEARED!':'';
             if(wd.tr.mb!==undefined&&state.game.road)state.game.road.mb[wd.tr.mb]=1;
-            state.session.bmsg=wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'! +'+wbonus+' XP! A wild '+newN+' appeared!';
+            state.session.bmsg=wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'! Back to normal training — a wild '+newN+' appeared!';
             wSteps.push({msg:'Foe '+oldN+' is unable to battle! +'+wbonus+' XP!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
             wSteps.push({msg:wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'!',sfx:'badge',hold:1500});
-            wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
+            wSteps.push({msg:'Back to normal training! A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
           }else{
-            // every tired-out wild counts toward the road quests
+            // every tired-out wild counts toward the road + daily quests
             if(state.game.road)state.game.road.kills=(state.game.road.kills||0)+1;
+            dailyBumpKill();
             state.session.bmsg='Wild '+oldN+' fainted! +'+wbonus+' XP! A wild '+newN+' appeared!';
             wSteps.push({msg:'Wild '+oldN+' fainted! +'+wbonus+' XP!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
             wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
@@ -4211,7 +4423,22 @@ function applyImport(txt){
         kills:Math.max(0,parseInt(d.game.road.kills,10)||0),mb:{},qdone:{}};
       if(d.game.road.mb&&typeof d.game.road.mb==='object')Object.keys(d.game.road.mb).forEach(function(mk){if(d.game.road.mb[mk])gm.road.mb[mk]=1;});
       if(d.game.road.qdone&&typeof d.game.road.qdone==='object')Object.keys(d.game.road.qdone).forEach(function(qk){if(d.game.road.qdone[qk])gm.road.qdone[qk]=1;});
+      if(d.game.road.qann&&typeof d.game.road.qann==='object'){gm.road.qann={};Object.keys(d.game.road.qann).forEach(function(ak){if(d.game.road.qann[ak])gm.road.qann[ak]=1;});}
       if(d.game.road.clearmsg)gm.road.clearmsg=1;
+    }
+    gm.daily=null;
+    if(d.game.daily&&typeof d.game.daily==='object'&&typeof d.game.daily.date==='string'){
+      gm.daily={date:d.game.daily.date,claimed:{},kills:Math.max(0,parseInt(d.game.daily.kills,10)||0),
+        streak:Math.max(0,parseInt(d.game.daily.streak,10)||0),
+        lastDone:typeof d.game.daily.lastDone==='string'?d.game.daily.lastDone:null};
+      if(d.game.daily.claimed&&typeof d.game.daily.claimed==='object')Object.keys(d.game.daily.claimed).forEach(function(ck){if(d.game.daily.claimed[ck])gm.daily.claimed[ck]=1;});
+    }
+    gm.npcq=null;
+    if(d.game.npcq&&isFinite(d.game.npcq.startTs)){
+      gm.npcq={startTs:+d.game.npcq.startTs,claimed:{}};
+      if(d.game.npcq.claimed&&typeof d.game.npcq.claimed==='object'){
+        NPCQ.forEach(function(q){if(d.game.npcq.claimed[q.k])gm.npcq.claimed[q.k]=1;});
+      }
     }
   }
   state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0,sound:d.sound!==false};
@@ -4424,6 +4651,58 @@ document.addEventListener('click',function(e){
       showChooserThenStart('train');
     }
   }
+  else if(a==='quest-claim'){
+    if(!state.game||!roadActive())return;
+    var cqi=parseInt(b.dataset.qi,10);
+    var cq=questsFor(state.game.road.idx)[cqi];
+    if(cq&&questReady(cq)&&!questClaimed(cqi)){
+      state.game.road.qdone[cqi]=1;
+      addMoney(cq.reward);
+      save();sfx('badge');
+      toast('+₽'+cq.reward.toLocaleString()+' from '+cq.clsN+' '+cq.name+'!');
+      checkGameEvents();
+      render(true);
+    }
+  }
+  else if(a==='daily-claim'){
+    if(!state.game)return;
+    ensureDaily();
+    var ddi=parseInt(b.dataset.di,10);
+    var dq=dailyFor()[ddi];
+    if(dq&&dailyProg(dq)>=dq.target&&!state.game.daily.claimed[ddi]){
+      state.game.daily.claimed[ddi]=1;
+      addMoney(dq.reward);
+      // the flex streak: rest days (up to 3 calendar days between claims) never break it
+      var dl=state.game.daily;
+      if(dl.lastDone!==dl.date){
+        dl.streak=(!dl.lastDone||dayGap(dl.lastDone,dl.date)>3)?1:(dl.streak||0)+1;
+        dl.lastDone=dl.date;
+      }
+      save();sfx('badge');
+      toast('+₽'+dq.reward.toLocaleString()+' — daily done! 🔥'+dl.streak);
+      render(true);
+    }
+  }
+  else if(a==='npcq-claim'){
+    if(!state.game)return;
+    ensureNpcq();
+    var nk=b.dataset.k,nq=null;
+    NPCQ.forEach(function(x){if(x.k===nk)nq=x;});
+    if(nq&&npcqProg(nq)>=nq.target&&!state.game.npcq.claimed[nk]){
+      state.game.npcq.claimed[nk]=1;
+      var nsh=Math.random()<0.1;
+      addMon(nq.mon,nsh);
+      save();sfx('catch');
+      cry(nq.mon);
+      if(nsh)setTimeout(function(){sfx('shiny');},600);
+      showModal('<div style="text-align:center;padding-bottom:2px"><img src="sprites/npc/'+nq.npc+'.png" alt="" style="width:34px;image-rendering:pixelated"></div>'+
+        '<h3 style="text-align:center">A gift from '+nq.who+'!</h3>'+
+        '<p style="text-align:center">'+DEX[nq.mon].n+' joined your team!'+(nsh?' ✨ It’s SHINY!':'')+'</p>'+
+        '<div style="text-align:center;padding:6px 0"><img class="bigspr'+(nsh?' shinyglow':'')+'" src="'+sprPath(nq.mon,nsh)+'" alt=""></div>'+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+      modalOk=function(){closeModal();checkGameEvents();render(true);};
+    }
+  }
   else if(a==='show-hof'){showHofModal();}
   else if(a==='show-bag'){showBagModal();}
   else if(a==='show-medal'){showMedalModal(b.dataset.t);}
@@ -4563,7 +4842,7 @@ document.addEventListener('click',function(e){
     var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
     state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},round:1,
       boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'},
-      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null};
+      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null,daily:null,npcq:null};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;

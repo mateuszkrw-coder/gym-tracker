@@ -1,6 +1,6 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v33';
+const CACHE = 'gym-tracker-v34';
 const TOWN_MAPS = ['viridian','pewter','cerulean','vermilion','celadon','fuchsia','saffron','cinnabar','indigo'];
 const ARENAS = ['gym','grass','water','cave','pond','ice','sand','poison','teal','psychic'];
 /* The full Kanto 151 — every species is catchable (front + shiny + back + back-shiny). */
@@ -11,7 +11,7 @@ const TRAINERS = ['red','leaf','oak','brock','misty','ltsurge','erika','koga','s
   'bugcatcher','youngster','lass','hiker','fisherman','picnicker'];
 const ITEM_KEYS = ['potion','superpotion','hyperpotion','fullrestore','revive','pokeball','greatball','ultraball','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy',
   'charcoal','mysticwater','magnet','blackbelt','twistedspoon','sharpbeak','hardstone','scopelens','leftovers'];
-const BADGE_TYPES = ['normal','fire','water','electric','grass','psychic','fighting','flying','poison','ground','rock','bug','ghost','dragon','steel'];
+const BADGE_TYPES = ['normal','fire','water','electric','grass','psychic','fighting','flying','poison','ground','rock','bug','ghost','ice','dragon','steel'];
 const NPCS = ['nurse','lass','boy','oldman','man','youngster','chef','jiggly'];
 const GYM_ROOMS = ['pewter','cerulean','vermilion','celadon','fuchsia','saffron','cinnabar','viridian','lorelei','bruno','agatha','lance','champion'];
 /* Cries (sounds/cries/*.mp3) are NOT precached — the fetch handler caches them the first time they play. */
