@@ -505,12 +505,38 @@ var tab='summary', editMode=false, sheetEx=null, openScrollY=0, justStarted=fals
 
 /* ===== render: tabs ===== */
 var lastRenderedTab=null;
+/* full-bleed biome skins (DAY theme only; night stays untouched):
+   swap the page bg + the FRLG white/red vars for the location's palette */
+function applySkin(){
+  var v=$('#view');
+  function set(bg,pb,bd,bx){
+    v.style.background=bg;
+    v.style.setProperty('--cream',pb);v.style.setProperty('--cream2',bg);
+    v.style.setProperty('--bord',bd);v.style.setProperty('--boxw',bx);
+  }
+  function clear(){
+    v.style.background='';
+    ['--cream','--cream2','--bord','--boxw'].forEach(function(k){v.style.removeProperty(k);});
+  }
+  if(state.theme==='night'){clear();return;}
+  if(tab==='quests'&&state.game&&roadActive()){
+    var lc=roadLoc(state.game.road.idx);
+    set(lc.bg,lc.pb,lc.c,lc.bx);return;
+  }
+  if(tab==='workout'&&state.session&&state.session.mode==='train'){
+    set('#CDE6C8','#EAF6E6','#2E8B48','#F4FBF2');return; // deep in the tall grass
+  }
+  clear();
+}
 function render(keepScroll){
   resolveRests();
+  if(tab==='lab'&&state.game&&!featOn('lab'))tab='summary';
   document.querySelectorAll('#tabbar button').forEach(function(b){
     b.classList.toggle('on',b.dataset.tab===tab);
     if(b.dataset.tab==='quests')b.classList.toggle('alert',!!(state.game&&anyClaimable()));
+    if(b.dataset.tab==='lab')b.style.display=(state.game&&!featOn('lab'))?'none':'';
   });
+  applySkin();
   var v=$('#view');
   if(tab==='summary')v.innerHTML=summaryHTML();
   else if(tab==='map')v.innerHTML=mapHTML();
@@ -527,6 +553,7 @@ function render(keepScroll){
     v.classList.remove('pagein');void v.offsetWidth;v.classList.add('pagein');
     lastRenderedTab=tab;
   }
+  if(state.session)alignBack();
   if(!keepScroll)window.scrollTo(0,0);
 }
 
@@ -1150,17 +1177,18 @@ function raidProgress(){
   return volumeSince(r.startTs);
 }
 /* ===== the road: NPC quests + roadblock trainers gate each gym ===== */
-/* each road wears its region: arena image banner + official-ish accent color */
+/* each road wears its region: the REAL area map + a full day-theme palette
+   (c=outline/accent, bg=page, pb=panel, bx=buttons — night mode ignores all of it) */
 var ROAD_LOC=[
-  {n:'VIRIDIAN FOREST',arena:'grass',c:'#2E8B48'},
-  {n:'MT. MOON',arena:'cave',c:'#8A6E52'},
-  {n:'NUGGET BRIDGE',arena:'water',c:'#4890D8'},
-  {n:'ROUTE 7',arena:'grass',c:'#58A048'},
-  {n:'ROCKET HIDEOUT',arena:'poison',c:'#8E5AA8'},
-  {n:'SILPH CO.',arena:'psychic',c:'#D86890'},
-  {n:'CYCLING ROAD',arena:'sand',c:'#C8A050'},
-  {n:'SEAFOAM ISLANDS',arena:'ice',c:'#58B8D0'},
-  {n:'VICTORY ROAD',arena:'cave',c:'#7A6A58'}
+  {n:'VIRIDIAN FOREST',arena:'grass',img:'map/road/forest.png',c:'#2E8B48',bg:'#CFE8CB',pb:'#EDF7EA',bx:'#F6FBF4'},
+  {n:'MT. MOON',arena:'cave',img:'map/road/mtmoon.png',c:'#8A6E52',bg:'#DDD2C2',pb:'#F0E9DE',bx:'#F7F2EA'},
+  {n:'NUGGET BRIDGE',arena:'water',img:'map/road/bridge.png',c:'#4890D8',bg:'#CDE1F6',pb:'#EAF3FC',bx:'#F4F9FE'},
+  {n:'ROUTE 8',arena:'grass',img:'map/road/route8.png',c:'#58A048',bg:'#D5EBCE',pb:'#EEF7E9',bx:'#F6FBF3'},
+  {n:'ROCKET HIDEOUT',arena:'poison',img:'map/road/hideout.png',c:'#8E5AA8',bg:'#E0D2EA',pb:'#F1EAF7',bx:'#F8F4FB'},
+  {n:'SILPH CO.',arena:'psychic',img:'map/road/silph.png',c:'#D86890',bg:'#F2D8E3',pb:'#FAECF2',bx:'#FCF5F8'},
+  {n:'CYCLING ROAD',arena:'sand',img:'map/road/cycling.png',c:'#C8A050',bg:'#ECE2C6',pb:'#F7F1DF',bx:'#FBF7EC'},
+  {n:'SEAFOAM ISLANDS',arena:'ice',img:'map/road/seafoam.png',c:'#58B8D0',bg:'#D2EBF4',pb:'#EAF6FB',bx:'#F3FAFD'},
+  {n:'VICTORY ROAD',arena:'cave',img:'map/road/victory.png',c:'#7A6A58',bg:'#DCD3C6',pb:'#EFEAE0',bx:'#F6F2EB'}
 ];
 var QUEST_NPCS=[
   ['lass','LASS',['TIFFANY','SALLY','NINA']],
@@ -1259,12 +1287,12 @@ function dayGap(a,b){ /* calendar days between two YYYY-MM-DD keys */
   try{return Math.round((new Date(b+'T12:00')-new Date(a+'T12:00'))/86400000);}catch(e){return 99;}
 }
 var DAILY_POOL=[
-  {t:'sets',target:10,ask:'Log 10 sets today',reward:200},
-  {t:'vol',target:5000,ask:'Move 5,000 '+'kg'+' today',reward:250},
-  {t:'kills',target:4,ask:'Tire out 4 wild POKEMON today',reward:200},
-  {t:'groups',target:2,ask:'Train 2 different muscle groups today',reward:200},
-  {t:'ex',target:4,ask:'Log sets in 4 different exercises today',reward:200},
-  {t:'session',target:1,ask:'Finish a workout today',reward:150}
+  {t:'sets',target:10,ask:'Log 10 sets today',reward:200,sp:'machop'},
+  {t:'vol',target:5000,ask:'Move 5,000 '+'kg'+' today',reward:250,sp:'geodude'},
+  {t:'kills',target:4,ask:'Tire out 4 wild POKEMON today',reward:200,sp:'pidgey'},
+  {t:'groups',target:2,ask:'Train 2 different muscle groups today',reward:200,sp:'eevee'},
+  {t:'ex',target:4,ask:'Log sets in 4 different exercises today',reward:200,sp:'pikachu'},
+  {t:'session',target:1,ask:'Finish a workout today',reward:150,sp:'snorlax'}
 ];
 function ensureDaily(){
   var g=state.game;if(!g)return;
@@ -1313,20 +1341,26 @@ function dailyBumpKill(){
   ensureDaily();
   g.daily.kills=(g.daily.kills||0)+1;
 }
-/* ===== collector NPCs: one-time quests that pay in rare POKEMON ===== */
+/* ===== collector NPCs: one-time quests that pay in rare POKEMON.
+   They post their requests one by one, at badges 3 / 4 / 5 / 6. ===== */
 var NPCQ=[
-  {k:'ditto',npc:'lass',who:'LASS SALLY',mon:'ditto',t:'ex',target:12,
+  {k:'ditto',req:3,npc:'lass',who:'LASS SALLY',mon:'ditto',t:'ex',target:12,
    ask:'My DITTO can transform into anything! Show it 12 different exercises and it is yours.'},
-  {k:'porygon',npc:'man',who:'SUPER NERD MIRO',mon:'porygon',t:'sets',target:80,
+  {k:'porygon',req:4,npc:'man',who:'SUPER NERD MIRO',mon:'porygon',t:'sets',target:80,
    ask:'PORYGON runs on training data — log 80 sets and I will upload it to you!'},
-  {k:'omanyte',npc:'oldman',who:'PROF. BROWN',mon:'omanyte',t:'volume',target:20000,
+  {k:'omanyte',req:5,npc:'oldman',who:'PROF. BROWN',mon:'omanyte',t:'volume',target:20000,
    ask:'This HELIX FOSSIL revives under heavy pressure: move 20,000 kg in total!'},
-  {k:'kabuto',npc:'oldman',who:'PROF. BROWN',mon:'kabuto',t:'days',target:8,
+  {k:'kabuto',req:6,npc:'oldman',who:'PROF. BROWN',mon:'kabuto',t:'days',target:8,
    ask:'The DOME FOSSIL wakes slowly… train on 8 different days!'}
 ];
 function ensureNpcq(){
   var g=state.game;if(!g)return;
-  if(!g.npcq){g.npcq={startTs:Date.now(),claimed:{}};save();}
+  if(!g.npcq){g.npcq={startTs:Date.now(),claimed:{},st:{}};save();}
+  if(!g.npcq.st)g.npcq.st={};
+}
+function npcqOpen(q){
+  var g=state.game;
+  return !!(g&&g.npcq&&(g.npcq.claimed[q.k]||g.npcq.st[q.k]||badgeCount()>=q.req));
 }
 function distinctExercisesSince(ts){
   var d={};allLogsFlat().forEach(function(o){if(o.l.ts>=ts)d[o.ex.id]=1;});
@@ -1334,13 +1368,30 @@ function distinctExercisesSince(ts){
 }
 function npcqProg(q){
   var g=state.game;if(!g||!g.npcq)return 0;
-  var ts=g.npcq.startTs;
+  var ts=(g.npcq.st&&g.npcq.st[q.k])||g.npcq.startTs; // counts from the request's own unlock
   if(q.t==='ex')return Math.min(q.target,distinctExercisesSince(ts));
   if(q.t==='sets')return Math.min(q.target,setsSince(ts));
   if(q.t==='volume')return Math.min(q.target,Math.round(volumeSince(ts)));
   if(q.t==='days')return Math.min(q.target,daysSinceTs(ts));
   return 0;
 }
+/* ===== progression: features reveal themselves as the journey advances ===== */
+var FEATURES=[
+  {k:'mart',n:'POKE MART',icon:'sprites/items/pokeball.png',
+   d:'The SHOP is open! Stock up on potions, balls and more in every town from now on.',
+   cond:function(){return townIdx()>=1;}},
+  {k:'lab',n:'THE LAB',icon:'sprites/trainers/oak.png',
+   d:'PROF. OAK opened his LAB — a whole new tab with daycare EGGS and legendary RAIDS!',
+   cond:function(){
+     if(badgeCount()>=2)return true;
+     var r=state.game.road;
+     return townIdx()>=1&&!!(r&&r.idx===1&&r.mb[0]&&r.mb[1]);
+   }},
+  {k:'collectors',n:'COLLECTORS',icon:'sprites/npc/lass.png',
+   d:'Collectors around Kanto now post special requests on the QUEST page — rare POKEMON await!',
+   cond:function(){return townIdx()>=2;}}
+];
+function featOn(k){return !!(state.game&&state.game.flags['feat_'+k]);}
 /* anything waiting to be collected? → red dot on the QUEST tab */
 function anyClaimable(){
   var g=state.game;if(!g)return false;
@@ -1352,8 +1403,11 @@ function anyClaimable(){
     var ds=dailyFor();
     for(var di=0;di<ds.length;di++)if(dailyProg(ds[di])>=ds[di].target&&!g.daily.claimed[di])return true;
   }
-  if(g.npcq){
-    for(var ni=0;ni<NPCQ.length;ni++)if(npcqProg(NPCQ[ni])>=NPCQ[ni].target&&!g.npcq.claimed[NPCQ[ni].k])return true;
+  if(g.npcq&&featOn('collectors')){
+    for(var ni=0;ni<NPCQ.length;ni++){
+      var nq=NPCQ[ni];
+      if(npcqOpen(nq)&&npcqProg(nq)>=nq.target&&!g.npcq.claimed[nq.k])return true;
+    }
   }
   return false;
 }
@@ -1930,6 +1984,39 @@ function checkGameEvents(){
   ensureRoad();
   ensureDaily();
   ensureNpcq();
+  // features reveal themselves as the journey advances — announce each ONCE
+  FEATURES.forEach(function(f){
+    if(g.flags['feat_'+f.k]||!f.cond())return;
+    g.flags['feat_'+f.k]=1;changed=true;
+    (function(f2){
+      queueModal(function(){
+        sfx('badge');
+        showModal('<div class="vbanner" style="font-size:13px;line-height:1.6">NEW FEATURE<br>UNLOCKED!</div>'+
+          '<div style="text-align:center;padding:6px 0"><img src="'+f2.icon+'" alt="" style="width:44px;height:44px;image-rendering:pixelated"></div>'+
+          '<h3 style="text-align:center">'+f2.n+'</h3>'+
+          '<p style="text-align:center">'+f2.d+'</p>'+
+          '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+        modalOk=function(){closeModal();render(true);};
+      });
+    })(f);
+  });
+  // collector requests go up one badge at a time
+  if(featOn('collectors')&&g.npcq){
+    NPCQ.forEach(function(q){
+      if(g.npcq.st[q.k]||g.npcq.claimed[q.k]||badgeCount()<q.req)return;
+      g.npcq.st[q.k]=Date.now();changed=true;
+      (function(q2){
+        queueModal(function(){
+          sfx('save');
+          showModal('<div style="text-align:center;padding-bottom:2px"><img src="sprites/npc/'+q2.npc+'.png" alt="" style="width:34px;image-rendering:pixelated"></div>'+
+            '<h3 style="text-align:center">New collector request!</h3>'+
+            '<p>'+q2.who+': “'+q2.ask+'”</p>'+
+            '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+          modalOk=function(){closeModal();render(true);};
+        });
+      })(q);
+    });
+  }
   if(roadActive()){
     var rr=g.road,rqs=questsFor(rr.idx);
     if(!rr.qann)rr.qann={};
@@ -2482,22 +2569,10 @@ var SPECIAL_MEDALS=[
   {k:'Champion',n:'CHAMPION',letter:'C',color:'#E8A010',d:'Defeat the CHAMPION and enter the Hall of Fame.',
     done:function(){return !!(state.game&&(state.game.flags.champion||(state.game.hof&&state.game.hof.length)));},
     prog:function(){return state.game&&state.game.boss?Math.min(13,state.game.boss.idx)+'/13':'0/13';}},
-  {k:'Master',n:'LV.100',letter:'M',color:'#D03028',d:'Raise one POKEMON all the way to LV.100.',
-    done:function(){return maxMonLevel()>=100;},
-    prog:function(){return ':L'+maxMonLevel();}},
   {k:'FullDex',n:'FULL DEX',letter:'D',color:'#4890F8',d:'Catch every single POKEMON in the DEX.',
     done:function(){return dexCaughtCount()>=DEX_ORDER.length;},
-    prog:function(){return dexCaughtCount()+'/'+DEX_ORDER.length;}},
-  {k:'Legend',n:'LEGEND',letter:'L',color:'#7038F8',d:'Own all five legendary POKEMON — MEWTWO, ARTICUNO, ZAPDOS, MOLTRES and MEW.',
-    done:function(){return legendCount()>=LEGEND_KEYS.length;},
-    prog:function(){return legendCount()+'/'+LEGEND_KEYS.length;}}
+    prog:function(){return dexCaughtCount()+'/'+DEX_ORDER.length;}}
 ];
-var LEGEND_KEYS=['mewtwo','articuno','zapdos','moltres','mew'];
-function legendCount(){
-  var c=0;
-  if(state.game)LEGEND_KEYS.forEach(function(k){var d=state.game.dex[k];if(d&&d.c)c++;});
-  return c;
-}
 function medalsHTML(){
   if(!state.game)return '';
   var mds=medalList(),got=0,total=mds.length+SPECIAL_MEDALS.length,cells='';
@@ -2517,7 +2592,7 @@ function medalsHTML(){
   });
   return '<div class="panel"><h3>MEDALS<span class="bestchip">'+got+' / '+total+'</span></h3>'+
     '<div style="display:flex;flex-wrap:wrap;justify-content:space-between">'+cells+'</div>'+
-    '<div class="plv" style="margin-top:4px">Catch every POKEMON of a type — plus four trainer feats. Tap a medal for details.</div></div>';
+    '<div class="plv" style="margin-top:4px">Catch every POKEMON of a type — plus two trainer feats. Tap a medal for details.</div></div>';
 }
 function showMedalModal(t){
   if(!state.game)return;
@@ -2889,7 +2964,7 @@ function wildPanelHTML(anim,ov){
       '<img class="bt-espr'+(anim?' slidein-r':'')+(w.shiny?' shinyglow':'')+'" src="'+sprPath(w.sp,w.shiny)+'" alt="'+d.n+'" style="position:absolute;right:5%;top:7%;width:72px;height:72px;image-rendering:pixelated">'+
     '</div>'+
     '<div class="bt-pscene bt-layer">'+
-      '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-9px;width:76px;height:76px;image-rendering:pixelated">'+
+      '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-2px;width:76px;height:76px;image-rendering:pixelated">'+
       '<div class="databox" style="position:absolute;right:5px;bottom:5px;width:58%">'+
         '<div class="pname">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span> <span style="vertical-align:1px">'+pdots+'</span></div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div class="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
@@ -2955,7 +3030,7 @@ function battlePanelHTML(anim,ov,cameo){
       (cameo?';animation:slr .5s ease-out 2.15s backwards':'')+'">'+
     '</div>'+
     '<div class="bt-pscene bt-layer">'+
-      '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-9px;width:76px;height:76px;image-rendering:pixelated'+(php<=0?';opacity:.4':'')+'">'+
+      '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-2px;width:76px;height:76px;image-rendering:pixelated'+(php<=0?';opacity:.4':'')+'">'+
       '<div class="databox" style="position:absolute;right:5px;bottom:5px;width:58%">'+
         '<div class="pname">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span> <span style="vertical-align:1px">'+pdots+'</span></div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div class="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
@@ -2990,6 +3065,38 @@ var pendingSteps=null,pendingExp=null,animTimers=[],typeTimer=null;
 /* the panel renders on the GYM tab AND in the exercise sheet — always talk to the topmost one */
 function bw(){var els=document.querySelectorAll('.btwrap');return els.length?els[els.length-1]:null;}
 function bq(sel){var w=bw();return w?w.querySelector(sel):null;}
+/* back sprites are waist-up rips with transparent padding below — measure it once
+   per sprite and sink the image so the cut sits EXACTLY on the text bar */
+var backPadCache={};
+function alignBack(){
+  var img=bq('.bt-pspr');if(!img)return;
+  function apply(){
+    try{
+      if(!img.naturalWidth)return;
+      var key=img.getAttribute('src');
+      var pad=backPadCache[key];
+      if(pad===undefined){
+        var c=document.createElement('canvas');
+        c.width=img.naturalWidth;c.height=img.naturalHeight;
+        var x=c.getContext('2d');
+        x.drawImage(img,0,0);
+        var d=x.getImageData(0,0,c.width,c.height).data;
+        pad=0;
+        outer:for(var y=c.height-1;y>=0;y--){
+          for(var xx=0;xx<c.width;xx++){
+            if(d[(y*c.width+xx)*4+3]>8)break outer;
+          }
+          pad++;
+        }
+        backPadCache[key]=pad;
+      }
+      var scale=(img.clientHeight||img.naturalHeight)/img.naturalHeight;
+      img.style.bottom=(-2-Math.round(pad*scale))+'px';
+    }catch(e){}
+  }
+  if(img.complete&&img.naturalWidth)apply();
+  else img.onload=apply;
+}
 function clearBattleAnim(){
   animTimers.forEach(clearTimeout);animTimers=[];
   if(typeTimer){clearInterval(typeTimer);typeTimer=null;}
@@ -3054,6 +3161,7 @@ function runBattleStep(st){
       if(st.slide==='enemy')sprFx('.bt-espr','slidein-r');
       if(st.slide==='player')sprFx('.bt-pspr','slidein-l');
       syncPrevBars();
+      alignBack();
     }
   }
   if(st.sfx)sfx(st.sfx);
@@ -3122,10 +3230,12 @@ function updateBattlePanel(){
     });
     if(plan.exp){setBarNow('.bt-pexp',plan.exp.from,false);pendingExp=plan.exp;}
     var m0=bq('.bt-msg');if(m0){m0.textContent='';m0.classList.remove('msgdone');}
+    alignBack();
     playBattleSteps(plan.list);
     return;
   }
   w.innerHTML=battlePanelHTML(false);
+  alignBack();
   // plain refresh (switch, potion, panel rebuild): gentle bar catch-up
   var bar=bq('.bt-ehp'),newPct=curBattlePct();
   var isBoss=state.session&&state.session.mode==='boss';
@@ -3236,6 +3346,7 @@ function dailyPanelHTML(){
     var prog=dailyProg(q),ready=prog>=q.target,claimed=!!g.daily.claimed[di];
     var pc=Math.round(prog/q.target*100);
     rows+='<div class="prow" style="padding:7px 10px'+(claimed?';opacity:.7':'')+'">'+
+      (q.sp&&DEX[q.sp]?'<img src="'+sprPath(q.sp,false)+'" alt="" style="width:32px;height:32px;image-rendering:pixelated;flex:none'+(claimed?';filter:grayscale(1)':'')+'">':'')+
       '<div style="flex:1;min-width:0">'+
       '<div class="pname" style="font-size:16px">'+q.ask+(claimed?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
       (claimed?'<div class="plv" style="color:#2E8B48">Collected ₽'+q.reward.toLocaleString()+'</div>'
@@ -3249,11 +3360,23 @@ function dailyPanelHTML(){
     '<div class="plv" style="margin-top:4px">Fresh quests every day. Your 🔥 streak grows each day you collect one — a rest day or two never breaks it.</div></div>';
 }
 function collectorsHTML(){
-  var g=state.game;if(!g)return '';
+  var g=state.game;if(!g||!featOn('collectors'))return '';
   ensureNpcq();
   var rows='';
   NPCQ.forEach(function(q){
     var claimed=!!g.npcq.claimed[q.k];
+    if(!npcqOpen(q)){
+      // this collector hasn't posted yet — a silhouette teases the reward
+      rows+='<div class="prow" style="padding:8px 10px;opacity:.6">'+
+        '<img src="sprites/npc/'+q.npc+'.png" alt="" style="width:26px;image-rendering:pixelated;flex:none;filter:brightness(0);opacity:.5">'+
+        '<div style="flex:1;min-width:0">'+
+        '<div class="pname" style="font-size:16px;color:var(--mut)">?????</div>'+
+        '<div class="plv" style="margin-top:2px">A new request goes up at badge '+q.req+'.</div>'+
+        '</div>'+
+        '<img src="'+sprPath(q.mon,false)+'" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none;filter:brightness(0);opacity:.35">'+
+        '</div>';
+      return;
+    }
     var prog=npcqProg(q),ready=prog>=q.target;
     var pc=Math.round(prog/q.target*100);
     var unitLab=q.t==='volume'?(' '+state.unit):(q.t==='days'?' days':q.t==='sets'?' sets':'');
@@ -3286,9 +3409,9 @@ function questsHTML(){
   }
   var r=g.road,qs=questsFor(r.idx),loc=roadLoc(r.idx),ac=loc.c||'#2E8B48';
   h+='<div class="subtitle">Road to '+esc(bz.gym)+' · through '+loc.n+'</div>';
-  /* the region banner: this road's battle ground, moonlit at night like the maps */
+  /* the region banner: the REAL area map, moonlit at night like the town maps */
   h+='<div class="mapwrap" style="border-color:'+ac+'">'+
-    '<img class="mapimg" src="sprites/arenas/'+loc.arena+'.png" alt="'+loc.n+'" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/86;object-fit:cover">'+
+    '<img class="mapimg" src="'+(loc.img||('sprites/arenas/'+loc.arena+'.png'))+'" alt="'+loc.n+'" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/110;object-fit:cover">'+
     '<span class="maptag" style="position:absolute;left:8px;bottom:8px;border-color:'+ac+'">'+loc.n+'</span></div>';
   h+=roadBarHTML();
   h+=dailyPanelHTML();
@@ -3632,7 +3755,7 @@ function mapHTML(){
     '<div class="mapwrap">'+
     '<img class="mapimg" src="'+tw.img+'" alt="'+tw.n+'" style="width:100%;display:block;image-rendering:pixelated">'+
     spot('boss','BOSS')+
-    spot('mart','SHOP')+
+    (featOn('mart')?spot('mart','SHOP'):'')+
     spot('train','TRAIN',encAlert?'<span class="mapalert">!</span>':'')+
     (tw.hs.center?spot('center','HEAL'):'')+
     '</div>'+
@@ -3896,7 +4019,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.12 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.13 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -3906,6 +4029,17 @@ function openSheet(exId){
   sheetEx=exId; openScrollY=window.scrollY||0;
   var color=GROUP_COLORS[r.gi%GROUP_COLORS.length];
   $('#sheet').innerHTML=sheetHTML(r.ex,r.group,color);
+  // training wears green on the sheet too (day theme only — night untouched)
+  var sh=$('#sheet');
+  if(state.theme!=='night'&&state.session&&state.session.mode==='train'){
+    sh.style.background='#CDE6C8';
+    sh.style.setProperty('--cream','#EAF6E6');sh.style.setProperty('--cream2','#CDE6C8');
+    sh.style.setProperty('--bord','#2E8B48');sh.style.setProperty('--boxw','#F4FBF2');
+  }else{
+    sh.style.background='';
+    ['--cream','--cream2','--bord','--boxw'].forEach(function(k){sh.style.removeProperty(k);});
+  }
+  alignBack();
   $('#sheet').scrollTop=0;
   $('#sheet').classList.add('open');
   document.documentElement.classList.add('lock');
@@ -4569,8 +4703,9 @@ document.addEventListener('click',function(e){
       else toast('Meet PROF. OAK first!');
     }
     else if(bid==='mart'){
-      if(state.game){tab='mart';render();}
-      else toast('Meet PROF. OAK first!');
+      if(!state.game){toast('Meet PROF. OAK first!');}
+      else if(!featOn('mart')){toast('The MART opens once you reach the next town!');}
+      else{tab='mart';render();}
     }
     else if(bid==='center'){
       if(state.game){tab='center';render();}
@@ -4688,7 +4823,7 @@ document.addEventListener('click',function(e){
     ensureNpcq();
     var nk=b.dataset.k,nq=null;
     NPCQ.forEach(function(x){if(x.k===nk)nq=x;});
-    if(nq&&npcqProg(nq)>=nq.target&&!state.game.npcq.claimed[nk]){
+    if(nq&&npcqOpen(nq)&&npcqProg(nq)>=nq.target&&!state.game.npcq.claimed[nk]){
       state.game.npcq.claimed[nk]=1;
       var nsh=Math.random()<0.1;
       addMon(nq.mon,nsh);
