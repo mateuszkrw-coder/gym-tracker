@@ -395,6 +395,7 @@ html.theme-night .mapwrap img.mapimg{filter:var(--townf,none) brightness(.62) sa
   <button data-action="tab" data-tab="map" aria-label="Town map">MAP</button>
   <button data-action="tab" data-tab="team" aria-label="Pokemon">TEAM</button>
   <button data-action="tab" data-tab="lab" aria-label="Lab">LAB</button>
+  <button data-action="tab" data-tab="quests" aria-label="Quests">QUEST</button>
   <button data-action="tab" data-tab="settings" aria-label="Options">OPTION</button>
 </nav>
 
@@ -501,6 +502,7 @@ function render(keepScroll){
   else if(tab==='trophy')v.innerHTML=trophyHTML();
   else if(tab==='mart')v.innerHTML=martHTML();
   else if(tab==='gymhall')v.innerHTML=gymhallHTML();
+  else if(tab==='quests')v.innerHTML=questsHTML();
   else v.innerHTML=settingsHTML();
   if(tab!==lastRenderedTab){
     v.classList.remove('pagein');void v.offsetWidth;v.classList.add('pagein');
@@ -567,8 +569,16 @@ function startWorkout(mode){
   state.session={start:Date.now(),mode:mode==='boss'?'boss':'train'};
   if(state.game&&state.session.mode==='train'){
     state.session.wild=spawnWild();
+    if(pendingMb!=null&&roadActive()&&!state.game.road.mb[pendingMb]){
+      var pmb=mbFor(state.game.road.idx,pendingMb);
+      state.session.wild={sp:pmb.sp,lv:pmb.lv,hp:pmb.hp,max:pmb.hp,shiny:false,
+        tr:{cls:pmb.cls,clsN:pmb.clsN,name:pmb.name,purse:pmb.purse,mb:pendingMb,arena:pmb.arena}};
+    }
+    pendingMb=null;
     initBossSession();
-    state.session.bmsg='A wild '+DEX[state.session.wild.sp].n+' appeared! Log a set to attack — it fights back!';
+    state.session.bmsg=state.session.wild.tr
+      ?state.session.wild.tr.clsN+' '+state.session.wild.tr.name+' sent out '+DEX[state.session.wild.sp].n+'! Log a set to attack!'
+      :'A wild '+DEX[state.session.wild.sp].n+' appeared! Log a set to attack — it fights back!';
   }
   if(state.game&&state.session.mode==='boss'&&state.game.boss){
     initBossSession();
@@ -717,6 +727,7 @@ function migrateState(){
     if(!state.game.medals){state.game.medals={};changed=true;}
     if(!state.game.hurt){state.game.hurt={};changed=true;}
     if(state.game.raid===undefined){state.game.raid=null;changed=true;}
+    if(state.game.road===undefined){state.game.road=null;changed=true;}
     if(!state.game.rest){state.game.rest={};changed=true;}
     if(state.game.bag&&state.game.bag.xattack){
       state.game.bag.fullrestore=(state.game.bag.fullrestore||0)+state.game.bag.xattack;
@@ -1117,6 +1128,94 @@ function raidProgress(){
   if(!r)return 0;
   return volumeSince(r.startTs);
 }
+/* ===== the road: NPC quests + roadblock trainers gate each gym ===== */
+var ROAD_LOC=[
+  {n:'VIRIDIAN FOREST',arena:'grass'},
+  {n:'MT. MOON',arena:'cave'},
+  {n:'NUGGET BRIDGE',arena:'water'},
+  {n:'ROUTE 7',arena:'grass'},
+  {n:'ROCKET HIDEOUT',arena:'poison'},
+  {n:'SILPH CO.',arena:'psychic'},
+  {n:'CYCLING ROAD',arena:'sand'},
+  {n:'SEAFOAM ISLANDS',arena:'ice'},
+  {n:'VICTORY ROAD',arena:'cave'}
+];
+var QUEST_NPCS=[
+  ['lass','LASS',['TIFFANY','SALLY','NINA']],
+  ['boy','SCHOOL KID',['TIMMY','GUS','LEO']],
+  ['oldman','OLD MAN',['BERNIE','WALT','ALVIN']],
+  ['man','GENTLEMAN',['TUCKER','REX','HUGO']],
+  ['youngster','YOUNGSTER',['JOEY','BEN','MAX']],
+  ['chef','COOK',['REMY','LOU','MARIO']],
+  ['nurse','NURSE',['JOY','MABEL','SARA']]
+];
+function roadLoc(i){return ROAD_LOC[Math.min(i,ROAD_LOC.length-1)];}
+function questsFor(i){
+  var b=BOSSES[i];if(!b)return [];
+  var vol=Math.max(2000,Math.round(b.hp*0.4/500)*500);
+  var sets=20+i*4;
+  var days=2+(i>>2);
+  var kills=6+i*2;
+  var qs=[
+    {t:'volume',target:vol,ask:'My POKEMON tired out hauling berries… Move '+vol.toLocaleString()+' '+state.unit+' of iron for me!',reward:200+i*100},
+    (i%2?{t:'days',target:days,ask:'Consistency beats intensity! Train on '+days+' different days.',reward:150+i*75}
+        :{t:'sets',target:sets,ask:'My back aches just watching you… Log '+sets+' sets!',reward:150+i*75}),
+    {t:'kills',target:kills,ask:'Wild POKEMON block the path ahead — tire out '+kills+' of them in training!',reward:150+i*75}
+  ];
+  qs.forEach(function(q,qi){
+    var np=QUEST_NPCS[(i+qi*3)%QUEST_NPCS.length];
+    q.npc=np[0];q.clsN=np[1];q.name=np[2][(i+qi)%np[2].length];
+  });
+  return qs;
+}
+function mbFor(i,j){
+  var c=TRAINER_CLASSES[(i*2+j)%TRAINER_CLASSES.length];
+  var b=BOSSES[i];
+  var lv=Math.max(4,b.lv-4+j*3);
+  var hp=Math.round((600+lv*60)*1.35);
+  return {cls:c[0],clsN:c[1],name:TRAINER_NAMES[(i*2+j)%TRAINER_NAMES.length],
+    sp:c[2][(i+j)%c[2].length],lv:lv,hp:hp,purse:lv*30,arena:roadLoc(i).arena};
+}
+function roadMbCount(i){return 2;}
+function ensureRoad(){
+  var g=state.game;if(!g)return;
+  if(!g.boss){if(g.road){g.road=null;save();}return;}
+  var idx=g.boss.idx,rd=g.round||1;
+  if(!g.road||g.road.idx!==idx||g.road.round!==rd){
+    g.road={idx:idx,round:rd,startTs:Date.now(),kills:0,mb:{},qdone:{}};
+    save();
+  }
+}
+function roadActive(){
+  // the league gauntlet past Victory Road has no side roads — just glory
+  return !!(state.game&&state.game.road&&state.game.boss&&
+    state.game.boss.idx<=8&&state.game.road.idx===state.game.boss.idx);
+}
+function setsSince(ts){var n=0;allLogsFlat().forEach(function(o){if(o.l.ts>=ts)n+=o.l.s;});return n;}
+function daysSinceTs(ts){
+  var d={};
+  allLogsFlat().forEach(function(o){if(o.l.ts>=ts)d[dateKey(o.l.ts)]=1;});
+  return Object.keys(d).length;
+}
+function questProg(q){
+  var r=state.game&&state.game.road;if(!r)return 0;
+  if(q.t==='volume')return Math.min(q.target,Math.round(volumeSince(r.startTs)));
+  if(q.t==='sets')return Math.min(q.target,setsSince(r.startTs));
+  if(q.t==='days')return Math.min(q.target,daysSinceTs(r.startTs));
+  if(q.t==='kills')return Math.min(q.target,r.kills||0);
+  return 0;
+}
+function questDone(q,qi){
+  var r=state.game&&state.game.road;
+  return !!(r&&(r.qdone[qi]||questProg(q)>=q.target));
+}
+function roadClear(){
+  if(!roadActive())return true;
+  var r=state.game.road,qs=questsFor(r.idx);
+  for(var qi=0;qi<qs.length;qi++)if(!questDone(qs[qi],qi))return false;
+  for(var j=0;j<roadMbCount(r.idx);j++)if(!r.mb[j])return false;
+  return true;
+}
 /* wild pools per town (index = townIdx). Training spawns from the CURRENT town's
    list plus every town before it — just like walking the routes back home. */
 var WILD_STAGES=[
@@ -1330,15 +1429,8 @@ var TRAINER_CLASSES=[
   ['picnicker','PICNICKER',['meowth','psyduck','vulpix','bellsprout']]
 ];
 var TRAINER_NAMES=['JOEY','RICK','LIZ','TIM','SARA','BEN','MAX','IVY','LEO','MEG'];
-var pendingAmbush=null;
-function rollAmbush(){
-  var c=TRAINER_CLASSES[Math.floor(Math.random()*TRAINER_CLASSES.length)];
-  var am=activeMon();
-  var lv=Math.max(3,(am?monLevel(am.xp):5)-1+Math.floor(Math.random()*4));
-  var hp=Math.round((600+lv*55)*(0.9+Math.random()*0.2));
-  return {cls:c[0],clsN:c[1],name:TRAINER_NAMES[Math.floor(Math.random()*TRAINER_NAMES.length)],
-    sp:c[2][Math.floor(Math.random()*c[2].length)],lv:lv,hp:hp,purse:lv*15};
-}
+/* roadblock trainers are picked on the QUESTS page now — no more random ambushes */
+var pendingMb=null;
 
 /* ===== game: engine ===== */
 var teamView='party', monOpen=null, modalQueue=[];
@@ -1595,6 +1687,39 @@ function checkGameEvents(){
       })(sm);
     }
   });
+  // the road refreshes whenever a new boss steps up
+  ensureRoad();
+  if(roadActive()){
+    var rr=g.road,rqs=questsFor(rr.idx);
+    rqs.forEach(function(q,qi){
+      if(rr.qdone[qi])return;
+      if(questProg(q)>=q.target){
+        rr.qdone[qi]=1;changed=true;
+        addMoney(q.reward);
+        (function(q2){
+          queueModal(function(){
+            sfx('badge');
+            showModal('<div style="text-align:center;padding-bottom:2px"><img src="sprites/npc/'+q2.npc+'.png" alt="" style="width:34px;image-rendering:pixelated"></div>'+
+              '<h3 style="text-align:center">QUEST COMPLETE!</h3>'+
+              '<p>'+q2.clsN+' '+q2.name+' is thrilled — and hands you <b>₽'+q2.reward.toLocaleString()+'</b>!</p>'+
+              '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+            modalOk=function(){closeModal();render(true);};
+          });
+        })(q);
+      }
+    });
+    if(!rr.clearmsg&&roadClear()){
+      rr.clearmsg=1;changed=true;
+      (function(bidx){
+        queueModal(function(){
+          sfx('badge');
+          showModal('<h3>The road is clear!</h3><p>Every quest done, every roadblock beaten. '+esc(BOSSES[bidx].n)+' awaits at the GYM!</p>'+
+            '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+          modalOk=function(){closeModal();render(true);};
+        });
+      })(rr.idx);
+    }
+  }
   // raid sightings: each legend is rumored once its badge gate opens
   RAIDS.forEach(function(r){
     if(g.flags['sight_'+r.k]||raidCaught(r.k)||!raidUnlocked(r))return;
@@ -2505,7 +2630,7 @@ function wildPanelHTML(anim,ov){
       '<button class="btn" data-action="battle-bag" style="flex:1">BAG</button></div>';
   }
   return '<div class="panel" style="padding:11px 12px">'+
-    '<div class="arenabg" style="background-image:url('+arenaFile('Grass')+')">'+
+    '<div class="arenabg" style="background-image:url('+(w.tr&&w.tr.arena?'sprites/arenas/'+w.tr.arena+'.png':arenaFile('Grass'))+')">'+
     '<div class="bt-scene bt-layer">'+
       '<div class="databox" style="position:absolute;left:5px;top:5px;width:57%">'+
         '<div class="pname">'+
@@ -2787,7 +2912,8 @@ function bossCardHTML(){
     '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+bz.n+' · '+bz.mon+' <span class="plv">:L'+bz.lv+'</span></div>'+
     '<div class="plv" style="margin:1px 0 6px">'+bz.gym+' · team of '+bz.teamSize+'</div>'+
     '<div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div>'+
-    '<div class="plv" style="margin-top:3px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg — tap to challenge</div>'+
+    '<div class="plv" style="margin-top:3px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg — '+
+    (roadClear()?'tap to challenge':'🔒 road blocked, see QUESTS')+'</div>'+
     '</div></div></div>';
 }
 function bossLadderHTML(){
@@ -2817,6 +2943,83 @@ function bossLadderHTML(){
     (round>1?'R'+round+' · ':'')+beatenN+' / '+BOSSES.length+
     (g.hof&&g.hof.length?' · 🏆'+g.hof.length:'')+'</span></h3>'+
     '<div style="display:flex;flex-wrap:wrap;justify-content:space-between">'+cells+'</div></div>';
+}
+function roadBarHTML(){
+  if(!roadActive())return '';
+  var r=state.game.road,qs=questsFor(r.idx),bz=bossInfo();
+  if(!bz)return '';
+  var nodes=[],doneCount=0;
+  qs.forEach(function(q,qi){
+    var d=questDone(q,qi);if(d)doneCount++;
+    nodes.push({img:'sprites/npc/'+q.npc+'.png',w:18,d:d});
+  });
+  for(var j=0;j<roadMbCount(r.idx);j++){
+    var dm=!!r.mb[j];if(dm)doneCount++;
+    nodes.push({img:'sprites/trainers/'+mbFor(r.idx,j).cls+'.png',w:26,d:dm});
+  }
+  var total=nodes.length;
+  var pct=Math.round(doneCount/total*100);
+  var h='<div class="panel"><h3>THE TRACK<span class="bestchip">'+doneCount+' / '+total+'</span></h3>'+
+    '<div style="position:relative;height:66px;margin-top:6px">'+
+    '<div class="gbar" style="position:absolute;left:16px;right:44px;top:24px;min-width:0"><div style="width:'+pct+'%;background:#58C868"></div></div>';
+  nodes.forEach(function(nd,i){
+    var left=total>1?(i/(total-1))*72:0;
+    h+='<div style="position:absolute;left:'+left+'%;top:6px;width:38px;text-align:center">'+
+      '<div style="width:36px;height:36px;margin:0 auto;border-radius:50%;border:3px solid '+(nd.d?'#2E8B48':'var(--bord)')+';background:var(--boxw);display:flex;align-items:center;justify-content:center;overflow:hidden">'+
+      '<img src="'+nd.img+'" alt="" style="width:'+nd.w+'px;image-rendering:pixelated'+(nd.d?'':';filter:grayscale(1);opacity:.55')+'"></div>'+
+      '<div class="plv" style="font-size:12px;line-height:1.5;color:'+(nd.d?'#2E8B48':'var(--mut)')+'">'+(nd.d?'✓':'·')+'</div></div>';
+  });
+  var clear=roadClear();
+  h+='<div style="position:absolute;right:0;top:0;width:46px;text-align:center">'+
+    '<div style="width:44px;height:44px;margin:0 auto;border-radius:50%;border:3px solid '+(clear?'#E8A010':'var(--bord)')+';background:var(--boxw);display:flex;align-items:center;justify-content:center;overflow:hidden">'+
+    '<img src="sprites/trainers/'+bz.tr+'.png" alt="'+bz.n+'" style="width:34px;image-rendering:pixelated'+(clear?'':';filter:grayscale(1);opacity:.55')+'"></div>'+
+    '<div class="plv" style="font-size:12px;line-height:1.5;color:'+(clear?'#E8A010':'var(--mut)')+'">'+(clear?'GO!':'🔒')+'</div></div>';
+  h+='</div><div class="plv" style="margin-top:2px">'+(clear?'The road is clear — challenge '+bz.n+' at the GYM!':(total-doneCount)+' step'+(total-doneCount===1?'':'s')+' left before '+bz.n+' accepts your challenge.')+'</div></div>';
+  return h;
+}
+function questsHTML(){
+  var h='<div class="titlebar"><h1>QUESTS</h1></div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  ensureRoad();
+  var g=state.game,bz=bossInfo();
+  if(!bz)return h+'<div class="empty"><div class="big">🏆</div>All roads conquered, CHAMPION.</div>';
+  if(!roadActive()){
+    return h+'<div class="subtitle">The league gauntlet</div>'+
+      '<div class="panel"><div class="memo">No side roads inside the INDIGO PLATEAU — only the league itself. Challenge '+esc(bz.n)+' straight from the GYM!</div></div>';
+  }
+  var r=g.road,qs=questsFor(r.idx),loc=roadLoc(r.idx);
+  h+='<div class="subtitle">Road to '+esc(bz.gym)+' · through '+loc.n+'</div>';
+  h+=roadBarHTML();
+  var qrows='';
+  qs.forEach(function(q,qi){
+    var done=questDone(q,qi),prog=questProg(q);
+    var pc=Math.round(prog/q.target*100);
+    var unitLab=q.t==='volume'?(' '+state.unit):(q.t==='days'?' days':q.t==='sets'?' sets':'');
+    qrows+='<div class="prow" style="padding:8px 10px'+(done?';opacity:.75':'')+'">'+
+      '<img src="sprites/npc/'+q.npc+'.png" alt="" style="width:26px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1)':'')+'">'+
+      '<div style="flex:1;min-width:0">'+
+      '<div class="pname" style="font-size:16px">'+q.clsN+' '+q.name+(done?' <span style="color:#2E8B48">✓ DONE</span>':'')+'</div>'+
+      '<div class="plv" style="margin:2px 0 5px;white-space:normal;line-height:1.25">“'+q.ask+'”</div>'+
+      (done?'<div class="plv" style="color:#2E8B48">Reward paid: ₽'+q.reward.toLocaleString()+'</div>'
+           :'<div style="display:flex;align-items:center;gap:5px"><div class="gbar"><div style="width:'+pc+'%;background:#7848B0"></div></div><span class="barnum">'+prog.toLocaleString()+'/'+q.target.toLocaleString()+unitLab+'</span></div>')+
+      '</div></div>';
+  });
+  h+='<div class="panel"><h3>SIDE QUESTS</h3>'+qrows+'</div>';
+  var mrows='';
+  for(var j=0;j<roadMbCount(r.idx);j++){
+    var mb=mbFor(r.idx,j),dn=!!r.mb[j];
+    mrows+='<div class="prow" style="padding:8px 10px'+(dn?';opacity:.75':'')+'">'+
+      '<img src="sprites/trainers/'+mb.cls+'.png" alt="" style="width:40px;height:40px;image-rendering:pixelated;flex:none'+(dn?';filter:grayscale(1)':'')+'">'+
+      '<div style="flex:1;min-width:0">'+
+      '<div class="pname" style="font-size:16px">'+mb.clsN+' '+mb.name+(dn?' <span style="color:#2E8B48">✓ BEATEN</span>':'')+'</div>'+
+      '<div class="plv" style="margin-top:2px">'+DEX[mb.sp].n+' :L'+mb.lv+' · blocks '+loc.n+(dn?'':' · ₽'+mb.purse)+'</div>'+
+      '</div>'+
+      (dn?'':'<button class="btn acc" data-action="mb-fight" data-j="'+j+'">FIGHT</button>')+
+      '</div>';
+  }
+  h+='<div class="panel"><h3>ROADBLOCKS<span class="bestchip">'+loc.n+'</span></h3>'+
+    '<div class="plv" style="margin-bottom:4px">Trainers block the way to '+esc(bz.gym)+'. Beat BOTH to open the gym doors — they fight like the wilds, but harder.</div>'+mrows+'</div>';
+  return h;
 }
 function labHTML(){
   var h='<div class="titlebar"><h1>LAB</h1></div>';
@@ -2952,8 +3155,10 @@ function showStadiumModal(){
     '<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:10px">'+teamRow+'</div>'+
     '<div style="display:flex;align-items:center;gap:5px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
     '<p style="margin-top:8px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg left. Your sets attack — but the boss hits back, so bring a strong party!</p>'+
+    (roadClear()?'':'<p style="margin-top:6px;color:#D03028">🔒 The road here is blocked — finish the QUESTS first!</p>')+
     '<div class="mbtns"><button class="btn" data-action="close-modal">LEAVE</button>'+
-    '<button class="btn acc" data-action="stadium-go">CHALLENGE</button></div>');
+    (roadClear()?'<button class="btn acc" data-action="stadium-go">CHALLENGE</button>'
+                :'<button class="btn" data-action="tab" data-tab="quests">TO QUESTS ▶</button>')+'</div>');
   modalOk=null;
 }
 function martHTML(){
@@ -3024,7 +3229,8 @@ function gymhallHTML(){
   }
   var pct=Math.round(bz.hp/bz.max*100);
   h+='<div class="panel"><h3>'+bz.n+'<span class="bestchip">'+balls+'</span></h3>'+
-    '<div class="plv" style="margin-bottom:6px">'+bz.mon+' :L'+bz.lv+' leads a team of '+bz.teamSize+'. Walk up and talk to challenge!</div>'+
+    '<div class="plv" style="margin-bottom:6px">'+bz.mon+' :L'+bz.lv+' leads a team of '+bz.teamSize+'. '+
+    (roadClear()?'Walk up and talk to challenge!':'<span style="color:#D03028">🔒 The road is blocked — clear your QUESTS to challenge!</span>')+'</div>'+
     '<div style="display:flex;align-items:center;gap:5px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
     '<div class="plv" style="margin-top:4px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg</div></div>'+
     '<div style="margin:10px 12px"><button class="btn" data-action="tab" data-tab="map" style="width:100%">← BACK TO TOWN</button></div>';
@@ -3224,7 +3430,10 @@ function spById(id){
   }
   return SP_BY_ID[id]||EXTRA_CRIES[id];
 }
+/* cries are OFF until proper GBA-era cry files are sourced — flip CRIES_ON to bring them back */
+var CRIES_ON=false;
 function cry(sp){
+  if(!CRIES_ON)return;
   if(state.sound===false||!sp)return;
   var c=ac();if(!c)return;
   function play(buf){
@@ -3366,7 +3575,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.8 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.9 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -3564,31 +3773,18 @@ function saveLogEntry(){
           if(wd.tr){
             // trainer beaten — payout, like the games
             addMoney(wd.tr.purse);
-            state.session.bmsg=wd.tr.clsN+' '+wd.tr.name+' was defeated! Won ₽'+wd.tr.purse+'! +'+wbonus+' XP! A wild '+newN+' appeared!';
+            var mbWin=(wd.tr.mb!==undefined&&state.game.road)?' ROADBLOCK CLEARED!':'';
+            if(wd.tr.mb!==undefined&&state.game.road)state.game.road.mb[wd.tr.mb]=1;
+            state.session.bmsg=wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'! +'+wbonus+' XP! A wild '+newN+' appeared!';
             wSteps.push({msg:'Foe '+oldN+' is unable to battle! +'+wbonus+' XP!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
-            wSteps.push({msg:wd.tr.clsN+' '+wd.tr.name+' was defeated! Won ₽'+wd.tr.purse+'!',sfx:'badge',hold:1300});
+            wSteps.push({msg:wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'!',sfx:'badge',hold:1500});
             wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
           }else{
+            // every tired-out wild counts toward the road quests
+            if(state.game.road)state.game.road.kills=(state.game.road.kills||0)+1;
             state.session.bmsg='Wild '+oldN+' fainted! +'+wbonus+' XP! A wild '+newN+' appeared!';
             wSteps.push({msg:'Wild '+oldN+' fainted! +'+wbonus+' XP!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
             wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
-            // sometimes a route trainer ambushes you (optional fight, pays ₽)
-            if(Math.random()<0.25){
-              pendingAmbush=rollAmbush();
-              (function(pa){
-                setTimeout(function(){
-                  queueModal(function(){
-                    sfx('battlestart');
-                    showModal('<div style="text-align:center;padding-bottom:4px"><img src="sprites/trainers/'+pa.cls+'.png" alt="" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
-                      '<h3>'+pa.clsN+' '+pa.name+' wants to battle!</h3>'+
-                      '<p>Their '+DEX[pa.sp].n+' :L'+pa.lv+' blocks the path. Beat it for ₽'+pa.purse+'!</p>'+
-                      '<div class="mbtns"><button class="btn" data-action="close-modal">IGNORE</button>'+
-                      '<button class="btn acc" data-action="ambush-yes">BATTLE</button></div>');
-                    modalOk=null;
-                  });
-                },2700);
-              })(pendingAmbush);
-            }
           }
         }else{
           state.session.bmsg=wAtk+' '+dmgT.toLocaleString()+' dmg.';
@@ -3897,6 +4093,16 @@ function applyImport(txt){
         if(isFinite(rv)&&rv>0)gm.rest[m.uid]=rv;
       });
     }
+    gm.road=null;
+    if(d.game.road&&isFinite(d.game.road.idx)){
+      gm.road={idx:Math.max(0,parseInt(d.game.road.idx,10)||0),
+        round:Math.max(1,parseInt(d.game.road.round,10)||1),
+        startTs:+d.game.road.startTs||Date.now(),
+        kills:Math.max(0,parseInt(d.game.road.kills,10)||0),mb:{},qdone:{}};
+      if(d.game.road.mb&&typeof d.game.road.mb==='object')Object.keys(d.game.road.mb).forEach(function(mk){if(d.game.road.mb[mk])gm.road.mb[mk]=1;});
+      if(d.game.road.qdone&&typeof d.game.road.qdone==='object')Object.keys(d.game.road.qdone).forEach(function(qk){if(d.game.road.qdone[qk])gm.road.qdone[qk]=1;});
+      if(d.game.road.clearmsg)gm.road.clearmsg=1;
+    }
   }
   state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0,sound:d.sound!==false};
   save();
@@ -4013,10 +4219,13 @@ document.addEventListener('click',function(e){
       save();closeModal();updateBattlePanel();render(true);
     }
   }
-  else if(a==='stadium-go'){closeModal();showChooserThenStart('boss');}
+  else if(a==='stadium-go'){
+    if(!roadClear()){closeModal();toast('The road is blocked — clear your QUESTS first!');return;}
+    closeModal();showChooserThenStart('boss');
+  }
   else if(a==='bld'){
     var bid=b.dataset.b;
-    if(bid==='train'){if(state.session){tab='workout';render();}else showChooserThenStart('train');}
+    if(bid==='train'){if(state.session){tab='workout';render();}else{pendingMb=null;showChooserThenStart('train');}}
     else if(bid==='boss'){
       if(state.session){tab='workout';render();}
       else if(state.game){tab='gymhall';render();}
@@ -4087,14 +4296,23 @@ document.addEventListener('click',function(e){
       render(true);
     }
   }
-  else if(a==='ambush-yes'){
-    if(state.session&&state.session.mode==='train'&&pendingAmbush){
-      state.session.wild={sp:pendingAmbush.sp,lv:pendingAmbush.lv,hp:pendingAmbush.hp,max:pendingAmbush.hp,shiny:false,
-        tr:{cls:pendingAmbush.cls,clsN:pendingAmbush.clsN,name:pendingAmbush.name,purse:pendingAmbush.purse}};
-      state.session.bmsg=pendingAmbush.clsN+' '+pendingAmbush.name+' sent out '+DEX[pendingAmbush.sp].n+'!';
-      pendingAmbush=null;
-      save();closeModal();updateBattlePanel();render(true);
-    }else closeModal();
+  else if(a==='mb-fight'){
+    if(!state.game||!roadActive())return;
+    var mj=parseInt(b.dataset.j,10);
+    if(state.game.road.mb[mj]){toast('Already beaten!');return;}
+    if(state.session&&state.session.mode==='boss'){toast('Finish the gym battle first!');return;}
+    if(state.session&&state.session.blackout){toast('Your team is out — heal up first!');return;}
+    var mbD=mbFor(state.game.road.idx,mj);
+    if(state.session){
+      state.session.wild={sp:mbD.sp,lv:mbD.lv,hp:mbD.hp,max:mbD.hp,shiny:false,
+        tr:{cls:mbD.cls,clsN:mbD.clsN,name:mbD.name,purse:mbD.purse,mb:mj,arena:mbD.arena}};
+      state.session.bmsg=mbD.clsN+' '+mbD.name+' sent out '+DEX[mbD.sp].n+'!';
+      save();sfx('battlestart');
+      tab='workout';render();
+    }else{
+      pendingMb=mj;
+      showChooserThenStart('train');
+    }
   }
   else if(a==='show-hof'){showHofModal();}
   else if(a==='show-bag'){showBagModal();}
@@ -4235,7 +4453,7 @@ document.addEventListener('click',function(e){
     var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
     state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},round:1,
       boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'},
-      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{}};
+      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;
