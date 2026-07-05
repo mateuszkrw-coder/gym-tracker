@@ -1352,6 +1352,103 @@ var MOVESETS={
   mew:[[9,'POUND'],[24,'PSYCHIC'],[42,'ANCIENTPOWER'],[60,'AURORA BEAM']]
 };
 function movesFor(sp){return MOVESETS[sp]||[];}
+/* ===== v5.11 dex completion: the final 42 species → full Kanto 151 ===== */
+DEX.bulbasaur={n:'BULBASAUR',id:1,t:['Grass','Poison'],bs:[45,49,49,65,65,45],evo:{lv:16,to:'ivysaur'}};
+DEX.ivysaur={n:'IVYSAUR',id:2,t:['Grass','Poison'],bs:[60,62,63,80,80,60],evo:{lv:32,to:'venusaur'}};
+DEX.venusaur={n:'VENUSAUR',id:3,t:['Grass','Poison'],bs:[80,82,83,100,100,80]};
+DEX.caterpie={n:'CATERPIE',id:10,t:['Bug'],bs:[45,30,35,20,20,45],evo:{lv:7,to:'metapod'}};
+DEX.metapod={n:'METAPOD',id:11,t:['Bug'],bs:[50,20,55,25,25,30],evo:{lv:10,to:'butterfree'}};
+DEX.butterfree={n:'BUTTERFREE',id:12,t:['Bug','Flying'],bs:[60,45,50,90,80,70]};
+DEX.weedle={n:'WEEDLE',id:13,t:['Bug','Poison'],bs:[40,35,30,20,20,50],evo:{lv:7,to:'kakuna'}};
+DEX.kakuna={n:'KAKUNA',id:14,t:['Bug','Poison'],bs:[45,25,50,25,25,35],evo:{lv:10,to:'beedrill'}};
+DEX.beedrill={n:'BEEDRILL',id:15,t:['Bug','Poison'],bs:[65,90,40,45,80,75]};
+DEX.slowpoke={n:'SLOWPOKE',id:79,t:['Water','Psychic'],bs:[90,65,65,40,40,15],evo:{lv:37,to:'slowbro'}};
+DEX.slowbro={n:'SLOWBRO',id:80,t:['Water','Psychic'],bs:[95,75,110,100,80,30]};
+DEX.farfetchd={n:'FARFETCHD',id:83,t:['Normal','Flying'],bs:[52,65,55,58,62,60]};
+DEX.doduo={n:'DODUO',id:84,t:['Normal','Flying'],bs:[35,85,45,35,35,75],evo:{lv:31,to:'dodrio'}};
+DEX.dodrio={n:'DODRIO',id:85,t:['Normal','Flying'],bs:[60,110,70,60,60,110]};
+DEX.seel={n:'SEEL',id:86,t:['Water'],bs:[65,45,55,45,70,45],evo:{lv:34,to:'dewgong'}};
+DEX.dewgong={n:'DEWGONG',id:87,t:['Water','Ice'],bs:[90,70,80,70,95,70]};
+DEX.shellder={n:'SHELLDER',id:90,t:['Water'],bs:[30,65,100,45,25,40],evo:{lv:32,to:'cloyster'}};
+DEX.cloyster={n:'CLOYSTER',id:91,t:['Water','Ice'],bs:[50,95,180,85,45,70]};
+DEX.krabby={n:'KRABBY',id:98,t:['Water'],bs:[30,105,90,25,25,50],evo:{lv:28,to:'kingler'}};
+DEX.kingler={n:'KINGLER',id:99,t:['Water'],bs:[55,130,115,50,50,75]};
+DEX.exeggcute={n:'EXEGGCUTE',id:102,t:['Grass','Psychic'],bs:[60,40,80,60,45,40],evo:{lv:32,to:'exeggutor'}};
+DEX.exeggutor={n:'EXEGGUTOR',id:103,t:['Grass','Psychic'],bs:[95,95,85,125,65,55]};
+DEX.lickitung={n:'LICKITUNG',id:108,t:['Normal'],bs:[90,55,75,60,75,30]};
+DEX.chansey={n:'CHANSEY',id:113,t:['Normal'],bs:[250,5,5,35,105,50]};
+DEX.tangela={n:'TANGELA',id:114,t:['Grass'],bs:[65,55,115,100,40,60]};
+DEX.horsea={n:'HORSEA',id:116,t:['Water'],bs:[30,40,70,70,25,60],evo:{lv:32,to:'seadra'}};
+DEX.seadra={n:'SEADRA',id:117,t:['Water'],bs:[55,65,95,95,45,85]};
+DEX.goldeen={n:'GOLDEEN',id:118,t:['Water'],bs:[45,67,60,35,50,63],evo:{lv:33,to:'seaking'}};
+DEX.seaking={n:'SEAKING',id:119,t:['Water'],bs:[80,92,65,65,80,68]};
+DEX.mrmime={n:'MR. MIME',id:122,t:['Psychic'],bs:[40,45,65,100,120,90]};
+DEX.scyther={n:'SCYTHER',id:123,t:['Bug','Flying'],bs:[70,110,80,55,80,105]};
+DEX.jynx={n:'JYNX',id:124,t:['Ice','Psychic'],bs:[65,50,35,115,95,95]};
+DEX.electabuzz={n:'ELECTABUZZ',id:125,t:['Electric'],bs:[65,83,57,95,85,105]};
+DEX.magmar={n:'MAGMAR',id:126,t:['Fire'],bs:[65,95,57,100,85,93]};
+DEX.pinsir={n:'PINSIR',id:127,t:['Bug'],bs:[65,125,100,55,70,85]};
+DEX.tauros={n:'TAUROS',id:128,t:['Normal'],bs:[75,100,95,40,70,110]};
+DEX.ditto={n:'DITTO',id:132,t:['Normal'],bs:[48,48,48,48,48,48]};
+DEX.porygon={n:'PORYGON',id:137,t:['Normal'],bs:[65,60,70,85,75,40]};
+DEX.omanyte={n:'OMANYTE',id:138,t:['Rock','Water'],bs:[35,40,100,90,55,35],evo:{lv:40,to:'omastar'}};
+DEX.omastar={n:'OMASTAR',id:139,t:['Rock','Water'],bs:[70,60,125,115,70,55]};
+DEX.kabuto={n:'KABUTO',id:140,t:['Rock','Water'],bs:[30,80,90,55,45,55],evo:{lv:40,to:'kabutops'}};
+DEX.kabutops={n:'KABUTOPS',id:141,t:['Rock','Water'],bs:[60,115,105,65,70,80]};
+DEX_ORDER.push('bulbasaur','ivysaur','venusaur','caterpie','metapod','butterfree','weedle','kakuna','beedrill',
+  'slowpoke','slowbro','farfetchd','doduo','dodrio','seel','dewgong','shellder','cloyster','krabby','kingler',
+  'exeggcute','exeggutor','lickitung','chansey','tangela','horsea','seadra','goldeen','seaking','mrmime',
+  'scyther','jynx','electabuzz','magmar','pinsir','tauros','ditto','porygon','omanyte','omastar','kabuto','kabutops');
+/* catch bars for the entry points — evolutions arrive by leveling */
+CATCH_QUEUES.pecs.push(['tauros',12000],['lickitung',16000],['ditto',24000],['chansey',30000]);
+CATCH_QUEUES.back.push(['caterpie',6000],['weedle',6000],['doduo',14000],['farfetchd',20000],['scyther',28000]);
+CATCH_QUEUES.shoulders.push(['exeggcute',16000],['mrmime',22000],['jynx',26000],['porygon',30000]);
+CATCH_QUEUES.biceps.push(['electabuzz',24000],['pinsir',30000]);
+CATCH_QUEUES.triceps.push(['bulbasaur',10000],['magmar',24000]);
+CATCH_QUEUES.forearm.push(['shellder',12000],['krabby',14000],['omanyte',20000],['kabuto',22000]);
+CATCH_QUEUES.legs.push(['goldeen',8000],['seel',10000],['slowpoke',12000],['horsea',14000],['tangela',26000]);
+MOVESETS.bulbasaur=[[7,'VINE WHIP'],[13,'POISONPOWDER'],[27,'RAZOR LEAF'],[41,'SOLARBEAM']];
+MOVESETS.ivysaur=[[7,'VINE WHIP'],[22,'RAZOR LEAF'],[38,'SLUDGE'],[53,'SOLARBEAM']];
+MOVESETS.venusaur=[[7,'VINE WHIP'],[41,'RAZOR LEAF'],[53,'PETAL DANCE'],[65,'SOLARBEAM']];
+MOVESETS.caterpie=[[1,'TACKLE']];
+MOVESETS.metapod=[[1,'TACKLE'],[7,'DEFENSE CURL']];
+MOVESETS.butterfree=[[10,'CONFUSION'],[13,'GUST'],[34,'PSYBEAM'],[38,'AIR CUTTER']];
+MOVESETS.weedle=[[1,'POISON STING']];
+MOVESETS.kakuna=[[1,'POISON STING'],[7,'DEFENSE CURL']];
+MOVESETS.beedrill=[[10,'FURY ATTACK'],[20,'POISON STING'],[30,'PECK'],[45,'RAGE']];
+MOVESETS.slowpoke=[[7,'CONFUSION'],[15,'WATER GUN'],[29,'HEADBUTT'],[41,'PSYCHIC']];
+MOVESETS.slowbro=[[7,'CONFUSION'],[29,'WATER GUN'],[44,'PSYCHIC'],[58,'BODY SLAM']];
+MOVESETS.farfetchd=[[7,'PECK'],[15,'FURY ATTACK'],[29,'SLASH'],[43,'WING ATTACK']];
+MOVESETS.doduo=[[9,'PECK'],[20,'FURY ATTACK'],[34,'DRILL PECK'],[47,'AGILITY']];
+MOVESETS.dodrio=[[9,'PECK'],[30,'FURY ATTACK'],[45,'DRILL PECK'],[57,'THRASH']];
+MOVESETS.seel=[[9,'HEADBUTT'],[21,'AURORA BEAM'],[35,'ICE BEAM'],[47,'TAKE DOWN']];
+MOVESETS.dewgong=[[9,'HEADBUTT'],[35,'AURORA BEAM'],[50,'ICE BEAM'],[60,'BLIZZARD']];
+MOVESETS.shellder=[[9,'BUBBLE'],[23,'AURORA BEAM'],[37,'ICE BEAM'],[49,'BLIZZARD']];
+MOVESETS.cloyster=[[9,'BUBBLE'],[37,'AURORA BEAM'],[50,'ICE BEAM'],[62,'BLIZZARD']];
+MOVESETS.krabby=[[9,'BUBBLE'],[20,'BITE'],[35,'BUBBLEBEAM'],[47,'HYDRO PUMP']];
+MOVESETS.kingler=[[9,'BUBBLE'],[35,'BITE'],[50,'BUBBLEBEAM'],[62,'HYDRO PUMP']];
+MOVESETS.exeggcute=[[7,'CONFUSION'],[19,'ABSORB'],[31,'PSYBEAM'],[43,'SOLARBEAM']];
+MOVESETS.exeggutor=[[7,'CONFUSION'],[31,'PSYCHIC'],[45,'STOMP'],[60,'SOLARBEAM']];
+MOVESETS.lickitung=[[7,'LICK'],[19,'STOMP'],[35,'SLAM'],[49,'BODY SLAM']];
+MOVESETS.chansey=[[7,'POUND'],[19,'SING'],[35,'BODY SLAM'],[49,'DOUBLE-EDGE']];
+MOVESETS.tangela=[[7,'ABSORB'],[19,'VINE WHIP'],[31,'MEGA DRAIN'],[45,'SLAM']];
+MOVESETS.horsea=[[7,'BUBBLE'],[19,'WATER GUN'],[35,'BUBBLEBEAM'],[47,'HYDRO PUMP']];
+MOVESETS.seadra=[[7,'BUBBLE'],[35,'WATER GUN'],[50,'BUBBLEBEAM'],[62,'HYDRO PUMP']];
+MOVESETS.goldeen=[[7,'PECK'],[19,'HORN ATTACK'],[35,'WATER GUN'],[47,'HORN DRILL']];
+MOVESETS.seaking=[[7,'PECK'],[35,'HORN ATTACK'],[50,'WATER GUN'],[62,'HYDRO PUMP']];
+MOVESETS.mrmime=[[7,'CONFUSION'],[19,'PSYBEAM'],[31,'BARRIER'],[45,'PSYCHIC']];
+MOVESETS.scyther=[[7,'QUICK ATTACK'],[19,'WING ATTACK'],[35,'SLASH'],[49,'AIR CUTTER']];
+MOVESETS.jynx=[[9,'POUND'],[21,'CONFUSION'],[39,'ICE BEAM'],[58,'BLIZZARD']];
+MOVESETS.electabuzz=[[9,'THUNDERSHOCK'],[27,'SWIFT'],[42,'THUNDERBOLT'],[58,'THUNDER']];
+MOVESETS.magmar=[[9,'EMBER'],[27,'CONFUSION'],[42,'FLAMETHROWER'],[58,'FIRE SPIN']];
+MOVESETS.pinsir=[[7,'BITE'],[25,'SLASH'],[40,'SUBMISSION'],[54,'THRASH']];
+MOVESETS.tauros=[[7,'TACKLE'],[21,'HORN ATTACK'],[35,'STOMP'],[49,'THRASH']];
+MOVESETS.ditto=[[1,'POUND']];
+MOVESETS.porygon=[[7,'TACKLE'],[23,'PSYBEAM'],[36,'RECOVER'],[52,'SWIFT']];
+MOVESETS.omanyte=[[9,'WATER GUN'],[19,'ROCK THROW'],[34,'BUBBLEBEAM'],[46,'ANCIENTPOWER']];
+MOVESETS.omastar=[[9,'WATER GUN'],[34,'ROCK THROW'],[50,'HYDRO PUMP'],[62,'ANCIENTPOWER']];
+MOVESETS.kabuto=[[9,'SCRATCH'],[19,'ROCK THROW'],[34,'ABSORB'],[46,'ANCIENTPOWER']];
+MOVESETS.kabutops=[[9,'SCRATCH'],[34,'SLASH'],[50,'ROCK THROW'],[62,'ANCIENTPOWER']];
 function eggSVG(size){
   return '<svg viewBox="0 0 24 26" width="'+size+'" height="'+Math.round(size*26/24)+'" style="flex:none">'+
     '<ellipse cx="12" cy="14" rx="9" ry="11" fill="#F8F0D8" stroke="#585048" stroke-width="2"/>'+
@@ -3588,7 +3685,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.10 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.11 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
