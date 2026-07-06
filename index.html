@@ -345,6 +345,8 @@ html.theme-night .mapwrap img.mapimg{filter:var(--townf,none) brightness(.62) sa
 .btwrap.mode-train>.panel{border-color:#2E8B48;background:#EAF6EA}
 html.theme-night .btwrap.mode-train>.panel{background:#18261C;border-color:#2E6B48}
 .btwrap.mode-train .btmemo{border-color:#2E8B48}
+/* road-trainer fights inherit the biome vars set by applySkin — no hardcoded green */
+.btwrap.mode-road>.panel{border-color:var(--bord);background:var(--cream)}
 /* something is waiting on the QUEST page */
 #tabbar button.alert::after{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;
   background:#D03028;margin-left:3px;vertical-align:7px}
@@ -524,16 +526,33 @@ function applySkin(){
     set(lc.bg,lc.pb,lc.c,lc.bx);return;
   }
   if(tab==='workout'&&state.session&&state.session.mode==='train'){
+    // roadblock/rival fights wear the road's biome; only plain wild training is green
+    if(state.session.wild&&state.session.wild.tr&&state.game&&state.game.road){
+      var rc=roadLoc(state.game.road.idx);
+      set(rc.bg,rc.pb,rc.c,rc.bx);return;
+    }
     set('#CDE6C8','#EAF6E6','#2E8B48','#F4FBF2');return; // deep in the tall grass
   }
   clear();
 }
+/* which battle skin the panel wears: red boss / biome road-trainer / green wild */
+function battleModeCls(){
+  if(!state.session)return '';
+  if(state.session.mode==='boss')return ' mode-boss';
+  if(state.session.wild&&state.session.wild.tr)return ' mode-road';
+  return ' mode-train';
+}
 function render(keepScroll){
   resolveRests();
   if(tab==='lab'&&state.game&&!featOn('lab'))tab='summary';
+  // visiting the QUEST page acknowledges the current claimables → dot clears
+  if(tab==='quests'&&state.game){
+    var _sig=claimSig();
+    if(state.game.qSeen!==_sig){state.game.qSeen=_sig;save();}
+  }
   document.querySelectorAll('#tabbar button').forEach(function(b){
     b.classList.toggle('on',b.dataset.tab===tab);
-    if(b.dataset.tab==='quests')b.classList.toggle('alert',!!(state.game&&anyClaimable()));
+    if(b.dataset.tab==='quests')b.classList.toggle('alert',!!(state.game&&questDotOn()));
     if(b.dataset.tab==='lab')b.style.display=(state.game&&!featOn('lab'))?'none':'';
   });
   applySkin();
@@ -1392,24 +1411,31 @@ var FEATURES=[
    cond:function(){return townIdx()>=2;}}
 ];
 function featOn(k){return !!(state.game&&state.game.flags['feat_'+k]);}
-/* anything waiting to be collected? → red dot on the QUEST tab */
-function anyClaimable(){
-  var g=state.game;if(!g)return false;
+/* everything waiting to be collected — the QUEST tab dot tracks NEW items only */
+function claimableList(){
+  var g=state.game,out=[];if(!g)return out;
   if(roadActive()){
     var qs=questsFor(g.road.idx);
-    for(var qi=0;qi<qs.length;qi++)if(questReady(qs[qi])&&!questClaimed(qi))return true;
+    for(var qi=0;qi<qs.length;qi++)if(questReady(qs[qi])&&!questClaimed(qi))out.push('r'+g.road.idx+'.'+qi);
   }
   if(g.daily){
     var ds=dailyFor();
-    for(var di=0;di<ds.length;di++)if(dailyProg(ds[di])>=ds[di].target&&!g.daily.claimed[di])return true;
+    for(var di=0;di<ds.length;di++)if(dailyProg(ds[di])>=ds[di].target&&!g.daily.claimed[di])out.push('d'+g.daily.date+'.'+di);
   }
   if(g.npcq&&featOn('collectors')){
     for(var ni=0;ni<NPCQ.length;ni++){
       var nq=NPCQ[ni];
-      if(npcqOpen(nq)&&npcqProg(nq)>=nq.target&&!g.npcq.claimed[nq.k])return true;
+      if(npcqOpen(nq)&&npcqProg(nq)>=nq.target&&!g.npcq.claimed[nq.k])out.push('n'+nq.k);
     }
   }
-  return false;
+  return out;
+}
+function anyClaimable(){return claimableList().length>0;}
+function claimSig(){return claimableList().sort().join(',');}
+/* dot lights only when something claimable hasn't been seen on the QUEST page yet */
+function questDotOn(){
+  var s=claimSig();
+  return s!==''&&s!==((state.game&&state.game.qSeen)||'');
 }
 /* wild pools per town (index = townIdx). Training spawns from the CURRENT town's
    list plus every town before it — just like walking the routes back home. */
@@ -3068,34 +3094,36 @@ function bq(sel){var w=bw();return w?w.querySelector(sel):null;}
 /* back sprites are waist-up rips with transparent padding below — measure it once
    per sprite and sink the image so the cut sits EXACTLY on the text bar */
 var backPadCache={};
+/* pad = transparent rows below the sprite; measured off a standalone probe image so
+   it never depends on the DOM element's load/layout state (that was why the GYM-tab
+   panel stayed misaligned while the sheet worked) */
+function placeBack(src){
+  var img=bq('.bt-pspr');
+  if(!img||img.getAttribute('src')!==src)return;
+  var pad=backPadCache[src];if(pad===undefined)return;
+  var nh=64,scale=(img.clientHeight||img.offsetHeight||76)/nh;
+  img.style.bottom=(-2-Math.round(pad*scale))+'px';
+}
 function alignBack(){
   var img=bq('.bt-pspr');if(!img)return;
-  function apply(){
+  var src=img.getAttribute('src');if(!src)return;
+  if(backPadCache[src]!==undefined){placeBack(src);return;}
+  var probe=new Image();
+  probe.onload=function(){
     try{
-      if(!img.naturalWidth)return;
-      var key=img.getAttribute('src');
-      var pad=backPadCache[key];
-      if(pad===undefined){
-        var c=document.createElement('canvas');
-        c.width=img.naturalWidth;c.height=img.naturalHeight;
-        var x=c.getContext('2d');
-        x.drawImage(img,0,0);
-        var d=x.getImageData(0,0,c.width,c.height).data;
-        pad=0;
-        outer:for(var y=c.height-1;y>=0;y--){
-          for(var xx=0;xx<c.width;xx++){
-            if(d[(y*c.width+xx)*4+3]>8)break outer;
-          }
-          pad++;
-        }
-        backPadCache[key]=pad;
+      var c=document.createElement('canvas');
+      c.width=probe.naturalWidth||64;c.height=probe.naturalHeight||64;
+      var x=c.getContext('2d');x.drawImage(probe,0,0);
+      var d=x.getImageData(0,0,c.width,c.height).data,pad=0;
+      outer:for(var y=c.height-1;y>=0;y--){
+        for(var xx=0;xx<c.width;xx++){if(d[(y*c.width+xx)*4+3]>8)break outer;}
+        pad++;
       }
-      var scale=(img.clientHeight||img.naturalHeight)/img.naturalHeight;
-      img.style.bottom=(-2-Math.round(pad*scale))+'px';
-    }catch(e){}
-  }
-  if(img.complete&&img.naturalWidth)apply();
-  else img.onload=apply;
+      backPadCache[src]=pad;
+      placeBack(src); // re-query the CURRENT sprite, not the one at call time
+    }catch(e){backPadCache[src]=0;}
+  };
+  probe.src=src;
 }
 function clearBattleAnim(){
   animTimers.forEach(clearTimeout);animTimers=[];
@@ -3271,7 +3299,7 @@ function bossCardHTML(){
     '<div class="plv" style="margin:1px 0 6px">'+bz.gym+' · team of '+bz.teamSize+'</div>'+
     '<div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div>'+
     '<div class="plv" style="margin-top:3px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg — '+
-    (roadClear()?'tap to challenge':'🔒 road blocked, see QUESTS')+'</div>'+
+    (roadClear()?'tap to challenge':'road blocked, see QUESTS')+'</div>'+
     '</div></div></div>';
 }
 function bossLadderHTML(){
@@ -3440,6 +3468,7 @@ function questsHTML(){
       '<div class="pname" style="font-size:16px'+(mb.rival?';color:#D03028':'')+'">'+mb.clsN+' '+mb.name+(dn?' <span style="color:#2E8B48">✓ BEATEN</span>':'')+'</div>'+
       '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">'+(mb.rival?'Your rival wants to battle! ':'')+DEX[mb.sp].n+' :L'+mb.lv+' · '+loc.n+(dn?'':' · ₽'+mb.purse)+'</div>'+
       '</div>'+
+      '<img src="'+sprPath(mb.sp,false)+'" alt="'+DEX[mb.sp].n+'" style="width:38px;height:38px;image-rendering:pixelated;flex:none'+(dn?';filter:grayscale(1);opacity:.6':'')+'">'+
       (dn?'':'<button class="btn acc" data-action="mb-fight" data-j="'+j+'">FIGHT</button>')+
       '</div>';
   }
@@ -3572,6 +3601,27 @@ function bossDefeated(){
   }
   },5600); // the KO + concede cameo + back-to-training step play out first
 }
+/* roadblock & rival wins get their own little VICTORY screen, like the gym leaders */
+function trainerVictoryModal(tr,monSp,xpGain,isRival,newWildN){
+  var title=isRival?'RIVAL DEFEATED!':'ROADBLOCK CLEARED!';
+  var col=isRival?'#D03028':'#E8A010';
+  setTimeout(function(){
+    queueModal(function(){
+      sfx('victory');
+      showModal('<div class="vbanner" style="color:'+col+';font-size:15px">'+title+'</div>'+
+        '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 0 2px">'+
+        '<img src="sprites/trainers/'+tr.cls+'.png" alt="" style="width:60px;height:60px;image-rendering:pixelated">'+
+        (DEX[monSp]?'<span style="font-size:22px;color:var(--mut)">›</span><img src="'+sprPath(monSp,false)+'" alt="" style="width:52px;height:52px;image-rendering:pixelated">':'')+
+        '</div>'+
+        '<p style="text-align:center;margin:2px 0 8px">'+esc(playerName())+' beat '+tr.clsN+' '+tr.name+' and their '+(DEX[monSp]?DEX[monSp].n:'POKEMON')+'!</p>'+
+        '<div class="vrow"><img src="'+itemIcon('pokeball')+'" alt="">Prize money<b style="margin-left:auto">₽'+tr.purse.toLocaleString()+'</b></div>'+
+        '<div class="vrow"><img src="'+itemIcon('luckyegg')+'" alt="">EXP earned<b style="margin-left:auto">+'+xpGain.toLocaleString()+'</b></div>'+
+        '<p style="text-align:center;margin:10px 0 0;color:var(--mut)">Back to <b style="color:#2E8B48">NORMAL TRAINING</b>'+(newWildN?'<br>— a wild '+newWildN+' appeared!':'')+'</p>'+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+      modalOk=function(){closeModal();};
+    });
+  },3400); // let the faint + defeat steps play out
+}
 function showStadiumModal(){
   var bz=bossInfo();
   if(!bz){toast('The league is quiet… for now.');return;}
@@ -3586,10 +3636,10 @@ function showStadiumModal(){
     '<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:10px">'+teamRow+'</div>'+
     '<div style="display:flex;align-items:center;gap:5px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
     '<p style="margin-top:8px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg left. Your sets attack — but the boss hits back, so bring a strong party!</p>'+
-    (roadClear()?'':'<p style="margin-top:6px;color:#D03028">🔒 The road here is blocked — finish the QUESTS first!</p>')+
+    (roadClear()?'':'<p style="margin-top:6px;color:#D03028">The road here is blocked — finish the QUESTS first!</p>')+
     '<div class="mbtns"><button class="btn" data-action="close-modal">LEAVE</button>'+
     (roadClear()?'<button class="btn acc" data-action="stadium-go">CHALLENGE</button>'
-                :'<button class="btn" data-action="tab" data-tab="quests">TO QUESTS ▶</button>')+'</div>');
+                :'<button class="btn" data-action="go-quests">TO QUESTS</button>')+'</div>');
   modalOk=null;
 }
 function martHTML(){
@@ -3652,7 +3702,7 @@ function gymhallHTML(){
     '<div class="mapwrap"><img class="mapimg" src="'+gy.img+'" alt="" style="width:100%;display:block;image-rendering:pixelated">'+
     '<button data-action="gym-talk" aria-label="Talk to '+bz.n+'" style="position:absolute;left:'+gy.lx+'%;top:'+gy.ly+'%;transform:translate(-50%,-50%);background:none;border:none;padding:6px;text-align:center;line-height:1">'+
     '<img class="bob" src="sprites/trainers/'+bz.tr+'.png" alt="" style="width:46px;height:46px;image-rendering:pixelated;display:block;margin:0 auto">'+
-    '<span class="maptag" style="display:inline-block;margin-top:2px">'+bz.n+' ▶</span></button>'+
+    '<span class="maptag" style="display:inline-block;margin-top:2px">'+bz.n+'</span></button>'+
     '</div>';
   var balls='';
   for(var i=0;i<bz.teamSize;i++){
@@ -3661,7 +3711,7 @@ function gymhallHTML(){
   var pct=Math.round(bz.hp/bz.max*100);
   h+='<div class="panel"><h3>'+bz.n+'<span class="bestchip">'+balls+'</span></h3>'+
     '<div class="plv" style="margin-bottom:6px">'+bz.mon+' :L'+bz.lv+' leads a team of '+bz.teamSize+'. '+
-    (roadClear()?'Walk up and talk to challenge!':'<span style="color:#D03028">🔒 The road is blocked — clear your QUESTS to challenge!</span>')+'</div>'+
+    (roadClear()?'Walk up and talk to challenge!':'<span style="color:#D03028">The road is blocked — clear your QUESTS to challenge!</span>')+'</div>'+
     '<div style="display:flex;align-items:center;gap:5px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
     '<div class="plv" style="margin-top:4px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg</div></div>'+
     '<div style="margin:10px 12px"><button class="btn" data-action="tab" data-tab="map" style="width:100%">← BACK TO TOWN</button></div>';
@@ -3965,7 +4015,7 @@ function workoutHTML(){
   if(state.session&&!editMode){
     var anim0=justStarted;justStarted=false;
     var cam0=anim0&&introCameo;introCameo=false;
-    var modeCls=state.session.mode==='train'?' mode-train':' mode-boss';
+    var modeCls=battleModeCls();
     h+='<div class="livebar'+modeCls+'"><span class="pulse"></span><span class="elapsed">'+fmtElapsed(Date.now()-state.session.start)+'</span>'+
       '<span class="lb-sets">'+sessionSets()+' sets</span>'+
       '<button class="btn small" data-action="end-workout">End</button></div><div class="lvspace"></div>'+
@@ -4019,7 +4069,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.13 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.14 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -4029,12 +4079,15 @@ function openSheet(exId){
   sheetEx=exId; openScrollY=window.scrollY||0;
   var color=GROUP_COLORS[r.gi%GROUP_COLORS.length];
   $('#sheet').innerHTML=sheetHTML(r.ex,r.group,color);
-  // training wears green on the sheet too (day theme only — night untouched)
+  // the sheet wears the same skin as the workout screen (day only — night untouched)
   var sh=$('#sheet');
+  function skin(bg,pb,bd,bx){sh.style.background=bg;sh.style.setProperty('--cream',pb);sh.style.setProperty('--cream2',bg);sh.style.setProperty('--bord',bd);sh.style.setProperty('--boxw',bx);}
   if(state.theme!=='night'&&state.session&&state.session.mode==='train'){
-    sh.style.background='#CDE6C8';
-    sh.style.setProperty('--cream','#EAF6E6');sh.style.setProperty('--cream2','#CDE6C8');
-    sh.style.setProperty('--bord','#2E8B48');sh.style.setProperty('--boxw','#F4FBF2');
+    if(state.session.wild&&state.session.wild.tr&&state.game&&state.game.road){
+      var rc=roadLoc(state.game.road.idx);skin(rc.bg,rc.pb,rc.c,rc.bx); // roadblock/rival = biome
+    }else{
+      skin('#CDE6C8','#EAF6E6','#2E8B48','#F4FBF2'); // wild training = green
+    }
   }else{
     sh.style.background='';
     ['--cream','--cream2','--bord','--boxw'].forEach(function(k){sh.style.removeProperty(k);});
@@ -4068,7 +4121,7 @@ function sheetHTML(ex,group,color){
     (state.session?'<span class="bestchip elapsed" style="margin:6px 10px 0 0;flex:none">'+fmtElapsed(Date.now()-state.session.start)+'</span>':'')+
     '<button class="roundbtn" data-action="close-sheet" aria-label="Close">✕</button></div>'+
 
-  '<div class="btwrap'+(state.session?(state.session.mode==='train'?' mode-train':' mode-boss'):'')+'">'+battlePanelHTML(true)+'</div>'+
+  '<div class="btwrap'+battleModeCls()+'">'+battlePanelHTML(true)+'</div>'+
 
   '<div class="panel"><h3>Log a set — today</h3>'+
     '<div class="steprow"><label>Weight</label>'+
@@ -4228,12 +4281,14 @@ function saveLogEntry(){
           if(wd.tr){
             // trainer beaten — payout, like the games
             addMoney(wd.tr.purse);
-            var mbWin=(wd.tr.mb!==undefined&&state.game.road)?' ROADBLOCK CLEARED!':'';
+            var isRival=!!wd.tr.rival;
+            var mbWin=(wd.tr.mb!==undefined&&state.game.road)?(isRival?' RIVAL DEFEATED!':' ROADBLOCK CLEARED!'):'';
             if(wd.tr.mb!==undefined&&state.game.road)state.game.road.mb[wd.tr.mb]=1;
             state.session.bmsg=wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'! Back to normal training — a wild '+newN+' appeared!';
             wSteps.push({msg:'Foe '+oldN+' is unable to battle! +'+wbonus+' XP!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
             wSteps.push({msg:wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'!',sfx:'badge',hold:1500});
             wSteps.push({msg:'Back to normal training! A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
+            trainerVictoryModal(wd.tr,wPre.sp,wbonus,isRival,newN);
           }else{
             // every tired-out wild counts toward the road + daily quests
             if(state.game.road)state.game.road.kills=(state.game.road.kills||0)+1;
@@ -4721,6 +4776,7 @@ document.addEventListener('click',function(e){
   }
   else if(a==='battle-bag'){showBattleBag();}
   else if(a==='gym-talk'){showStadiumModal();}
+  else if(a==='go-quests'){closeModal();tab='quests';render();}
   else if(a==='pick-move'){showMoveModal();}
   else if(a==='set-move'){
     var smLead=leadMon();
