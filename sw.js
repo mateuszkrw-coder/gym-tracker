@@ -1,6 +1,6 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v36';
+const CACHE = 'gym-tracker-v37';
 const TOWN_MAPS = ['viridian','pewter','cerulean','vermilion','celadon','fuchsia','saffron','cinnabar','indigo'];
 const ARENAS = ['gym','grass','water','cave','pond','ice','sand','poison','teal','psychic'];
 /* The full Kanto 151 — every species is catchable (front + shiny + back + back-shiny). */
@@ -41,7 +41,7 @@ const ASSETS = [
   .concat(NPCS.map((n) => './sprites/npc/' + n + '.png'))
   .concat(GYM_ROOMS.map((g) => './map/gym/' + g + '.png'))
   .concat(ROAD_MAPS.map((r) => './map/road/' + r + '.png'))
-  .concat(['./map/center.png', './map/mart.png']);
+  .concat(['./map/center.png', './map/mart.png', './map/kanto.png']);
 
 self.addEventListener('install', (e) => {
   // Add each asset individually so one missing file can't abort the whole install.
