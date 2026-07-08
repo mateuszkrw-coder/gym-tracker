@@ -118,6 +118,15 @@ button.card:active{background:var(--cream2)}
   color:#20303A;background:rgba(255,255,255,.82);border-radius:3px;padding:1px 2px}
 .tmark:active .tdot{transform:scale(.85)}
 .ldot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid;vertical-align:-1px;margin-right:2px}
+/* a village-arrival flourish on the QUEST page: wipe down + panels rise in */
+@keyframes qrev{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.qreveal{animation:qrev .5s cubic-bezier(.2,.8,.25,1)}
+.qreveal .panel,.qreveal .mapwrap,.qreveal .subtitle{animation:qrev .55s cubic-bezier(.2,.8,.25,1) both}
+.qreveal .mapwrap{animation-delay:.05s}
+.qreveal .panel:nth-of-type(1){animation-delay:.12s}
+.qreveal .panel:nth-of-type(2){animation-delay:.19s}
+.qreveal .panel:nth-of-type(3){animation-delay:.26s}
+.qreveal .panel:nth-of-type(n+4){animation-delay:.32s}
 html.theme-night .mapwrap img{filter:brightness(.62) saturate(.85)}
 .hotspot{position:absolute;background:none;border:none;display:flex;align-items:flex-end;justify-content:center;padding:0;cursor:pointer}
 .npc{position:absolute;width:16px;image-rendering:pixelated;pointer-events:none;transform:translate(-50%,-100%);z-index:1}
@@ -513,7 +522,7 @@ function dayTops(id){
 function trendOf(id){var t=dayTops(id);if(t.length<2)return 0;return t[t.length-1].w-t[t.length-2].w;}
 
 /* ===== app state ===== */
-var tab='summary', editMode=false, sheetEx=null, openScrollY=0, justStarted=false;
+var tab='summary', editMode=false, sheetEx=null, openScrollY=0, justStarted=false, questReveal=false;
 
 /* ===== render: tabs ===== */
 var lastRenderedTab=null;
@@ -807,6 +816,9 @@ function migrateState(){
     if(state.game.daily===undefined){state.game.daily=null;changed=true;}
     if(state.game.npcq===undefined){state.game.npcq=null;changed=true;}
     if(state.game.visit===undefined){state.game.visit=null;changed=true;}
+    if(!state.game.beenTo){ // old saves have already been to every town up to their progress
+      state.game.beenTo={};for(var _t=0;_t<=townIdx();_t++)state.game.beenTo[_t]=1;changed=true;
+    }
     if(!state.game.rest){state.game.rest={};changed=true;}
     if(state.game.bag&&state.game.bag.xattack){
       state.game.bag.fullrestore=(state.game.bag.fullrestore||0)+state.game.bag.xattack;
@@ -2565,13 +2577,26 @@ function curTown(){
   return townIdx();
 }
 function atStoryTown(){return curTown()===townIdx();}
+/* have you physically set foot in this town yet? (first arrival is always free) */
+function beenTo(){if(state.game&&!state.game.beenTo)state.game.beenTo={};return (state.game&&state.game.beenTo)||{};}
+function townStatusCol(i){
+  if(i===curTown())return '#D03028';        // here
+  if(i===townIdx())return '#E8A010';         // the newly-opened gym town
+  if(i<=townIdx())return '#1E7A3A';          // visited/reachable
+  return '#6B7280';                          // locked
+}
 /* Kanto region-map marker for each of the 9 towns (x%,y% on map/kanto.png) */
 var TOWN_MAP_XY=[[24,60],[21,33],[63,31],[63,68],[53,49],[59,84],[63,47],[24,91],[7,47]];
-/* a small ferry/bus fare, scaled by how far you hop; going home is free */
-function travelFare(to){return 120*Math.abs(to-townIdx());}
+/* ferry fare = distance from where you stand; first visit to a town is FREE */
+function travelFare(to){return beenTo()[to]?120*Math.abs(to-curTown()):0;}
 /* authentic-ish wild level bands per town — early routes stay weak, late ones bite */
 var WILD_BANDS=[[2,6],[6,10],[10,16],[16,22],[20,28],[26,34],[30,38],[34,44],[42,52]];
-var ticketIcon='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16"><rect x="1" y="2" width="22" height="12" rx="2" fill="%23F8C84C" stroke="%23C0762A" stroke-width="1.5"/><circle cx="1" cy="8" r="2" fill="%23FFF"/><circle cx="23" cy="8" r="2" fill="%23FFF"/><line x1="9" y1="3" x2="9" y2="13" stroke="%23C0762A" stroke-width="1" stroke-dasharray="1.5 1.5"/><circle cx="15" cy="8" r="3" fill="%23FFF" stroke="%23C0762A" stroke-width="1"/><path d="M12 8 h6 M15 5 v6" stroke="%23D03028" stroke-width="1"/></svg>');
+/* a little inline ferry ticket — inline SVG so it always renders (no data-URI encoding) */
+function ferryIcon(w){var h=Math.round(w*0.66);
+  return '<svg viewBox="0 0 24 16" width="'+w+'" height="'+h+'" style="vertical-align:-2px;flex:none">'+
+    '<rect x="2" y="3" width="20" height="10" rx="2.5" fill="#F5C24A" stroke="#C0762A" stroke-width="1.5"/>'+
+    '<circle cx="9" cy="8" r="2.4" fill="#FFF" stroke="#C0762A" stroke-width="1"/>'+
+    '<path d="M13.5 6h6M13.5 8.4h6M13.5 10.8h3.5" stroke="#C0762A" stroke-width="1.3" stroke-linecap="round"/></svg>';}
 /* official FRLG battle backgrounds per boss type */
 var ARENA_IMG={Rock:'cave',Ground:'cave',Water:'water',Ice:'ice',Electric:'gym',Fighting:'gym',
   Grass:'grass',Poison:'poison',Ghost:'poison',Psychic:'psychic',Fire:'sand',Dragon:'teal',Champion:'pond'};
@@ -3449,17 +3474,45 @@ function collectorsHTML(){
   return '<div class="panel"><h3>COLLECTORS</h3>'+
     '<div class="plv" style="margin-bottom:4px">Rare requests, one-time rewards — earn POKEMON you cannot catch anywhere else.</div>'+rows+'</div>';
 }
+function qRet(inner){var rv=questReveal;questReveal=false;return rv?'<div class="qreveal">'+inner+'</div>':inner;}
+function historicalRoadHTML(t){
+  var loc=roadLoc(t),ac=loc.c||'#2E8B48',qs=questsFor(t),bn=BOSSES[t];
+  var h='<div class="titlebar"><h1>QUESTS</h1></div>'+
+    '<div class="subtitle">'+loc.n+' · cleared route ✓</div>'+
+    '<div class="mapwrap" style="border-color:'+ac+'"><img class="mapimg" src="'+(loc.img||('sprites/arenas/'+loc.arena+'.png'))+'" alt="'+loc.n+'" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/110;object-fit:cover"><span class="maptag" style="position:absolute;left:8px;bottom:8px;border-color:'+ac+'">'+loc.n+'</span></div>'+
+    '<div class="panel" style="border-color:'+ac+'"><div class="plv">You already blazed through '+loc.n+' on the way to '+(bn?bn.n:'the gym')+'. Everything here is done — a memento of the road behind you.</div></div>';
+  var qrows='';
+  qs.forEach(function(q){
+    qrows+='<div class="prow" style="padding:8px 10px;opacity:.82">'+
+      '<img src="sprites/npc/'+q.npc+'.png" alt="" style="width:26px;image-rendering:pixelated;flex:none;filter:grayscale(1)">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+q.clsN+' '+q.name+' <span style="color:#2E8B48">✓ DONE</span></div>'+
+      '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">“'+q.ask+'”</div></div></div>';
+  });
+  h+='<div class="panel"><h3>SIDE QUESTS</h3>'+qrows+'</div>';
+  var mrows='';
+  for(var j=0;j<roadMbCount(t);j++){var mb=mbFor(t,j);
+    mrows+='<div class="prow" style="padding:8px 10px;opacity:.82">'+
+      '<img src="sprites/trainers/'+mb.cls+'.png" alt="" style="width:40px;height:40px;image-rendering:pixelated;flex:none;filter:grayscale(1)">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+mb.clsN+' '+mb.name+' <span style="color:#2E8B48">✓ BEATEN</span></div>'+
+      '<div class="plv" style="margin-top:2px">'+DEX[mb.sp].n+' :L'+mb.lv+'</div></div>'+
+      '<img src="'+sprPath(mb.sp,false)+'" alt="" style="width:38px;height:38px;image-rendering:pixelated;flex:none;filter:grayscale(1);opacity:.6"></div>';
+  }
+  h+='<div class="panel"><h3>ROADBLOCKS</h3>'+mrows+'</div>'+dailyPanelHTML()+collectorsHTML();
+  return h;
+}
 function questsHTML(){
   var h='<div class="titlebar"><h1>QUESTS</h1></div>';
   if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
   ensureRoad();
   var g=state.game,bz=bossInfo();
-  if(!bz)return h+'<div class="empty"><div class="big">🏆</div>All roads conquered, CHAMPION.</div>';
+  if(!bz)return qRet(h+'<div class="empty"><div class="big">🏆</div>All roads conquered, CHAMPION.</div>');
+  // standing in an OLD village → show its cleared route as a memento
+  if(curTown()<townIdx()&&curTown()<ROAD_LOC.length)return qRet(historicalRoadHTML(curTown()));
   if(!roadActive()){
-    return h+'<div class="subtitle">The league gauntlet</div>'+
+    return qRet(h+'<div class="subtitle">The league gauntlet</div>'+
       dailyPanelHTML()+
       '<div class="panel"><div class="memo">No side roads inside the INDIGO PLATEAU — only the league itself. Challenge '+esc(bz.n)+' straight from the GYM!</div></div>'+
-      collectorsHTML();
+      collectorsHTML());
   }
   var r=g.road,qs=questsFor(r.idx),loc=roadLoc(r.idx),ac=loc.c||'#2E8B48';
   h+='<div class="subtitle">Road to '+esc(bz.gym)+' · through '+loc.n+'</div>';
@@ -3501,7 +3554,7 @@ function questsHTML(){
   h+='<div class="panel" style="border-color:'+ac+'"><h3>ROADBLOCKS<span class="bestchip" style="border-color:'+ac+'">'+loc.n+'</span></h3>'+
     '<div class="plv" style="margin-bottom:4px">Trainers block the way to '+esc(bz.gym)+'. Beat them ALL to open the gym doors — they fight like the wilds, but harder.</div>'+mrows+'</div>';
   h+=collectorsHTML();
-  return h;
+  return qRet(h);
 }
 function labHTML(){
   var h='<div class="titlebar"><h1>LAB</h1></div>';
@@ -3569,6 +3622,7 @@ function bossDefeated(){
     state.session.party.forEach(function(uid){var mm=findMon(uid);if(mm)state.session.phps[uid]=maxHpOf(mm);});
     state.session.blackout=false;
   }
+  var stayTown=townIdx(); // where you're standing right now, BEFORE the badge advances
   var isChamp=bz.idx>=BOSSES.length-1;
   if(isChamp){
     // etch this team into the Hall of Fame
@@ -3584,7 +3638,8 @@ function bossDefeated(){
     g.boss={idx:0,hp:hpFor(0,g.round)};
   }
   else g.boss={idx:bz.idx+1,hp:hpFor(bz.idx+1,g.round||1)};
-  g.visit=null; // a new badge means a new home town — snap back to it
+  // NO auto-warp: stay in the town you just won in; the new gym town opens on the MAP
+  g.visit=Math.min(stayTown,townIdx());
   // the rest of the workout goes back to normal training — the next boss waits at the GYM
   if(state.session){
     state.session.mode='train';
@@ -3612,8 +3667,7 @@ function bossDefeated(){
     sfx('badge');
     showModal('<h3>'+(bz.badge?esc(bz.badge)+' GET! 🏅':'VICTORY!')+'</h3>'+
       '<p>Your whole team earned +'+bonus+' XP! '+esc(bz.n)+' paid out <b>₽'+Math.round(bz.lv*60*(bz.round||1)).toLocaleString()+'</b>.'+
-      (bz.idx<8&&bz.badge?' The road to <b>'+TOWNS[Math.min(bz.idx+1,8)].n+'</b> is open — new wilds, new shop stock!':'')+
-      (isChamp?'':' Next challenger: '+esc(BOSSES[bz.idx+1].n)+'.')+'</p>'+
+      (bz.idx<8&&bz.badge?' <b>'+TOWNS[Math.min(bz.idx+1,8)].n+'</b> just opened on your MAP — hop the ferry there (first trip free!) to challenge '+esc(BOSSES[bz.idx+1].n)+'.':(isChamp?'':' Next challenger: '+esc(BOSSES[bz.idx+1].n)+'.'))+'</p>'+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
     modalOk=function(){closeModal();render(true);};
   });
@@ -3800,7 +3854,7 @@ function partyStripHTML(){
     '<div style="flex:1;min-width:0"><div class="pname" style="font-size:18px">'+esc(playerName())+'</div>'+
     '<div class="plv">'+state.game.mons.length+' POKEMON · '+badgeCount()+'/8 badges · ₽'+money().toLocaleString()+'</div></div>'+
     '<button class="btn" data-action="tab" data-tab="travel" style="flex:none;padding:9px 9px">'+
-    '<img src="'+ticketIcon+'" alt="" style="width:18px;height:12px;vertical-align:-1px"> MAP</button>'+
+    ferryIcon(18)+' MAP</button>'+
     '<button class="btn'+(anyHurt?'':'')+'" data-action="pokecenter" style="flex:none;padding:9px 9px'+(anyHurt?';color:#D03028':'')+'">'+
     '<img src="'+itemIcon('potion')+'" alt="" style="width:15px;height:15px;image-rendering:pixelated;vertical-align:-3px"> HEAL'+(anyHurt?' !':'')+'</button></div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
@@ -3830,7 +3884,7 @@ function mapHTML(){
     return '<button class="hotspot" data-action="bld" data-b="'+key+'" style="left:'+b[0]+'%;top:'+b[1]+'%;width:'+b[2]+'%;height:'+b[3]+'%" aria-label="'+label+'">'+(extra||'')+'<span class="maptag">'+label+'</span></button>';
   }
   var h='<div class="titlebar"><h1>'+tw.n+'</h1>'+
-    (story?'':'<button class="textbtn" data-action="travel-home">← '+TOWNS[townIdx()].n+'</button>')+'</div>'+
+    (story?'':'<button class="textbtn" data-action="travel-go" data-t="'+townIdx()+'">'+TOWNS[townIdx()].n+' →</button>')+'</div>'+
     '<div class="subtitle">'+tw.sub+' · town '+(ti+1)+'/9'+(story?'':' · visiting')+'</div>'+
     '<div class="mapwrap">'+
     '<img class="mapimg" src="'+tw.img+'" alt="'+tw.n+'" style="width:100%;display:block;image-rendering:pixelated">'+
@@ -3850,25 +3904,22 @@ function travelHTML(){
   if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
   var here=curTown(),reached=townIdx();
   h+='<div class="subtitle">Tap a place you’ve been to hop over by ferry</div>';
-  /* the official Kanto region map with a marker per town */
+  /* the official Kanto region map — the town NAMES are the markers, coloured by status */
   var markers='';
   TOWNS.forEach(function(tw,i){
     var xy=TOWN_MAP_XY[i],unlocked=i<=reached;
-    var isHere=(i===here),isStory=(i===reached);
-    var ring=isHere?'#D03028':(isStory?'#E8A010':(unlocked?'#2E8B48':'#6B7280'));
-    var fill=isHere?'#F86058':(isStory?'#F8C84C':(unlocked?'#7AC077':'#B8BEC8'));
+    var col=townStatusCol(i);
     markers+='<button class="tmark'+(unlocked?'':' lock')+'" '+(unlocked?'data-action="travel-go" data-t="'+i+'"':'disabled')+
       ' style="left:'+xy[0]+'%;top:'+xy[1]+'%" aria-label="'+tw.n+'">'+
-      '<span class="tdot" style="background:'+fill+';border-color:'+ring+(isHere?';box-shadow:0 0 0 3px rgba(208,48,40,.3)':'')+'"></span>'+
-      '<span class="tlbl">'+(unlocked?tw.n.split(' ')[0]:'?????')+'</span></button>';
+      '<span class="tlbl" style="color:'+col+(i===here||i===reached?';font-weight:700':'')+'">'+(unlocked?tw.n.split(' ')[0]:'?????')+'</span></button>';
   });
   h+='<div class="mapwrap kanto"><img class="mapimg" src="map/kanto.png" alt="Kanto" style="width:100%;display:block;image-rendering:pixelated">'+markers+'</div>';
-  /* a legend */
-  h+='<div class="plv" style="margin:2px 12px 0;display:flex;gap:12px;flex-wrap:wrap">'+
-    '<span><span class="ldot" style="background:#F86058;border-color:#D03028"></span> Here</span>'+
-    '<span><span class="ldot" style="background:#F8C84C;border-color:#E8A010"></span> Your gym</span>'+
-    '<span><span class="ldot" style="background:#7AC077;border-color:#2E8B48"></span> Visited</span>'+
-    '<span><span class="ldot" style="background:#B8BEC8;border-color:#6B7280"></span> Locked</span></div>';
+  /* legend — coloured words, matching the map names */
+  h+='<div class="plv" style="margin:2px 12px 0;display:flex;gap:14px;flex-wrap:wrap">'+
+    '<b style="color:#D03028">Here</b>'+
+    '<b style="color:#E8A010">New gym</b>'+
+    '<b style="color:#1E7A3A">Visited</b>'+
+    '<b style="color:#6B7280">Locked</b></div>';
   /* the town list with fares */
   var rows='';
   TOWNS.forEach(function(tw,i){
@@ -3881,7 +3932,7 @@ function travelHTML(){
       '<div class="plv" style="margin-top:2px">'+tw.sub+'</div></div>'+
       (isHere?'<span class="plv" style="color:#D03028;flex:none">HERE</span>'
              :'<button class="btn acc" data-action="travel-go" data-t="'+i+'" style="flex:none">'+
-               (fare>0?'<img src="'+ticketIcon+'" alt="" style="width:18px;height:12px;vertical-align:-1px"> ₽'+fare:'FREE')+'</button>')+
+               (fare>0?ferryIcon(18)+' ₽'+fare:'FREE')+'</button>')+
       '</div>';
   });
   h+='<div class="panel"><h3>FERRY TIMETABLE<span class="bestchip">₽'+money().toLocaleString()+'</span></h3>'+rows+
@@ -4144,7 +4195,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.15 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.16 “Pocket Gym” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -4705,6 +4756,10 @@ function applyImport(txt){
       }
     }
     gm.visit=(d.game.visit!=null&&isFinite(d.game.visit))?Math.max(0,Math.min(8,parseInt(d.game.visit,10))):null;
+    gm.beenTo={};
+    if(d.game.beenTo&&typeof d.game.beenTo==='object'){
+      for(var bt=0;bt<=8;bt++)if(d.game.beenTo[bt])gm.beenTo[bt]=1;
+    }else{for(var bt2=0;bt2<=townIdx();bt2++)gm.beenTo[bt2]=1;}
   }
   state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0,sound:d.sound!==false};
   save();
@@ -4859,16 +4914,15 @@ document.addEventListener('click',function(e){
     var dest=parseInt(b.dataset.t,10);
     if(!(dest>=0&&dest<=townIdx())){toast('You haven’t reached there yet!');return;}
     if(dest===curTown()){tab='map';render();return;}
-    var fare=travelFare(dest);
+    var fare=travelFare(dest),firstTime=!beenTo()[dest];
     if(fare>0&&money()<fare){toast('Not enough ₽ for the ticket ('+fare+')');return;}
     if(fare>0)state.game.money-=fare;
-    state.game.visit=(dest===townIdx())?null:dest;
-    save();sfx('save');
+    state.game.visit=dest;
+    state.game.beenTo[dest]=1;
+    if(firstTime)questReveal=true; // fresh village → the QUEST page reveals with a flourish
+    save();sfx(firstTime?'badge':'save');
     tab='map';render();
-    toast('Arrived at '+TOWNS[dest].n+(fare>0?' · −₽'+fare:'')+'!');
-  }
-  else if(a==='travel-home'){
-    if(state.game){state.game.visit=null;save();tab='map';render();toast('Back at '+TOWNS[townIdx()].n+'!');}
+    toast((firstTime?'Welcome to ':'Arrived at ')+TOWNS[dest].n+(fare>0?' · −₽'+fare:' · FREE')+'!');
   }
   else if(a==='pick-move'){showMoveModal();}
   else if(a==='set-move'){
@@ -5126,7 +5180,7 @@ document.addEventListener('click',function(e){
     var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
     state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},round:1,
       boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'},
-      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null,daily:null,npcq:null,visit:null};
+      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null,daily:null,npcq:null,visit:0,beenTo:{0:1}};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;
