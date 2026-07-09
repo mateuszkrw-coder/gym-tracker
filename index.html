@@ -412,6 +412,12 @@ html.theme-night .btwrap.mode-train>.panel{background:#18261C;border-color:#2E6B
 .catchstars span:nth-child(3){--sx:19px;animation-delay:.16s}
 @keyframes starpop{0%{transform:none;opacity:0}25%{opacity:1}
   100%{transform:translate(var(--sx),-26px) scale(1.3);opacity:0}}
+/* ---------- game corner slots ---------- */
+.reelbox{width:46px;height:46px;overflow:hidden;border:3px solid var(--bord);border-radius:6px;
+  background:var(--boxw);display:flex;align-items:center;justify-content:center}
+.reelbox .reelstrip{display:flex;flex-direction:column;align-items:center;gap:10px}
+.reelbox.spinning .reelstrip{animation:reelspin .26s linear infinite}
+@keyframes reelspin{from{transform:translateY(0)}to{transform:translateY(-44px)}}
 /* ---------- ferry travel transition ---------- */
 #travelfx{position:fixed;inset:0;z-index:220;background:#000;opacity:0;
   display:flex;align-items:center;justify-content:center;padding:18px}
@@ -600,9 +606,18 @@ function applySkin(){
     ['--cream','--cream2','--bord','--boxw'].forEach(function(k){v.style.removeProperty(k);});
   }
   if(state.theme==='night'){clear();return;}
-  if(tab==='quests'&&state.game&&roadActive()){
-    var lc=roadLoc(state.game.road.idx);
-    set(lc.bg,lc.pb,lc.c,lc.bx);return;
+  if(tab==='quests'&&state.game){
+    // the QUEST page wears the palette of the road you're LOOKING AT: an old
+    // village shows its own biome, not the frontier's
+    var qvT=curTown();
+    if(qvT<townIdx()&&qvT<ROAD_LOC.length){
+      var lh=roadLoc(qvT);
+      set(lh.bg,lh.pb,lh.c,lh.bx);return;
+    }
+    if(roadActive()){
+      var lc=roadLoc(state.game.road.idx);
+      set(lc.bg,lc.pb,lc.c,lc.bx);return;
+    }
   }
   if(tab==='workout'&&state.session&&state.session.mode==='train'){
     // roadblock/rival fights wear the road's biome; only plain wild training is green
@@ -649,6 +664,7 @@ function render(keepScroll){
   else if(tab==='gymhall')v.innerHTML=gymhallHTML();
   else if(tab==='travel')v.innerHTML=travelHTML();
   else if(tab==='quests')v.innerHTML=questsHTML();
+  else if(tab&&tab.indexOf('poi-')===0)v.innerHTML=poiPageHTML(tab.slice(4));
   else v.innerHTML=settingsHTML();
   if(tab!==lastRenderedTab){
     v.classList.remove('pagein');void v.offsetWidth;v.classList.add('pagein');
@@ -722,10 +738,15 @@ function startWorkout(mode){
         tr:{cls:pmb.cls,clsN:pmb.clsN,name:pmb.name,purse:pmb.purse,mb:pendingMb,arena:pmb.arena}};
     }
     pendingMb=null;
+    if(pendingPoi){
+      var pwld=poiWildFor(pendingPoi.kind,pendingPoi.f);
+      if(pwld)state.session.wild=pwld;
+      pendingPoi=null;
+    }
     initBossSession();
     state.session.bmsg=state.session.wild.tr
       ?state.session.wild.tr.clsN+' '+state.session.wild.tr.name+' sent out '+DEX[state.session.wild.sp].n+'! Log a set to attack!'
-      :'A wild '+DEX[state.session.wild.sp].n+' appeared! Log a set to attack — it fights back!';
+      :poiWildMsg(state.session.wild);
   }
   if(state.game&&state.session.mode==='boss'&&state.game.boss){
     initBossSession();
@@ -904,6 +925,9 @@ function migrateState(){
     });
   }
   if(!(state.version>=10)){state.version=10;changed=true;}
+  // v11: the special places open their doors
+  if(state.game&&!state.game.poi){state.game.poi={};changed=true;}
+  if(!(state.version>=11)){state.version=11;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -977,7 +1001,7 @@ function showBagModal(){
   ITEMS_ORDER.forEach(function(k){
     var c=bag[k]||0;if(!c)return;n++;
     rows+='<div class="prow" style="padding:6px 10px">'+
-      '<img src="'+itemIcon(k)+'" alt="" style="width:26px;height:26px;image-rendering:pixelated">'+
+      itemImg(k,26)+
       '<div style="flex:1;min-width:0"><div class="pname" style="font-size:17px">'+ITEMS[k].n+' <span class="plv">×'+c+'</span></div>'+
       '<div class="plv">'+ITEMS[k].d+'</div></div></div>';
   });
@@ -1823,14 +1847,26 @@ var ITEMS={
   ultraball:{n:'ULTRA BALL',p:1200,d:'An excellent ball — 2× catch rate',mult:2,t:4},
   fullrestore:{n:'FULL RESTORE',p:2500,d:'Fully heals one POKEMON instantly — no 10h wait at the POKEMON CENTER',heal:9999,t:0},
   luckyegg:{n:'LUCKY EGG',p:1500,d:'2× XP for your whole next workout',t:1},
-  hpup:{n:'HP UP',p:3000,d:'+5 MAX HP — a bigger tank in boss fights',v:'hp',t:5},
-  protein:{n:'PROTEIN',p:3000,d:'+5 ATTACK — your sets hit harder',v:'atk',t:5},
-  iron:{n:'IRON',p:3000,d:'+5 DEFENSE — boss counters hurt less',v:'def',t:5},
-  calcium:{n:'CALCIUM',p:3000,d:'+5 SP. ATK — your sets hit harder',v:'spa',t:5},
-  zinc:{n:'ZINC',p:3000,d:'+5 SP. DEF — boss counters hurt less',v:'spd',t:5},
-  carbos:{n:'CARBOS',p:3000,d:'+5 SPEED — more critical hits',v:'spe',t:5},
+  hpup:{n:'HP UP',p:3000,d:'+5 MAX HP — a bigger tank in boss fights',v:'hp',t:4},
+  protein:{n:'PROTEIN',p:3000,d:'+5 ATTACK — your sets hit harder',v:'atk',t:4},
+  iron:{n:'IRON',p:3000,d:'+5 DEFENSE — boss counters hurt less',v:'def',t:4},
+  calcium:{n:'CALCIUM',p:3000,d:'+5 SP. ATK — your sets hit harder',v:'spa',t:4},
+  zinc:{n:'ZINC',p:3000,d:'+5 SP. DEF — boss counters hurt less',v:'spd',t:4},
+  carbos:{n:'CARBOS',p:3000,d:'+5 SPEED — more critical hits',v:'spe',t:4},
   rarecandy:{n:'RARE CANDY',p:4800,d:'Instantly levels up one POKEMON',t:6}
 };
+/* special balls — never sold at the MART (noshop) */
+ITEMS.masterball={n:'MASTER BALL',p:0,d:'The ultimate ball. It never fails.',mult:255,noshop:1};
+ITEMS.safariball={n:'SAFARI BALL',p:0,d:'Park-issue ball for the SAFARI ZONE',mult:1.5,noshop:1};
+/* a couple of icons are borrowed sprites wearing a hue-shift */
+var ITEM_IMG_OVR={
+  masterball:{src:'sprites/items/ultraball.png',f:'hue-rotate(215deg) saturate(2)'},
+  safariball:{src:'sprites/items/pokeball.png',f:'hue-rotate(300deg) saturate(1.4)'}
+};
+function itemImg(k,size,style){
+  var o=ITEM_IMG_OVR[k];
+  return '<img src="'+(o?o.src:itemIcon(k))+'" alt="" style="width:'+size+'px;height:'+size+'px;image-rendering:pixelated'+(o?';filter:'+o.f:'')+(style||'')+'">';
+}
 var ITEMS_ORDER=['potion','superpotion','hyperpotion','fullrestore','revive','pokeball','greatball','ultraball','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy'];
 /* held items: buy at the Mart, give from the mon sheet — one per POKEMON */
 ITEMS.charcoal={n:'CHARCOAL',p:3000,d:'Held: Fire moves hit 20% harder',hold:1,boost:'Fire',t:1};
@@ -1842,7 +1878,7 @@ ITEMS.sharpbeak={n:'SHARP BEAK',p:3000,d:'Held: Flying moves hit 20% harder',hol
 ITEMS.hardstone={n:'HARD STONE',p:3000,d:'Held: Rock moves hit 20% harder',hold:1,boost:'Rock',t:3};
 ITEMS.scopelens={n:'SCOPE LENS',p:4500,d:'Held: +10% critical hit chance',hold:1,crit:0.10,t:4};
 ITEMS.leftovers={n:'LEFTOVERS',p:6000,d:'Held: restores a little HP after every set',hold:1,t:4};
-ITEMS_ORDER.push('charcoal','mysticwater','magnet','blackbelt','twistedspoon','sharpbeak','hardstone','scopelens','leftovers');
+ITEMS_ORDER.push('charcoal','mysticwater','magnet','blackbelt','twistedspoon','sharpbeak','hardstone','scopelens','leftovers','masterball');
 function heldOf(m){return (m&&m.held&&ITEMS[m.held]&&ITEMS[m.held].hold)?m.held:null;}
 function heldBoostFor(m,mvType){var k=heldOf(m);return (k&&ITEMS[k].boost===mvType)?1.2:1;}
 function heldCritBonus(m){var k=heldOf(m);return (k&&ITEMS[k].crit)?ITEMS[k].crit:0;}
@@ -2331,28 +2367,43 @@ function showBattleBag(){
 }
 /* ===== the catch minigame: pick a ball, throw it, watch it shake ===== */
 var throwBusy=false;
+/* the working catch multiplier for a ball vs THIS wild (safari mods included) */
+function ballMultFor(w,bk){
+  var m=(ITEMS[bk]&&ITEMS[bk].mult)||1;
+  if(w.safari)m=m*(w.rock?1.5:1)*(w.bait?0.75:1);
+  return m;
+}
 function showThrowModal(){
   var s=state.session;
   if(!s||s.mode!=='train'||!s.wild||s.wild.tr||s.blackout||throwBusy)return;
-  var w=s.wild,bag=bagOf();
-  var have=['pokeball','greatball','ultraball'].filter(function(k){return (bag[k]||0)>0;});
+  var w=s.wild;
+  if(w.ghost===5)return; // the MAROWAK ghost cannot be caught
+  var bag=bagOf(),have;
+  if(w.safari){
+    have=(poiOf('safari').balls||0)>0?['safariball']:[];
+  }else{
+    have=['pokeball','greatball','ultraball','masterball'].filter(function(k){return (bag[k]||0)>0;});
+  }
   var hpPct=Math.round(Math.max(0,w.hp)/w.max*100);
   var h='<h3>THROW A BALL</h3>'+
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'+
     '<img src="'+sprPath(w.sp,w.shiny)+'" alt="" style="width:48px;height:48px;image-rendering:pixelated">'+
-    '<div style="flex:1;min-width:0"><div class="pname">WILD '+DEX[w.sp].n+(w.shiny?' <span class="shinystar">★</span>':'')+' <span class="plv">:L'+w.lv+'</span></div>'+
-    '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+hpPct+'%;background:'+hpColor(hpPct)+'"></div></div><span class="barnum">'+hpPct+'%</span></div></div></div>';
+    '<div style="flex:1;min-width:0"><div class="pname">'+(w.safari?'SAFARI ':(w.ghost!==undefined?'GHOST ':'WILD '))+DEX[w.sp].n+(w.shiny?' <span class="shinystar">★</span>':'')+' <span class="plv">:L'+w.lv+'</span></div>'+
+    '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+hpPct+'%;background:'+hpColor(hpPct)+'"></div></div><span class="barnum">'+hpPct+'%</span></div>'+
+    (w.safari&&(w.rock||w.bait)?'<div class="plv" style="margin-top:3px;color:'+(w.rock?'#D03028':'#4890D8')+'">'+(w.rock?'ROCK primed — ×1.5 catch':'BAIT laid — calm but warier')+'</div>':'')+
+    '</div></div>';
   if(!have.length){
-    h+='<p>No balls in your bag! The POKE MART sells them — every throw spends one ball.</p>'+
+    h+='<p>'+(w.safari?'No SAFARI BALLS left — the game is over!':'No balls in your bag! The POKE MART sells them — every throw spends one ball.')+'</p>'+
       '<div class="mbtns"><button class="btn" data-action="close-modal">CLOSE</button></div>';
   }else{
     have.forEach(function(k){
+      var cnt=k==='safariball'?(poiOf('safari').balls||0):(bag[k]||0);
       h+='<button class="prow" style="padding:7px 10px" data-action="throw-ball" data-ball="'+k+'">'+
-        '<img src="'+itemIcon(k)+'" alt="" style="width:28px;height:28px;image-rendering:pixelated">'+
-        '<span class="pname" style="flex:1;min-width:0">'+ITEMS[k].n+' <span class="plv">×'+(bag[k]||0)+'</span></span>'+
-        '<span class="plv" style="color:#2E8B48">'+catchOdds(w,ITEMS[k].mult||1)+'%</span></button>';
+        itemImg(k,28)+
+        '<span class="pname" style="flex:1;min-width:0">'+ITEMS[k].n+' <span class="plv">×'+cnt+'</span></span>'+
+        '<span class="plv" style="color:#2E8B48">'+catchOdds(w,ballMultFor(w,k))+'%</span></button>';
     });
-    h+='<div class="plv" style="margin-top:6px">Every throw spends one ball. Weaken the wild first — low HP means a better catch!</div>'+
+    h+='<div class="plv" style="margin-top:6px">'+(w.safari?'Safari wilds may flee after a broken throw — BAIT keeps them around.':'Every throw spends one ball. Weaken the wild first — low HP means a better catch!')+'</div>'+
       '<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button></div>';
   }
   showModal(h);
@@ -2362,20 +2413,42 @@ var CATCH_FAIL_LINES=['Oh, no! The POKEMON broke free!','Aww! It appeared to be 
 function runThrow(bk){
   var s=state.session;
   if(throwBusy||!s||s.mode!=='train'||!s.wild||s.wild.tr||s.blackout)return;
-  var bag=bagOf();if(!ITEMS[bk]||!ITEMS[bk].mult||(bag[bk]||0)<=0)return;
   var w=s.wild;
+  if(w.ghost===5)return; // the MAROWAK ghost passes right through balls
+  var bag=bagOf(),isSafari=!!w.safari;
+  if(!ITEMS[bk]||!ITEMS[bk].mult)return;
+  if(isSafari){
+    if(bk!=='safariball'||(poiOf('safari').balls||0)<=0)return;
+  }else{
+    if(bk==='safariball'||(bag[bk]||0)<=0)return;
+  }
   // everything is decided and SAVED up front — the animation is pure theatre,
   // so an interrupted throw can never eat a ball without paying out
-  bag[bk]--;
-  var res=catchCheck(w,ITEMS[bk].mult||1);
+  if(isSafari)poiOf('safari').balls--;
+  else bag[bk]--;
+  var res=catchCheck(w,ballMultFor(w,bk));
   var wPre={sp:w.sp,lv:w.lv,hp:Math.max(0,w.hp),max:w.max,shiny:w.shiny};
+  var safariOver=isSafari&&(poiOf('safari').balls||0)<=0;
+  var fled=false;
   if(res.caught){
     var cm=addMon(w.sp,w.shiny);
     cm.xp=xpFloor(w.lv); // it keeps the level it fought at
+    if(w.ghost!==undefined){ // a caught ghost is a spirit at rest too
+      var pgc=poiOf('tower2');
+      if((pgc.floor||0)===w.ghost)pgc.floor=(pgc.floor||0)+1;
+    }
+    if(safariOver)poiOf('safari').active=0;
     s.wild=spawnWild();
-    s.bmsg='A wild '+DEX[s.wild.sp].n+' appeared! Log a set to attack — it fights back!';
+    s.bmsg='A wild '+DEX[s.wild.sp].n+' appeared!'+(s.wild.safari?' THROW BALL when ready!':' Log a set to attack — it fights back!');
   }else{
-    s.bmsg=CATCH_FAIL_LINES[Math.min(3,res.shakes)]+' Log a set to attack!';
+    fled=isSafari&&Math.random()<0.35;
+    if(safariOver)poiOf('safari').active=0;
+    if(fled||safariOver){
+      s.wild=spawnWild();
+      s.bmsg=(fled?'It broke free and fled!':'Out of SAFARI BALLS — the game is over!')+' A wild '+DEX[s.wild.sp].n+' appeared!';
+    }else{
+      s.bmsg=CATCH_FAIL_LINES[Math.min(3,res.shakes)]+(isSafari?' THROW BALL when ready!':' Log a set to attack!');
+    }
   }
   save();
   closeModal();
@@ -2390,7 +2463,9 @@ function runThrow(bk){
   typeMsg(playerName()+' used '+ITEMS[bk].n+'!');
   sfx('throw');
   var ball=document.createElement('img');
-  ball.src=itemIcon(bk);ball.className='bball bfly';ball.alt='';
+  var bImg=ITEM_IMG_OVR[bk];
+  ball.src=bImg?bImg.src:itemIcon(bk);ball.className='bball bfly';ball.alt='';
+  if(bImg)ball.style.filter=bImg.f;
   if(scene)scene.appendChild(ball);
   var T=animTimers;
   T.push(setTimeout(function(){
@@ -2423,6 +2498,13 @@ function runThrow(bk){
     T.push(setTimeout(function(){
       throwBusy=false;
       announceCatch(wPre.sp,wPre.shiny,wPre.lv);
+      if(safariOver){
+        queueModal(function(){
+          showModal('<h3>GAME OVER</h3><p>That was your last SAFARI BALL — what a way to spend it! The warden waves you out.</p>'+
+            '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+          modalOk=function(){closeModal();render(true);};
+        });
+      }
       checkGameEvents();
       updateBattlePanel();
       sprFx('.bt-espr','slidein-r');
@@ -2437,6 +2519,18 @@ function runThrow(bk){
     T.push(setTimeout(function(){
       throwBusy=false;
       updateBattlePanel();
+      if(fled||safariOver){
+        sprFx('.bt-espr','slidein-r');
+        cry(state.session&&state.session.wild?state.session.wild.sp:null);
+        typeMsg(state.session?state.session.bmsg:'');
+        if(safariOver){
+          queueModal(function(){
+            showModal('<h3>GAME OVER</h3><p>Out of SAFARI BALLS! The warden pats your shoulder: “Come back with more pocket money!”</p>'+
+              '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+            modalOk=function(){closeModal();render(true);};
+          });
+        }
+      }
     },endT+1500));
   }
 }
@@ -2686,13 +2780,16 @@ var MOVE_TYPES={
   'LEECH LIFE':'Bug','SPARK':'Electric','ZAP CANNON':'Electric','ROLLOUT':'Rock',
   'BUBBLEBEAM':'Water','SUBMISSION':'Fighting','MIND READER':'Normal',
   'POISON STING':'Poison','CRUNCH':'Dark','SUPERPOWER':'Fighting','DIG':'Ground',
-  'VINE WHIP':'Grass','RAZOR LEAF':'Grass','BARRIER':'Psychic','ROCK BLAST':'Rock'
+  'VINE WHIP':'Grass','RAZOR LEAF':'Grass','BARRIER':'Psychic','ROCK BLAST':'Rock',
+  'HYPER BEAM':'Normal'
 };
 function moveTypeOf(n){return MOVE_TYPES[n]||'Normal';}
 function effOfType(at,dt){return (MOVE_EFF[at]&&MOVE_EFF[at][dt]!==undefined)?MOVE_EFF[at][dt]:1;}
 function knownMoves(m){
   var l=monLevel(m.xp),out=[];
   movesFor(m.sp).forEach(function(mv){if(mv[0]<=l)out.push(mv[1]);});
+  // TMs taught at the CELADON DEPT. STORE ride on top of the level-up moves
+  (m.tm||[]).forEach(function(n){if(out.indexOf(n)<0)out.push(n);});
   if(!out.length)out.push('STRUGGLE');
   return out;
 }
@@ -3153,6 +3250,8 @@ function badgeCount(){
 function hpColor(pct){return pct>50?'#58C868':(pct>20?'#F8D020':'#F85838');}
 var btPrevPct=null,btPrevMember=null,btPrevPhp=null,introCameo=false;
 function spawnWild(){
+  // an active SAFARI GAME takes over spawning entirely (catch-only wilds)
+  if(safariOn())return safariSpawn();
   // strict biome spawns: weighted pick from THIS area's table only
   var list=areaSpawnList(curTown()),tot=0;
   list.forEach(function(e){tot+=e[1];});
@@ -3199,11 +3298,18 @@ function wildPanelHTML(anim,ov){
   var wbrow='';
   if(state.session.blackout){
     wbrow='<div style="font-family:\'Press Start 2P\';font-size:9px;color:#D03028;margin-top:9px;text-align:center;line-height:1.6">ALL POKEMON FAINTED — XP ONLY<br>HEAL AT THE POKEMON CENTER</div>';
+  }else if(w.safari){
+    // SAFARI: only the ball matters — sets are steps, not attacks
+    var sfp=poiOf('safari');
+    wbrow='<button class="btn acc" data-action="throw-pick" style="width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px">'+
+      itemImg('safariball',16)+
+      '<span>SAFARI BALL · ×'+(sfp.balls||0)+'</span></button>'+
+      '<div style="font-family:\'Press Start 2P\';font-size:8px;color:var(--mut);margin-top:8px;text-align:center;line-height:1.7">NO BATTLES IN THE SAFARI<br>HEAVY SET = ROCK · 15+ REPS = BAIT</div>';
   }else{
     var alive=alivePartyMons().length,total=partyMons().length;
-    var wbag=bagOf(),ballCnt=(wbag.pokeball||0)+(wbag.greatball||0)+(wbag.ultraball||0);
-    // wild only — you can't catch another trainer's POKEMON
-    var throwRow=w.tr?'':'<button class="btn acc" data-action="throw-pick" style="width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px">'+
+    var wbag=bagOf(),ballCnt=(wbag.pokeball||0)+(wbag.greatball||0)+(wbag.ultraball||0)+(wbag.masterball||0);
+    // wild only — you can't catch another trainer's POKEMON (or the MAROWAK ghost)
+    var throwRow=(w.tr||w.ghost===5)?'':'<button class="btn acc" data-action="throw-pick" style="width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px">'+
       '<img src="'+itemIcon('pokeball')+'" alt="" style="width:16px;height:16px;image-rendering:pixelated">'+
       '<span>THROW BALL'+(ballCnt>0?' · ×'+ballCnt:'')+'</span></button>';
     wbrow=throwRow+'<div style="display:flex;gap:8px;margin-top:8px">'+
@@ -3211,12 +3317,12 @@ function wildPanelHTML(anim,ov){
       '<button class="btn" data-action="battle-bag" style="flex:1">BAG</button></div>';
   }
   return '<div class="panel" style="padding:11px 12px">'+
-    '<div class="arenabg" style="background-image:url('+(w.tr&&w.tr.arena?'sprites/arenas/'+w.tr.arena+'.png':arenaFile('Grass'))+')">'+
+    '<div class="arenabg" style="background-image:url('+(w.tr&&w.tr.arena?'sprites/arenas/'+w.tr.arena+'.png':(w.ghost!==undefined?'sprites/arenas/poison.png':arenaFile('Grass')))+')">'+
     '<div class="bt-scene bt-layer">'+
       '<div class="databox" style="position:absolute;left:5px;top:5px;width:57%">'+
         '<div class="pname">'+
         (w.tr?'<img src="sprites/trainers/'+w.tr.cls+'.png" alt="" style="width:16px;height:16px;image-rendering:pixelated;vertical-align:-3px"> '+w.tr.name+"'S "+d.n
-             :'WILD '+d.n+(w.shiny?' <span class="shinystar">★</span>':''))+
+             :(w.ghost!==undefined?'GHOST ':(w.safari?'SAFARI ':'WILD '))+d.n+(w.shiny?' <span class="shinystar">★</span>':''))+
         ' <span class="plv">:L'+w.lv+'</span></div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab">HP</span><div class="gbar"><div class="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
         '<div class="plv" style="margin-top:2px">'+Math.max(0,w.hp).toLocaleString()+' / '+w.max.toLocaleString()+' kg</div></div>'+
@@ -3957,6 +4063,7 @@ function martHTML(){
   var rows='';
   ITEMS_ORDER.forEach(function(k){
     var it=ITEMS[k],locked=(it.t||0)>ti,afford=money()>=it.p;
+    if(it.noshop)return;
     if(locked){
       rows+='<div class="prow" style="padding:6px 10px;opacity:.5">'+
         '<img src="'+itemIcon(k)+'" alt="" style="width:28px;height:28px;image-rendering:pixelated;flex:none;filter:grayscale(1)">'+
@@ -4114,6 +4221,7 @@ function mapHTML(){
     (tw.hs.center?spot('center','HEAL'):'')+
     '</div>'+
     partyStripHTML()+
+    poiPlacesHTML()+
     areaDexHTML();
   if(state.session)h+=heroHTML();
   return h;
@@ -4164,6 +4272,675 @@ function showAreaMonModal(sp){
     '<div class="statrow"><span style="color:var(--mut)">STATUS</span><b style="font-weight:400">'+(caught?'CAUGHT ✓':(seen?'SEEN':'UNKNOWN'))+'</b></div>'+
     '<div class="mbtns"><button class="btn acc" data-action="close-modal">CLOSE</button></div>');
   modalOk=null;
+}
+
+/* ============================================================
+   SPECIAL PLACES (v5.18): eight classic buildings, one per town
+   ============================================================ */
+function poiOf(k){
+  if(!state.game)return {};
+  if(!state.game.poi)state.game.poi={};
+  if(!state.game.poi[k])state.game.poi[k]={};
+  return state.game.poi[k];
+}
+function wkKey(){return dateKey(weekStartTs(Date.now()));}
+function strHash(s){var h=0;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
+var pendingPoi=null;
+/* the registry: which building lives in which town, plus its list-row chrome */
+var POIS=[
+  {k:'tower',town:3,n:'TRAINER TOWER',sub:'An 8-floor battle gauntlet — new lineup every week',icon:'sprites/trainers/blue.png',
+    st:function(){var p=poiOf('tower');poiTowerWeek(p);return p.floor>=8?'DONE ★':((p.floor||0)+'/8');}},
+  {k:'dept',town:4,n:'DEPT. STORE',sub:'TMs, evolution stones and vitamins on five floors',icon:'sprites/items/calcium.png',
+    st:function(){return '';}},
+  {k:'corner',town:4,n:'GAME CORNER',sub:'Slots, coins and rare prize POKEMON',icon:'sprites/items/rarecandy.png',
+    st:function(){var p=poiOf('corner');return (p.coins||0)+'c';}},
+  {k:'hideout',town:4,n:'ROCKET HIDEOUT',sub:'Four basements of Team Rocket under the casino',icon:'sprites/109.png',
+    st:function(){var p=poiOf('hideout');return p.scope?'CLEARED ✓':((p.floor||0)+'/4');}},
+  {k:'safari',town:5,n:'SAFARI ZONE',sub:'Catch-only park — the rarest wilds in Kanto',icon:'sprites/113.png',
+    st:function(){var p=poiOf('safari');return p.active?(p.balls+' balls'):'₽500';}},
+  {k:'silph',town:6,n:'SILPH CO.',sub:'Eleven floors occupied by Team Rocket',icon:'sprites/trainers/giovanni.png',
+    st:function(){var p=poiOf('silph');return p.master?'FREED ✓':((p.floor||0)+'/11');}},
+  {k:'tower2',town:6,n:'POKEMON TOWER',sub:'Seven haunted floors over in LAVENDER',icon:'sprites/92.png',
+    gate:function(){return !!poiOf('hideout').scope;},
+    st:function(){var p=poiOf('tower2');return p.flute?'AT PEACE ✓':((p.floor||0)+'/7');}},
+  {k:'lab',town:7,n:'CINNABAR LAB',sub:'Fossil revival, weekly experiments, trade-ins',icon:'sprites/138.png',
+    st:function(){return '';}}
+];
+function poiTowerWeek(p){
+  if(p.weekKey!==wkKey()){p.weekKey=wkKey();p.floor=0;save();}
+}
+function poiPlacesHTML(){
+  if(!state.game)return '';
+  var t=curTown(),rows='';
+  POIS.forEach(function(p){
+    if(p.town!==t)return;
+    if(p.gate&&!p.gate()){
+      rows+='<div class="prow" style="padding:8px 10px;opacity:.6">'+
+        '<img src="'+p.icon+'" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none;filter:brightness(0);opacity:.5">'+
+        '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px;color:var(--mut)">?????</div>'+
+        '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">A tower looms to the east… the ghosts there are unidentifiable. Rumor says TEAM ROCKET hides a special SCOPE in CELADON.</div></div></div>';
+      return;
+    }
+    var chip=p.st?p.st():'';
+    rows+='<button class="prow" data-action="poi-open" data-k="'+p.k+'" style="padding:8px 10px">'+
+      '<img src="'+p.icon+'" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+p.n+'</div>'+
+      '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">'+p.sub+'</div></div>'+
+      (chip?'<span class="bestchip" style="flex:none">'+chip+'</span>':'')+
+      '<span class="plv" style="flex:none">▶</span></button>';
+  });
+  if(!rows)return '';
+  return '<div class="panel"><h3>PLACES</h3>'+rows+'</div>';
+}
+function poiBackBtn(){return '<div style="margin:10px 12px"><button class="btn" data-action="tab" data-tab="map" style="width:100%">← BACK TO TOWN</button></div>';}
+function poiPageHTML(k){
+  var def=null;POIS.forEach(function(p){if(p.k===k)def=p;});
+  if(!def||!state.game)return mapHTML();
+  if(def.town!==curTown()){
+    return '<div class="titlebar"><h1>'+def.n+'</h1></div>'+
+      '<div class="panel"><div class="memo">This place is in '+TOWNS[def.town].n+' — hop the ferry there first!</div></div>'+poiBackBtn();
+  }
+  if(def.gate&&!def.gate()){
+    return '<div class="titlebar"><h1>?????</h1></div>'+
+      '<div class="panel"><div class="memo">The ghosts here are unidentifiable! Something in the ROCKET HIDEOUT might reveal them…</div></div>'+poiBackBtn();
+  }
+  if(k==='tower')return towerHTML();
+  if(k==='dept')return deptHTML();
+  if(k==='corner')return cornerHTML();
+  if(k==='hideout')return hideoutHTML();
+  if(k==='safari')return safariPageHTML();
+  if(k==='silph')return silphHTML();
+  if(k==='tower2')return tower2HTML();
+  if(k==='lab')return labPoiHTML();
+  return mapHTML();
+}
+/* ----- fight builders: every building fight is a wild/roadblock injection ----- */
+var TOWER_POOLS=[['rattata','pidgey','caterpie'],['nidoranm','ekans','sandshrew'],['machop','mankey','cubone'],
+  ['graveler','onix','marowak'],['haunter','venomoth','golbat'],['magneton','electrode','raichu'],
+  ['rapidash','arcanine','ninetales'],['dragonair','gyarados','machamp']];
+var TOWER_CLASSES=['youngster','lass','bugcatcher','picnicker','fisherman','hiker','lass','blue'];
+var HIDEOUT_QUESTS=[
+  {t:'groups',target:2,ask:'The door lock reads your training chip… work 2 different muscle groups today to fry it.'},
+  {t:'sets',target:15,ask:'A weight-sensing floor plate blocks the stairs. Log 15 sets today to trip it.'},
+  {t:'vol',target:6000,ask:'The lift needs a counterweight: move 6,000 kg today.'},
+  null
+];
+var SILPH_SPS=['zubat','grimer','koffing','ekans','golbat','muk','arbok','weezing','machoke','hypno'];
+var SILPH_LOOT={1:'potion',3:'greatball',5:'hyperpotion',7:'ultraball',9:'fullrestore'};
+var GHOST_FLOORS=[['gastly',18,1],['gastly',20,1],['haunter',22,1.1],['haunter',24,1.2],['cubone',26,1.3],['marowak',30,2]];
+function poiWildFor(kind,f){
+  var bc=badgeCount();
+  if(kind==='tower'){
+    var h=strHash(wkKey()+'-'+f);
+    var lv=Math.min(75,8+bc*4+f*3);
+    var sp=TOWER_POOLS[f][h%TOWER_POOLS[f].length];
+    var cls=TOWER_CLASSES[f];
+    return {sp:sp,lv:lv,hp:Math.round((600+lv*60)*1.6),max:Math.round((600+lv*60)*1.6),shiny:false,parts:{},
+      tr:{cls:cls,clsN:f===7?'TOWER ACE':'TOWER TRAINER',name:TRAINER_NAMES[h%TRAINER_NAMES.length],
+        purse:lv*45,arena:'gym',tower:f}};
+  }
+  if(kind==='hideout'){
+    if(f<3){
+      var hlv=10+bc*3+f*2,hhp=Math.round((600+hlv*60)*1.35);
+      return {sp:['zubat','ekans','koffing'][f],lv:hlv,hp:hhp,max:hhp,shiny:false,parts:{},
+        tr:{cls:'hiker',clsN:'ROCKET GRUNT',name:['ODIN','ROCCO','VANCE'][f],purse:hlv*35,arena:'poison',hideout:f}};
+    }
+    var glv=18+bc*3,ghp=Math.round((600+glv*60)*2.2);
+    return {sp:'rhyhorn',lv:glv,hp:ghp,max:ghp,shiny:false,parts:{},
+      tr:{cls:'giovanni',clsN:'ROCKET BOSS',name:'GIOVANNI',purse:glv*90,arena:'poison',hideout:3}};
+  }
+  if(kind==='silph'){
+    if(f<10){
+      var slv=16+bc*3+f*2,shp=Math.round((600+slv*60)*1.5);
+      return {sp:SILPH_SPS[f],lv:slv,hp:shp,max:shp,shiny:false,parts:{},
+        tr:{cls:(f%2?'youngster':'hiker'),clsN:'ROCKET GRUNT',name:TRAINER_NAMES[(f*3)%TRAINER_NAMES.length],
+          purse:slv*50,arena:'psychic',silph:f}};
+    }
+    var blv=24+bc*3,bhp=Math.round((600+blv*60)*2.4);
+    return {sp:'nidoking',lv:blv,hp:bhp,max:bhp,shiny:false,parts:{},
+      tr:{cls:'giovanni',clsN:'ROCKET BOSS',name:'GIOVANNI',purse:blv*110,arena:'psychic',silph:10}};
+  }
+  if(kind==='ghost'){
+    var gd=GHOST_FLOORS[f];if(!gd)return null;
+    var ghp2=Math.round((500+gd[1]*45)*gd[2]);
+    if(state.game)state.game.seen[gd[0]]=1;
+    return {sp:gd[0],lv:gd[1],hp:ghp2,max:ghp2,shiny:false,parts:{},ghost:f};
+  }
+  if(kind==='snorlax'){
+    var nhp=Math.round((500+30*45)*2);
+    if(state.game)state.game.seen.snorlax=1;
+    return {sp:'snorlax',lv:30,hp:nhp,max:nhp,shiny:Math.random()<0.05,parts:{},snor:1};
+  }
+  return null;
+}
+function poiWildMsg(w){
+  if(w.ghost!==undefined)return 'POKEMON TOWER '+(w.ghost+1)+'F — a restless '+DEX[w.sp].n+' bars the way! Log a set to attack!';
+  if(w.snor)return 'SNORLAX woke up angry! Weaken it with sets, then THROW BALL!';
+  return 'A wild '+DEX[w.sp].n+' appeared! Log a set to attack — it fights back!';
+}
+function poiStartFight(kind,f){
+  if(!state.game)return;
+  if(state.session&&state.session.mode==='boss'){toast('Finish the gym battle first!');return;}
+  if(state.session&&state.session.blackout){toast('Your team is out — heal up first!');return;}
+  // validate the request against the building's live state
+  if(kind==='tower'){var pt=poiOf('tower');poiTowerWeek(pt);if(f!==(pt.floor||0)||f>=8)return;}
+  if(kind==='hideout'){var ph=poiOf('hideout');if(f!==(ph.floor||0)||f>=4)return;
+    var hq=HIDEOUT_QUESTS[f];
+    if(hq&&dailyProg(hq)<hq.target){toast('The way is sealed — finish the floor task first!');return;}}
+  if(kind==='silph'){var ps=poiOf('silph');if(f!==(ps.floor||0)||f>=11)return;}
+  if(kind==='ghost'){var pg=poiOf('tower2');if(!poiOf('hideout').scope)return;if(f!==(pg.floor||0)||f>=6)return;}
+  if(kind==='snorlax'){var pf=poiOf('tower2');if(!pf.flute)return;
+    if(state.game.dex.snorlax&&state.game.dex.snorlax.c){toast('SNORLAX is already on your team!');return;}}
+  var w=poiWildFor(kind,f);
+  if(!w)return;
+  if(state.session){
+    state.session.wild=w;
+    state.session.bmsg=w.tr?(w.tr.clsN+' '+w.tr.name+' sent out '+DEX[w.sp].n+'! Log a set to attack!'):poiWildMsg(w);
+    save();sfx('battlestart');
+    tab='workout';render();
+    setTimeout(function(){cry(w.sp);},400);
+  }else{
+    pendingPoi={kind:kind,f:f};
+    pendingMb=null;
+    showChooserThenStart('train');
+  }
+}
+/* the victory bookkeeping for building trainers — returns the banner text */
+function poiTrainerWin(tr){
+  if(tr.tower!==undefined){
+    var pt=poiOf('tower');poiTowerWeek(pt);
+    if((pt.floor||0)===tr.tower){
+      pt.floor=(pt.floor||0)+1;
+      if(pt.floor>=8){
+        pt.clears=(pt.clears||0)+1;
+        bagOf().rarecandy=(bagOf().rarecandy||0)+1;
+        addMoney(2000);
+        return ' TOWER CONQUERED! Prize: ₽2,000 + RARE CANDY!';
+      }
+      return ' TOWER '+(tr.tower+1)+'F CLEARED!';
+    }
+    return '';
+  }
+  if(tr.hideout!==undefined){
+    var ph=poiOf('hideout');
+    if((ph.floor||0)===tr.hideout){
+      ph.floor=(ph.floor||0)+1;
+      if(ph.floor>=4){
+        ph.scope=1;
+        return ' HIDEOUT CLEARED — you found the SILPH SCOPE!';
+      }
+      return ' B'+(tr.hideout+1)+' CLEARED!';
+    }
+    return '';
+  }
+  if(tr.silph!==undefined){
+    var ps=poiOf('silph');
+    if((ps.floor||0)===tr.silph){
+      ps.floor=(ps.floor||0)+1;
+      var extra='';
+      var loot=SILPH_LOOT[tr.silph];
+      if(loot){bagOf()[loot]=(bagOf()[loot]||0)+1;extra+=' Found a '+ITEMS[loot].n+'!';}
+      if(tr.silph===4){ps.card=1;extra+=' Got the CARD KEY!';}
+      if(tr.silph===6&&!ps.lapras){
+        ps.lapras=1;
+        var lshiny=Math.random()<0.05;
+        var lm=addMon('lapras',lshiny);lm.xp=xpFloor(25);
+        queueModal(function(){
+          sfx('catch');cry('lapras');
+          showModal('<h3>A gift!</h3><p>A grateful SILPH researcher hands you LAPRAS :L25!'+(lshiny?' ✨ It’s SHINY!':'')+'</p>'+
+            '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(lshiny?' shinyglow':'')+'" src="'+sprPath('lapras',lshiny)+'" alt=""></div>'+
+            '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+          modalOk=function(){closeModal();render(true);};
+        });
+        extra+=' A researcher gifted you LAPRAS!';
+      }
+      if(ps.floor>=11){
+        ps.master=1;
+        bagOf().masterball=(bagOf().masterball||0)+1;
+        return ' SILPH CO. FREED! '+(extra||'')+' The president hands you the MASTER BALL!';
+      }
+      return ' SILPH '+(tr.silph+1)+'F LIBERATED!'+extra;
+    }
+    return '';
+  }
+  return '';
+}
+/* ----- TRAINER TOWER page ----- */
+function towerHTML(){
+  var p=poiOf('tower');poiTowerWeek(p);
+  var cur=p.floor||0;
+  var h='<div class="titlebar"><h1>TRAINER TOWER</h1></div>'+
+    '<div class="subtitle">Eight floors, one fight each — fresh faces every week</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="map/road/route8.png" alt="" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/110;object-fit:cover">'+
+    '<span class="maptag" style="position:absolute;left:8px;bottom:8px">ROUTE 8</span></div>';
+  h+='<div class="panel"><h3>THE GAUNTLET<span class="bestchip">'+(cur>=8?'DONE ★':cur+' / 8')+'</span></h3>'+
+    '<div class="plv" style="margin-bottom:4px">Each floor is a roadblock-style fight inside your workout. Clear 8F for ₽2,000 + a RARE CANDY. Trophies so far: '+(p.clears||0)+'.</div>';
+  for(var f=0;f<8;f++){
+    var tw=poiWildFor('tower',f),done=f<cur,now=f===cur;
+    h+='<div class="prow" style="padding:7px 10px'+(done?';opacity:.7':(now?'':';opacity:.5'))+'">'+
+      '<img src="sprites/trainers/'+tw.tr.cls+'.png" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1)':'')+'">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+(f+1)+'F · '+tw.tr.clsN+' '+tw.tr.name+(done?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+      '<div class="plv" style="margin-top:2px">'+DEX[tw.sp].n+' :L'+tw.lv+(done?'':' · ₽'+tw.tr.purse.toLocaleString())+'</div></div>'+
+      '<img src="'+sprPath(tw.sp,false)+'" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1);opacity:.6':'')+'">'+
+      (now?'<button class="btn acc" data-action="poi-fight" data-kind="tower" data-f="'+f+'">FIGHT</button>':'')+
+      '</div>';
+  }
+  h+=(cur>=8?'<div class="plv" style="color:#2E8B48;margin-top:4px">Conquered this week — the tower restocks on Monday!</div>':'')+'</div>';
+  return h+poiBackBtn();
+}
+/* ----- ROCKET HIDEOUT page ----- */
+function hideoutHTML(){
+  var p=poiOf('hideout'),cur=p.floor||0;
+  var h='<div class="titlebar"><h1>ROCKET HIDEOUT</h1></div>'+
+    '<div class="subtitle">Four basements under the GAME CORNER</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="map/road/hideout.png" alt="" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/110;object-fit:cover">'+
+    '<span class="maptag" style="position:absolute;left:8px;bottom:8px">B'+Math.min(4,cur+1)+'</span></div>';
+  if(p.scope){
+    h+='<div class="panel" style="border-color:#2E8B48"><h3>CLEARED ✓</h3><div class="plv">GIOVANNI fled. The SILPH SCOPE is yours — the POKEMON TOWER ghosts can now be identified.</div></div>';
+  }
+  h+='<div class="panel"><h3>THE BASEMENTS<span class="bestchip">'+Math.min(4,cur)+' / 4</span></h3>';
+  for(var f=0;f<4;f++){
+    var hw=poiWildFor('hideout',f),done=f<cur,now=f===cur;
+    var q=HIDEOUT_QUESTS[f];
+    var qHtml='';
+    if(q&&now){
+      var prog=dailyProg(q),ok=prog>=q.target;
+      qHtml='<div class="plv" style="margin:3px 0;white-space:normal;line-height:1.25">“'+q.ask+'”</div>'+
+        (ok?'<div class="plv" style="color:#2E8B48">Seal broken ✓ — the grunt awaits!</div>'
+          :'<div style="display:flex;align-items:center;gap:5px"><div class="gbar"><div style="width:'+Math.round(prog/q.target*100)+'%;background:#8E5AA8"></div></div><span class="barnum">'+prog.toLocaleString()+'/'+q.target.toLocaleString()+'</span></div>');
+    }
+    var canFight=now&&(!q||dailyProg(q)>=q.target);
+    h+='<div class="prow" style="padding:7px 10px'+(done?';opacity:.7':(now?'':';opacity:.5'))+'">'+
+      '<img src="sprites/trainers/'+hw.tr.cls+'.png" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1)':'')+'">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px'+(f===3?';color:#D03028':'')+'">B'+(f+1)+' · '+hw.tr.clsN+' '+hw.tr.name+(done?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+      '<div class="plv" style="margin-top:2px">'+DEX[hw.sp].n+' :L'+hw.lv+(done?'':' · ₽'+hw.tr.purse.toLocaleString())+'</div>'+qHtml+'</div>'+
+      (canFight?'<button class="btn acc" data-action="poi-fight" data-kind="hideout" data-f="'+f+'">FIGHT</button>':'')+
+      '</div>';
+  }
+  h+='</div>';
+  return h+poiBackBtn();
+}
+/* ----- SILPH CO. page ----- */
+function silphHTML(){
+  var p=poiOf('silph'),cur=p.floor||0;
+  var h='<div class="titlebar"><h1>SILPH CO.</h1></div>'+
+    '<div class="subtitle">Team Rocket holds all eleven floors</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="map/road/silph.png" alt="" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/110;object-fit:cover">'+
+    '<span class="maptag" style="position:absolute;left:8px;bottom:8px">'+Math.min(11,cur+1)+'F</span></div>';
+  if(p.master){
+    h+='<div class="panel" style="border-color:#2E8B48"><h3>FREED ✓</h3><div class="plv">SILPH CO. is back in business. The president’s MASTER BALL never fails — save it for a legend.</div></div>';
+  }
+  h+='<div class="panel"><h3>THE CLIMB<span class="bestchip">'+Math.min(11,cur)+' / 11</span></h3>'+
+    '<div class="plv" style="margin-bottom:4px">One fight per floor. Guards drop supplies'+(p.card?'':' — the CARD KEY on 5F opens the sealed doors')+'. LAPRAS is said to be waiting on 7F.</div>';
+  for(var f=0;f<11;f++){
+    var sw2=poiWildFor('silph',f),done=f<cur,now=f===cur;
+    var lootK=SILPH_LOOT[f];
+    h+='<div class="prow" style="padding:7px 10px'+(done?';opacity:.7':(now?'':';opacity:.5'))+'">'+
+      '<img src="sprites/trainers/'+sw2.tr.cls+'.png" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1)':'')+'">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px'+(f===10?';color:#D03028':'')+'">'+(f+1)+'F · '+sw2.tr.clsN+' '+sw2.tr.name+(done?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+      '<div class="plv" style="margin-top:2px">'+DEX[sw2.sp].n+' :L'+sw2.lv+(done?'':' · ₽'+sw2.tr.purse.toLocaleString())+
+      (lootK?' · '+(done?ITEMS[lootK].n+' ✓':'carries an item'):'')+
+      (f===4?(p.card?' · CARD KEY ✓':' · CARD KEY'):'')+'</div></div>'+
+      (now?'<button class="btn acc" data-action="poi-fight" data-kind="silph" data-f="'+f+'">FIGHT</button>':'')+
+      '</div>';
+  }
+  h+='</div>';
+  return h+poiBackBtn();
+}
+/* ----- POKEMON TOWER page ----- */
+function tower2HTML(){
+  var p=poiOf('tower2'),cur=p.floor||0;
+  var h='<div class="titlebar"><h1>POKEMON TOWER</h1></div>'+
+    '<div class="subtitle">Seven floors of restless spirits · LAVENDER TOWN</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="sprites/arenas/poison.png" alt="" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/110;object-fit:cover;filter:saturate(.7) brightness(.9)">'+
+    '<span class="maptag" style="position:absolute;left:8px;bottom:8px">'+(p.flute?'AT PEACE':Math.min(7,cur+1)+'F')+'</span></div>';
+  h+='<div class="panel"><h3>THE CLIMB<span class="bestchip">'+Math.min(7,cur)+' / 7</span></h3>'+
+    '<div class="plv" style="margin-bottom:4px">The SILPH SCOPE reveals each ghost — fight it like a wild, or catch it with a ball. Both lay it to rest.</div>';
+  for(var f=0;f<6;f++){
+    var gd=GHOST_FLOORS[f],done=f<cur,now=f===cur;
+    h+='<div class="prow" style="padding:7px 10px'+(done?';opacity:.7':(now?'':';opacity:.5'))+'">'+
+      '<img src="'+sprPath(gd[0],false)+'" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1)':';filter:brightness(.55) saturate(.6)')+'">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+(f+1)+'F · '+(f===5?'MAROWAK GHOST':'RESTLESS '+DEX[gd[0]].n)+(done?' <span style="color:#2E8B48">✓ AT REST</span>':'')+'</div>'+
+      '<div class="plv" style="margin-top:2px">:L'+gd[1]+(f===5&&!done?' · its orphan waits below':'')+'</div></div>'+
+      (now?'<button class="btn acc" data-action="poi-fight" data-kind="ghost" data-f="'+f+'">FACE IT</button>':'')+
+      '</div>';
+  }
+  var fujiRow=cur>=6?
+    '<div class="prow" style="padding:7px 10px'+(p.flute?';opacity:.7':'')+'">'+
+    '<img src="sprites/npc/oldman.png" alt="" style="width:30px;image-rendering:pixelated;flex:none">'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">7F · MR. FUJI'+(p.flute?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+    '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">'+(p.flute?'“Thank you. May the flute serve you well.”':'“You calmed them all… come, I have something for you.”')+'</div></div>'+
+    (p.flute?'':'<button class="btn acc" data-action="fuji-talk">TALK</button>')+
+    '</div>'
+    :'<div class="prow" style="padding:7px 10px;opacity:.5"><img src="sprites/npc/oldman.png" alt="" style="width:30px;image-rendering:pixelated;flex:none;filter:brightness(0);opacity:.5">'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px;color:var(--mut)">7F · ?????</div>'+
+    '<div class="plv" style="margin-top:2px">Someone is trapped at the top…</div></div></div>';
+  h+=fujiRow+'</div>';
+  if(p.flute){
+    var snorCaught=!!(state.game.dex.snorlax&&state.game.dex.snorlax.c);
+    h+='<div class="panel" style="border-color:#E8A010"><h3>POKE FLUTE</h3>'+
+      (snorCaught?'<div class="plv">The road-blocking SNORLAX is on your team. The flute rests easy now.</div>'
+        :'<div class="plv" style="margin-bottom:6px">A giant SNORLAX dozes across a route near VERMILION. Wake it — it’s the only wild SNORLAX in Kanto. If it faints, it just dozes off again.</div>'+
+        '<button class="btn acc" data-action="poi-fight" data-kind="snorlax" data-f="0" style="width:100%">'+
+        '<img src="'+sprPath('snorlax',false)+'" alt="" style="width:20px;height:20px;image-rendering:pixelated;vertical-align:-5px"> PLAY THE FLUTE</button>')+
+      '</div>';
+  }
+  return h+poiBackBtn();
+}
+/* ----- SAFARI ZONE ----- */
+var SAFARI_SPAWNS=[['doduo',8],['exeggcute',8],['rhyhorn',8],['slowpoke',6],['venonat',6],['parasect',4],
+  ['nidorina',4],['nidorino',4],['lickitung',4],['tangela',4],['scyther',3],['pinsir',3],['tauros',3],
+  ['chansey',2],['dratini',2]];
+function safariOn(){
+  var p=state.game&&state.game.poi&&state.game.poi.safari;
+  return !!(p&&p.active&&(p.balls||0)>0&&curTown()===5);
+}
+function safariSpawn(){
+  var tot=0;SAFARI_SPAWNS.forEach(function(e){tot+=e[1];});
+  var roll=Math.random()*tot,sp=SAFARI_SPAWNS[0][0];
+  for(var i=0;i<SAFARI_SPAWNS.length;i++){roll-=SAFARI_SPAWNS[i][1];if(roll<0){sp=SAFARI_SPAWNS[i][0];break;}}
+  var lv=22+Math.floor(Math.random()*10);
+  var hp=Math.round((500+lv*45)*(0.8+Math.random()*0.4));
+  if(state.game)state.game.seen[sp]=1;
+  return {sp:sp,lv:lv,hp:hp,max:hp,shiny:Math.random()<0.05,parts:{},safari:1};
+}
+function safariPageHTML(){
+  var p=poiOf('safari');
+  var h='<div class="titlebar"><h1>SAFARI ZONE</h1></div>'+
+    '<div class="subtitle">Catch-only park — no battles beyond the gate</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="sprites/arenas/grass.png" alt="" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/110;object-fit:cover">'+
+    '<span class="maptag" style="position:absolute;left:8px;bottom:8px">SAFARI GATE</span></div>';
+  if(p.active&&(p.balls||0)>0){
+    h+='<div class="panel" style="border-color:#2E8B48"><h3>GAME ON<span class="bestchip">'+p.balls+' balls</span></h3>'+
+      '<div class="plv" style="line-height:1.35">Start a TRAINING workout here in FUCHSIA — every wild is a SAFARI encounter. Your sets can’t hurt them:<br>'+
+      '· a set of <b>60+ '+esc(state.unit)+'</b> = <b>ROCK</b> (×1.5 catch, but it may flee!)<br>'+
+      '· a set of <b>15+ reps</b> = <b>BAIT</b> (it settles in, catch drops a little)<br>'+
+      'Then THROW BALL. The game ends when the balls run out.</div>'+
+      '<div style="margin-top:8px"><button class="btn" data-action="safari-leave" style="width:100%">LEAVE THE GAME</button></div></div>';
+  }else{
+    h+='<div class="panel"><h3>THE WARDEN</h3>'+
+      '<div class="plv" style="margin-bottom:6px;line-height:1.35">“Welcome! ₽500 buys you <b>15 SAFARI BALLS</b>. Inside roam POKEMON you’ll barely see anywhere else — CHANSEY, TAUROS, SCYTHER, PINSIR, even DRATINI. No fighting allowed: weigh in with ROCK or BAIT sets and throw!”</div>'+
+      '<button class="btn'+(money()>=500?' acc':'')+'" data-action="safari-enter" style="width:100%"'+(money()>=500?'':' disabled')+'>'+
+      itemImg('safariball',16,';vertical-align:-3px')+' ENTER · ₽500</button></div>';
+  }
+  var cells='';
+  SAFARI_SPAWNS.forEach(function(e){
+    var sp=e[0],d=state.game.dex[sp],caught=!!(d&&d.c),seen=!!(state.game.seen[sp]||caught);
+    var rl=rarityLab(e[1]>=8?10:(e[1]>=4?6:(e[1]>=3?3:1)));
+    cells+='<div class="dexcell'+(seen?'':' unk')+'">'+
+      '<img src="'+sprPath(sp,!!(d&&d.s))+'" alt=""'+(seen&&!caught?' style="filter:grayscale(1)"':'')+'>'+
+      (caught?'<img src="'+itemIcon('pokeball')+'" alt="" style="position:absolute;top:3px;right:4px;width:12px;height:12px;image-rendering:pixelated">':'')+
+      '<div class="dexname">'+(seen?DEX[sp].n:'?????')+'</div>'+
+      '<div style="font-family:\'Press Start 2P\';font-size:7px;color:'+rl[1]+';margin-top:2px">'+rl[0]+'</div></div>';
+  });
+  h+='<div class="panel"><h3>PARK RESIDENTS</h3><div class="dexgrid" style="margin:8px 0 0">'+cells+'</div></div>';
+  return h+poiBackBtn();
+}
+/* ----- DEPT. STORE ----- */
+var TM_LIST=[['THUNDERBOLT',3000],['FLAMETHROWER',3000],['ICE BEAM',3000],['PSYCHIC',3500],
+  ['EARTHQUAKE',4000],['SHADOW BALL',3000],['SLUDGE BOMB',2500],['HYDRO PUMP',3500],['SOLARBEAM',3000],
+  ['CROSS CHOP',2500],['DRILL PECK',2500],['ROCK BLAST',2500],['HYPER BEAM',5000]];
+var STONES=[['firestone','FIRE STONE','#F08030'],['waterstone','WATER STONE','#6890F0'],
+  ['thunderstone','THUNDER STONE','#F8D030'],['leafstone','LEAF STONE','#78C850'],['moonstone','MOON STONE','#A890F0']];
+var STONE_EVOS={
+  firestone:{vulpix:'ninetales',growlithe:'arcanine',eevee:'flareon'},
+  waterstone:{poliwhirl:'poliwrath',shellder:'cloyster',staryu:'starmie',eevee:'vaporeon',slowpoke:'slowbro'},
+  thunderstone:{pikachu:'raichu',eevee:'jolteon'},
+  leafstone:{gloom:'vileplume',weepinbell:'victreebel',exeggcute:'exeggutor'},
+  moonstone:{clefairy:'clefable',jigglypuff:'wigglytuff',nidorina:'nidoqueen',nidorino:'nidoking'}
+};
+function gemSVG(color,size){
+  return '<svg viewBox="0 0 20 20" width="'+size+'" height="'+size+'" style="flex:none">'+
+    '<path d="M10 1 L18 8 L10 19 L2 8 Z" fill="'+color+'" stroke="#585048" stroke-width="1.6"/>'+
+    '<path d="M6 7 L10 4 L13 6 L10 9 Z" fill="rgba(255,255,255,.5)"/></svg>';
+}
+function deptHTML(){
+  var h='<div class="titlebar"><h1>DEPT. STORE</h1></div>'+
+    '<div class="subtitle">CELADON — five floors of everything</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="map/mart.png" alt="" style="width:100%;display:block;image-rendering:pixelated">'+
+    '<img class="npc" src="sprites/npc/lass.png" alt="" style="left:17%;top:40%;width:9%">'+
+    '<img class="npc" src="sprites/npc/man.png" alt="" style="left:58%;top:72%;width:9%">'+
+    '</div>'+
+    '<div class="panel"><h3>2F — TRAINER GOODS<span class="bestchip">₽'+money().toLocaleString()+'</span></h3>'+
+    '<div class="plv" style="margin-bottom:6px">The usual potions and balls are downstairs at the POKE MART counter.</div>'+
+    '<button class="btn" data-action="tab" data-tab="mart" style="width:100%">TO THE MART COUNTER</button></div>';
+  /* 3F — TM CORNER */
+  var tmRows='';
+  TM_LIST.forEach(function(tm){
+    var t=moveTypeOf(tm[0]),afford=money()>=tm[1];
+    tmRows+='<div class="prow" style="padding:6px 10px">'+
+      '<span class="tchip" style="background:'+(TYPE_COLORS[t]||'#888')+';flex:none">'+t.toUpperCase()+'</span>'+
+      '<span class="pname" style="flex:1;min-width:0;font-size:16px">'+tm[0]+'</span>'+
+      '<button class="btn'+(afford?' acc':'')+'" data-action="dept-tm" data-mv="'+tm[0]+'"'+(afford?'':' disabled style="opacity:.5"')+'>₽'+tm[1]+'</button></div>';
+  });
+  h+='<div class="panel"><h3>3F — TM CORNER</h3>'+
+    '<div class="plv" style="margin-bottom:4px">Buy a move and teach it on the spot — it joins that POKEMON’s move list (max 4 taught each).</div>'+tmRows+'</div>';
+  /* 4F — STONES */
+  var stRows='';
+  STONES.forEach(function(st){
+    var afford=money()>=2500;
+    stRows+='<div class="prow" style="padding:6px 10px">'+
+      gemSVG(st[2],26)+
+      '<span class="pname" style="flex:1;min-width:0;font-size:16px">'+st[1]+'</span>'+
+      '<button class="btn'+(afford?' acc':'')+'" data-action="dept-stone" data-st="'+st[0]+'"'+(afford?'':' disabled style="opacity:.5"')+'>₽2500</button></div>';
+  });
+  h+='<div class="panel"><h3>4F — EVOLUTION STONES</h3>'+
+    '<div class="plv" style="margin-bottom:4px">Instant evolution for the right POKEMON — no waiting for levels.</div>'+stRows+'</div>';
+  /* 5F — vitamins */
+  var vitRows='';
+  ['hpup','protein','iron','calcium','zinc','carbos','rarecandy'].forEach(function(k){
+    var it=ITEMS[k],locked=(it.t||0)>curTown(),afford=money()>=it.p;
+    if(locked)return;
+    vitRows+='<div class="prow" style="padding:6px 10px">'+
+      itemImg(k,26)+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+it.n+((bagOf()[k]||0)>0?' <span class="plv">×'+bagOf()[k]+'</span>':'')+'</div>'+
+      '<div class="plv" style="font-size:14px;line-height:1.15">'+it.d+'</div></div>'+
+      '<button class="btn'+(afford?' acc':'')+'" data-action="buy-item" data-it="'+k+'"'+(afford?'':' disabled style="opacity:.5"')+'>₽'+it.p+'</button></div>';
+  });
+  h+='<div class="panel"><h3>5F — HEALTH & FITNESS</h3>'+vitRows+'</div>';
+  h+='<div class="panel"><h3>ROOF</h3><div class="memo" style="color:var(--mut)">A row of vending machines rattles in the wind… OUT OF ORDER. A kid stares at them anyway.</div></div>';
+  return h+poiBackBtn();
+}
+function showTeachModal(mv){
+  var price=0;TM_LIST.forEach(function(t){if(t[0]===mv)price=t[1];});
+  if(!price||!state.game)return;
+  var h='<h3>Teach '+esc(mv)+'</h3><p>₽'+price.toLocaleString()+' — pick the student:</p>';
+  state.game.mons.forEach(function(m){
+    var knows=knownMoves(m).indexOf(mv)>=0;
+    var full=(m.tm||[]).length>=4;
+    var ok=!knows&&!full;
+    h+='<button class="prow" style="padding:6px 10px'+(ok?'':';opacity:.55')+'" '+(ok?'data-action="dept-teach" data-mv="'+esc(mv)+'" data-m="'+m.uid+'"':'disabled')+'>'+
+      '<img class="pspr" style="width:34px;height:34px" src="'+sprPath(m.sp,m.shiny)+'" alt="">'+
+      '<span class="pname" style="flex:1;min-width:0">'+DEX[m.sp].n+'</span>'+
+      '<span class="plv">'+(knows?'KNOWS IT':(full?'TM-FULL':':L'+monLevel(m.xp)))+'</span></button>';
+  });
+  h+='<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button></div>';
+  showModal(h);
+  modalOk=null;
+}
+function showStoneModal(st){
+  var map=STONE_EVOS[st];if(!map||!state.game)return;
+  var stDef=null;STONES.forEach(function(s){if(s[0]===st)stDef=s;});
+  var h='<h3>'+stDef[1]+'</h3><p>₽2,500 — it reacts to these teammates:</p>';
+  var any=false;
+  state.game.mons.forEach(function(m){
+    var to=map[m.sp];if(!to)return;
+    any=true;
+    h+='<button class="prow" style="padding:6px 10px" data-action="dept-evolve" data-st="'+st+'" data-m="'+m.uid+'">'+
+      '<img class="pspr" style="width:34px;height:34px" src="'+sprPath(m.sp,m.shiny)+'" alt="">'+
+      '<span class="pname" style="flex:1;min-width:0">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span></span>'+
+      '<span class="plv">▶ '+DEX[to].n+'</span></button>';
+  });
+  if(!any)h+='<p style="color:var(--mut)">None of your POKEMON respond to this stone.</p>';
+  h+='<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button></div>';
+  showModal(h);
+  modalOk=null;
+}
+/* ----- GAME CORNER ----- */
+var slotBusy=false;
+var SLOT_ICONS=['pokeball','greatball','ultraball','luckyegg','rarecandy','potion'];
+var PRIZE_MONS=[['abra',180],['clefairy',500],['dratini',2800],['scyther',5500],['pinsir',5500]];
+function cornerOf(){
+  var p=poiOf('corner');
+  if(p.date!==todayKey()){p.date=todayKey();p.spins=0;}
+  if(p.coins===undefined)p.coins=0;
+  return p;
+}
+function cornerFreeLeft(p){
+  ensureDaily();
+  var free=3+(((state.game.daily&&state.game.daily.streak)||0)>=7?1:0);
+  return Math.max(0,free-(p.spins||0));
+}
+function cornerHTML(){
+  var p=cornerOf();
+  var free=cornerFreeLeft(p);
+  var h='<div class="titlebar"><h1>GAME CORNER</h1></div>'+
+    '<div class="subtitle">“The playground for good grown-ups!”</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="sprites/arenas/teal.png" alt="" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/110;object-fit:cover">'+
+    '<span class="maptag" style="position:absolute;left:8px;bottom:8px">ROCKET GAME CORNER</span></div>';
+  h+='<div class="panel"><h3>SLOTS<span class="bestchip">'+(p.coins||0)+' COINS</span></h3>'+
+    '<div style="display:flex;gap:8px;justify-content:center;margin:6px 0 10px">'+
+    ['A','B','C'].map(function(r){return '<div class="reelbox" id="reel'+r+'"><div class="reelstrip">'+
+      SLOT_ICONS.concat([SLOT_ICONS[0]]).map(function(ic){return itemImg(ic,34);}).join('')+
+      '</div></div>';}).join('')+
+    '</div>'+
+    '<div class="plv" id="slotmsg" style="text-align:center;min-height:18px">'+(free>0?free+' free spin'+(free===1?'':'s')+' today':'10 COINS a spin')+'</div>'+
+    '<div style="display:flex;gap:8px;margin-top:8px">'+
+    '<button class="btn acc" data-action="corner-spin" style="flex:1"'+((free>0||(p.coins||0)>=10)?'':' disabled style="opacity:.5"')+'>SPIN'+(free>0?' · FREE':' · 10c')+'</button>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;margin-top:8px">'+
+    '<button class="btn" data-action="corner-coins" data-amt="100" style="flex:1"'+(money()>=100?'':' disabled')+'>₽100 → 50c</button>'+
+    '<button class="btn" data-action="corner-coins" data-amt="1000" style="flex:1"'+(money()>=1000?'':' disabled')+'>₽1000 → 550c</button>'+
+    '</div></div>';
+  var rows='';
+  PRIZE_MONS.forEach(function(pm){
+    var sp=pm[0],cost=pm[1],can=(p.coins||0)>=cost;
+    rows+='<div class="prow" style="padding:6px 10px">'+
+      '<img src="'+sprPath(sp,false)+'" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none">'+
+      '<span class="pname" style="flex:1;min-width:0;font-size:16px">'+DEX[sp].n+'</span>'+
+      '<button class="btn'+(can?' acc':'')+'" data-action="corner-prize" data-sp="'+sp+'"'+(can?'':' disabled style="opacity:.5"')+'>'+cost+'c</button></div>';
+  });
+  rows+='<div class="prow" style="padding:6px 10px">'+
+    itemImg('rarecandy',28)+
+    '<span class="pname" style="flex:1;min-width:0;font-size:16px">RARE CANDY</span>'+
+    '<button class="btn'+((p.coins||0)>=800?' acc':'')+'" data-action="corner-prize" data-sp="rarecandy"'+((p.coins||0)>=800?'':' disabled style="opacity:.5"')+'>800c</button></div>';
+  h+='<div class="panel"><h3>PRIZE CORNER</h3>'+
+    '<div class="plv" style="margin-bottom:4px">Coins only — no refunds. Prize POKEMON arrive at :L18.</div>'+rows+'</div>';
+  return h+poiBackBtn();
+}
+function runSlots(){
+  if(slotBusy||!state.game)return;
+  var p=cornerOf();
+  var free=cornerFreeLeft(p);
+  if(free>0)p.spins=(p.spins||0)+1;
+  else if((p.coins||0)>=10)p.coins-=10;
+  else {toast('No coins! Trade ₽ for coins first.');return;}
+  // the house decides first, the reels perform after
+  var r=Math.random(),win=0,icons;
+  if(r<0.05){win=300;var j=SLOT_ICONS[Math.floor(Math.random()*2)+3];icons=[j,j,j];}
+  else if(r<0.16){win=120;icons=['pokeball','pokeball','pokeball'];}
+  else if(r<0.38){win=30;var pi=SLOT_ICONS[Math.floor(Math.random()*SLOT_ICONS.length)];
+    var other=SLOT_ICONS[(SLOT_ICONS.indexOf(pi)+2)%SLOT_ICONS.length];
+    icons=[pi,pi,other];}
+  else {icons=SLOT_ICONS.slice().sort(function(){return Math.random()-0.5;}).slice(0,3);
+    if(icons[0]===icons[1]&&icons[1]===icons[2])icons[2]=SLOT_ICONS[(SLOT_ICONS.indexOf(icons[2])+1)%SLOT_ICONS.length];}
+  p.coins=(p.coins||0)+win;
+  save();
+  slotBusy=true;
+  sfx('throw');
+  var msg=$('#slotmsg');
+  ['A','B','C'].forEach(function(rk){
+    var box=document.querySelector('#reel'+rk);
+    if(box)box.classList.add('spinning');
+  });
+  if(msg)msg.textContent='· · ·';
+  ['A','B','C'].forEach(function(rk,i){
+    setTimeout(function(){
+      var box=document.querySelector('#reel'+rk);
+      if(box){
+        box.classList.remove('spinning');
+        box.querySelector('.reelstrip').innerHTML=itemImg(icons[i],34);
+      }
+      sfx('ballshake');
+    },700+i*500);
+  });
+  setTimeout(function(){
+    slotBusy=false;
+    if(win>=300)sfx('badge');
+    else if(win>0)sfx('save');
+    else sfx('weakhit');
+    if(msg)msg.textContent=win>0?'WIN! +'+win+' COINS':'No luck…';
+    setTimeout(function(){render(true);},900);
+  },2050);
+}
+/* ----- CINNABAR LAB ----- */
+var LAB_FOSSILS=[['omanyte',6000,'HELIX FOSSIL'],['kabuto',6000,'DOME FOSSIL'],['aerodactyl',12000,'OLD AMBER']];
+var LAB_EXPS=[
+  {t:'days',target:4,ask:'Train on 4 different days this week'},
+  {t:'vol',target:20000,ask:'Move 20,000 kg this week'},
+  {t:'sets',target:60,ask:'Log 60 sets this week'}
+];
+function labExpFor(){return LAB_EXPS[strHash(wkKey())%LAB_EXPS.length];}
+function labExpProg(q){
+  var ws=weekStartTs(Date.now());
+  if(q.t==='days')return Math.min(q.target,daysSinceTs(ws));
+  if(q.t==='vol')return Math.min(q.target,Math.round(volumeSince(ws)));
+  if(q.t==='sets')return Math.min(q.target,setsSince(ws));
+  return 0;
+}
+function labPoiHTML(){
+  var p=poiOf('lab');
+  var h='<div class="titlebar"><h1>CINNABAR LAB</h1></div>'+
+    '<div class="subtitle">The island’s pokemon research wing</div>'+
+    '<div class="mapwrap"><img class="mapimg" src="map/center.png" alt="" style="width:100%;display:block;image-rendering:pixelated">'+
+    '<img class="npc" src="sprites/npc/oldman.png" alt="" style="left:50%;top:31%;width:9%">'+
+    '<img class="npc" src="sprites/npc/man.png" alt="" style="left:20%;top:70%;width:9%">'+
+    '</div>';
+  /* fossils */
+  var fRows='',fAny=false;
+  LAB_FOSSILS.forEach(function(fx){
+    var sp=fx[0],price=fx[1],label=fx[2];
+    var caught=!!(state.game.dex[sp]&&state.game.dex[sp].c);
+    if(caught)return;
+    fAny=true;
+    var can=money()>=price;
+    fRows+='<div class="prow" style="padding:6px 10px">'+
+      '<img src="'+sprPath(sp,false)+'" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none;filter:brightness(0);opacity:.45">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+label+'</div>'+
+      '<div class="plv" style="margin-top:2px">Revives '+DEX[sp].n+' at :L'+(sp==='aerodactyl'?'40':'30')+'</div></div>'+
+      '<button class="btn'+(can?' acc':'')+'" data-action="lab-fossil" data-sp="'+sp+'"'+(can?'':' disabled style="opacity:.5"')+'>₽'+price.toLocaleString()+'</button></div>';
+  });
+  h+='<div class="panel"><h3>FOSSIL REVIVAL</h3>'+
+    (fAny?'<div class="plv" style="margin-bottom:4px">Ancient POKEMON you never obtained can be revived here.</div>'+fRows
+         :'<div class="plv">Every fossil POKEMON is already alive and lifting. Marvelous!</div>')+'</div>';
+  /* weekly experiment */
+  var q=labExpFor(),prog=labExpProg(q),done=prog>=q.target,claimed=p.expWeek===wkKey();
+  h+='<div class="panel"><h3>WEEKLY EXPERIMENT</h3>'+
+    '<div class="prow" style="padding:7px 10px'+(claimed?';opacity:.7':'')+'">'+
+    '<img src="sprites/trainers/oak.png" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none">'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">“'+q.ask+'”'+(claimed?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+    (claimed?'<div class="plv" style="color:#2E8B48">Data collected — new experiment on Monday!</div>'
+      :(done?'<button class="btn acc" data-action="lab-exp" style="margin-top:4px">COLLECT ₽1,000 + RARE CANDY</button>'
+        :'<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><div class="gbar"><div style="width:'+Math.round(prog/q.target*100)+'%;background:#E07028"></div></div><span class="barnum">'+prog.toLocaleString()+'/'+q.target.toLocaleString()+'</span></div>'))+
+    '</div></div></div>';
+  /* trade-in terminal */
+  var counts={};
+  state.game.mons.forEach(function(m){counts[m.sp]=(counts[m.sp]||0)+1;});
+  var tRows='';
+  state.game.mons.forEach(function(m){
+    if(counts[m.sp]<2)return;
+    if(m.uid===state.game.active)return;
+    var lv=monLevel(m.xp),pay=lv*40,candy=lv>=25;
+    tRows+='<div class="prow" style="padding:6px 10px">'+
+      '<img class="pspr" style="width:34px;height:34px" src="'+sprPath(m.sp,m.shiny)+'" alt="">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+DEX[m.sp].n+(m.shiny?' <span class="shinystar">★</span>':'')+' <span class="plv">:L'+lv+'</span></div>'+
+      '<div class="plv" style="margin-top:2px">duplicate · pays ₽'+pay.toLocaleString()+(candy?' + RARE CANDY':'')+'</div></div>'+
+      '<button class="btn" data-action="lab-trade" data-m="'+m.uid+'">TRADE</button></div>';
+  });
+  h+='<div class="panel"><h3>TRADE-IN TERMINAL</h3>'+
+    (tRows?'<div class="plv" style="margin-bottom:4px">Send duplicate species to research — they’re released for good, so choose carefully.</div>'+tRows
+      :'<div class="plv">No duplicate species on your team. Catch spares to trade them in here.</div>')+'</div>';
+  return h+poiBackBtn();
 }
 /* ===== the ferry ride: a GBA-style map transition between villages ===== */
 var travelBusy=false;
@@ -4501,7 +5278,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.17 “Gotcha!” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.18 “Grand Opening” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -4689,6 +5466,29 @@ function saveLogEntry(){
         state.session.bmsg=DEX[am.sp].n+' keeps training! +'+(entry.xpg||0)+' XP. (Blacked out — no battles this workout.)';
         pendingSteps={ov:null,list:[{msg:state.session.bmsg}]};
       }
+      else if(state.session&&state.session.mode==='train'&&state.session.wild&&state.session.wild.safari){
+        // SAFARI ZONE: sets can't hurt the wild — they're ROCK/BAIT steps
+        var sfw=state.session.wild,sfSteps=[],oldSN=DEX[sfw.sp].n;
+        var heavyW=state.unit==='lb'?132:60;
+        if(entry.w>=heavyW){sfw.rock=1;sfw.bait=0;}
+        else if(entry.r>=15){sfw.bait=1;sfw.rock=0;}
+        var fleeP=sfw.rock?0.4:(sfw.bait?0.1:0.25);
+        if(Math.random()<fleeP){
+          state.session.wild=spawnWild();
+          var newSN=DEX[state.session.wild.sp].n;
+          state.session.bmsg='The wild '+oldSN+' fled! A wild '+newSN+' appeared!';
+          sfSteps.push({msg:'The wild '+oldSN+' fled!',sfx:'faint',faint:'enemy',hold:1000});
+          sfSteps.push({msg:'A wild '+newSN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
+        }else{
+          var actMsg=sfw.rock?'A ROCK-heavy set! The '+oldSN+' looks easier to catch — but twitchy…'
+            :(sfw.bait?'A BAIT-style burner! The '+oldSN+' settles in, watching you…'
+              :'The wild '+oldSN+' is watching carefully…');
+          state.session.bmsg=actMsg+' THROW BALL when ready!';
+          sfSteps.push({msg:actMsg,sfx:sfw.rock?'hit':'save'});
+          sfSteps.push({refresh:true,hold:0});
+        }
+        pendingSteps={ov:null,list:sfSteps};
+      }
       else if(state.session&&state.session.mode==='train'&&state.session.wild){
         if(!state.session.party)initBossSession();
         var wd=state.session.wild;
@@ -4724,6 +5524,7 @@ function saveLogEntry(){
             var isRival=!!wd.tr.rival;
             var mbWin=(wd.tr.mb!==undefined&&state.game.road)?(isRival?' RIVAL DEFEATED!':' ROADBLOCK CLEARED!'):'';
             if(wd.tr.mb!==undefined&&state.game.road)state.game.road.mb[wd.tr.mb]=1;
+            mbWin+=poiTrainerWin(wd.tr); // building floors advance here (tower/hideout/silph)
             state.session.bmsg=wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'! Back to normal training — a wild '+newN+' appeared!';
             wSteps.push({msg:'Foe '+oldN+' is unable to battle! +'+wbonus+' EXP'+splitLab+'!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
             wSteps.push({msg:wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'!',sfx:'badge',hold:1500});
@@ -4733,8 +5534,28 @@ function saveLogEntry(){
             // every tired-out wild counts toward the road + daily quests
             if(state.game.road)state.game.road.kills=(state.game.road.kills||0)+1;
             dailyBumpKill();
-            state.session.bmsg='Wild '+oldN+' fainted! +'+wbonus+' EXP! A wild '+newN+' appeared!';
-            wSteps.push({msg:'Wild '+oldN+' fainted! +'+wbonus+' EXP'+splitLab+'!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
+            var ghostWin='';
+            if(wd.ghost!==undefined){
+              var pg2=poiOf('tower2');
+              if((pg2.floor||0)===wd.ghost){
+                pg2.floor=(pg2.floor||0)+1;
+                ghostWin=' The spirit rests — TOWER '+(wd.ghost+1)+'F cleared!';
+                if(wd.ghost===5&&!pg2.cubone){
+                  pg2.cubone=1;
+                  var cshiny=Math.random()<0.05;
+                  var cbm=addMon('cubone',cshiny);cbm.xp=xpFloor(25);
+                  queueModal(function(){
+                    sfx('catch');cry('cubone');
+                    showModal('<h3>The tower is quiet…</h3><p>The MAROWAK ghost was finally calmed. Its orphaned CUBONE :L25 clings to you!'+(cshiny?' ✨ It’s SHINY!':'')+'</p>'+
+                      '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(cshiny?' shinyglow':'')+'" src="'+sprPath('cubone',cshiny)+'" alt=""></div>'+
+                      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+                    modalOk=function(){closeModal();render(true);};
+                  });
+                }
+              }
+            }
+            state.session.bmsg='Wild '+oldN+' fainted! +'+wbonus+' EXP!'+ghostWin+' A wild '+newN+' appeared!';
+            wSteps.push({msg:'Wild '+oldN+' fainted! +'+wbonus+' EXP'+splitLab+'!'+ghostWin,sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
             wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
           }
         }else{
@@ -5054,6 +5875,18 @@ function applyImport(txt){
             clearTs:+rv.clearTs||Date.now(),kills:Math.max(0,parseInt(rv.kills,10)||0)};
       });
     }
+    gm.poi={};
+    if(d.game.poi&&typeof d.game.poi==='object'){
+      var pin=function(v,mx){var n2=parseInt(v,10);return (n2>=0&&isFinite(n2))?Math.min(mx||999999,n2):0;};
+      var psrc=d.game.poi;
+      if(psrc.tower)gm.poi.tower={floor:pin(psrc.tower.floor,8),clears:pin(psrc.tower.clears),weekKey:typeof psrc.tower.weekKey==='string'?psrc.tower.weekKey:''};
+      if(psrc.corner)gm.poi.corner={coins:pin(psrc.corner.coins),date:typeof psrc.corner.date==='string'?psrc.corner.date:'',spins:pin(psrc.corner.spins,20)};
+      if(psrc.hideout)gm.poi.hideout={floor:pin(psrc.hideout.floor,4),scope:psrc.hideout.scope?1:0};
+      if(psrc.silph)gm.poi.silph={floor:pin(psrc.silph.floor,11),card:psrc.silph.card?1:0,master:psrc.silph.master?1:0,lapras:psrc.silph.lapras?1:0};
+      if(psrc.tower2)gm.poi.tower2={floor:pin(psrc.tower2.floor,7),flute:psrc.tower2.flute?1:0,cubone:psrc.tower2.cubone?1:0};
+      if(psrc.safari)gm.poi.safari={active:psrc.safari.active?1:0,balls:pin(psrc.safari.balls,15)};
+      if(psrc.lab)gm.poi.lab={expWeek:typeof psrc.lab.expWeek==='string'?psrc.lab.expWeek:''};
+    }
     gm.visit=(isFinite(d.game.visit)&&+d.game.visit>=0&&+d.game.visit<TOWNS.length)?+d.game.visit:null;
     gm.beenTo={};
     if(d.game.beenTo&&typeof d.game.beenTo==='object'){
@@ -5299,6 +6132,146 @@ document.addEventListener('click',function(e){
   else if(a==='throw-pick'){showThrowModal();}
   else if(a==='throw-ball'){runThrow(b.dataset.ball);}
   else if(a==='area-mon'){showAreaMonModal(b.dataset.sp);}
+  else if(a==='poi-open'){if(state.game){tab='poi-'+b.dataset.k;render();}}
+  else if(a==='poi-fight'){poiStartFight(b.dataset.kind,parseInt(b.dataset.f,10));}
+  else if(a==='fuji-talk'){
+    var pfj=poiOf('tower2');
+    if(pfj.floor>=6&&!pfj.flute){
+      pfj.floor=7;pfj.flute=1;save();sfx('badge');
+      showModal('<div style="text-align:center;padding-bottom:2px"><img src="sprites/npc/oldman.png" alt="" style="width:34px;image-rendering:pixelated"></div>'+
+        '<h3 style="text-align:center">MR. FUJI</h3>'+
+        '<p>“You laid them all to rest… bless you. Take this <b>POKE FLUTE</b> — its song wakes even the deepest sleeper.”</p>'+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+      modalOk=function(){closeModal();render(true);};
+    }
+  }
+  else if(a==='safari-enter'){
+    if(!state.game)return;
+    if(state.session){toast('Finish your workout first!');return;}
+    if(curTown()!==5)return;
+    if(money()<500){toast('Not enough ₽ — the warden shakes his head.');return;}
+    state.game.money-=500;
+    var psf=poiOf('safari');psf.active=1;psf.balls=15;
+    save();sfx('badge');
+    showModal('<h3>SAFARI TIME!</h3><p>“Here are your <b>15 SAFARI BALLS</b>! Start a TRAINING workout here in FUCHSIA — no fighting, just ROCK, BAIT and a good arm!”</p>'+
+      '<div style="text-align:center;padding:6px 0">'+itemImg('safariball',40)+'</div>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">LET’S GO</button></div>');
+    modalOk=function(){closeModal();render(true);};
+  }
+  else if(a==='safari-leave'){
+    confirmModal('Leave the SAFARI GAME?','Unused SAFARI BALLS go back to the warden.','Leave',function(){
+      var psl=poiOf('safari');psl.active=0;psl.balls=0;
+      if(state.session&&state.session.wild&&state.session.wild.safari){
+        state.session.wild=spawnWild();
+        state.session.bmsg='A wild '+DEX[state.session.wild.sp].n+' appeared!';
+      }
+      save();render();toast('You left the SAFARI ZONE');
+    });
+  }
+  else if(a==='corner-coins'){
+    if(!state.game)return;
+    var camt=parseInt(b.dataset.amt,10);
+    var cgain=camt===1000?550:50;
+    if(money()<camt){toast('Not enough ₽!');return;}
+    state.game.money-=camt;
+    var pcc=cornerOf();pcc.coins=(pcc.coins||0)+cgain;
+    save();sfx('save');render(true);
+    toast('+'+cgain+' COINS');
+  }
+  else if(a==='corner-spin'){runSlots();}
+  else if(a==='corner-prize'){
+    if(!state.game)return;
+    var psp=b.dataset.sp,pcn=cornerOf();
+    if(psp==='rarecandy'){
+      if((pcn.coins||0)<800){toast('Not enough COINS!');return;}
+      pcn.coins-=800;bagOf().rarecandy=(bagOf().rarecandy||0)+1;
+      save();sfx('save');render(true);toast('RARE CANDY!');
+    }else{
+      var pdef=null;PRIZE_MONS.forEach(function(x){if(x[0]===psp)pdef=x;});
+      if(!pdef||(pcn.coins||0)<pdef[1]){toast('Not enough COINS!');return;}
+      pcn.coins-=pdef[1];
+      var pshiny=Math.random()<0.05;
+      var pmn=addMon(psp,pshiny);pmn.xp=xpFloor(18);
+      save();sfx('catch');cry(psp);
+      if(pshiny)setTimeout(function(){sfx('shiny');},600);
+      showModal('<h3>Congratulations!</h3><p>'+DEX[psp].n+' :L18 is yours!'+(pshiny?' ✨ It’s SHINY!':'')+'</p>'+
+        '<div style="text-align:center;padding:6px 0"><img class="bigspr'+(pshiny?' shinyglow':'')+'" src="'+sprPath(psp,pshiny)+'" alt=""></div>'+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+      modalOk=function(){closeModal();render(true);};
+    }
+  }
+  else if(a==='dept-tm'){showTeachModal(b.dataset.mv);}
+  else if(a==='dept-teach'){
+    var tmv=b.dataset.mv,tmn=findMon(b.dataset.m),tprice=0;
+    TM_LIST.forEach(function(t){if(t[0]===tmv)tprice=t[1];});
+    if(!tmn||!tprice||money()<tprice)return;
+    if(knownMoves(tmn).indexOf(tmv)>=0||(tmn.tm||[]).length>=4)return;
+    state.game.money-=tprice;
+    tmn.tm=tmn.tm||[];tmn.tm.push(tmv);
+    save();closeModal();sfx('levelup');
+    showModal('<h3>'+DEX[tmn.sp].n+' learned '+esc(tmv)+'!</h3>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+    modalOk=function(){closeModal();render(true);};
+  }
+  else if(a==='dept-stone'){showStoneModal(b.dataset.st);}
+  else if(a==='dept-evolve'){
+    var svk=b.dataset.st,svm=findMon(b.dataset.m);
+    var svmap=STONE_EVOS[svk];
+    if(!svm||!svmap||!svmap[svm.sp]||money()<2500)return;
+    state.game.money-=2500;
+    save();closeModal();sfx('save');
+    doEvolve(svm,svmap[svm.sp]);
+  }
+  else if(a==='lab-fossil'){
+    var fsp=b.dataset.sp,fdef=null;
+    LAB_FOSSILS.forEach(function(x){if(x[0]===fsp)fdef=x;});
+    if(!fdef||!state.game)return;
+    if(state.game.dex[fsp]&&state.game.dex[fsp].c)return;
+    if(money()<fdef[1]){toast('Not enough ₽!');return;}
+    state.game.money-=fdef[1];
+    var flv=fsp==='aerodactyl'?40:30;
+    var fshiny=Math.random()<0.05;
+    var fmn=addMon(fsp,fshiny);fmn.xp=xpFloor(flv);
+    save();sfx('evolve');cry(fsp);
+    showModal('<h3>It’s alive!</h3><p>The machine hums… '+DEX[fsp].n+' :L'+flv+' was revived!'+(fshiny?' ✨ It’s SHINY!':'')+'</p>'+
+      '<div style="text-align:center;padding:6px 0"><img class="bigspr'+(fshiny?' shinyglow':'')+'" src="'+sprPath(fsp,fshiny)+'" alt=""></div>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+    modalOk=function(){closeModal();render(true);};
+  }
+  else if(a==='lab-exp'){
+    if(!state.game)return;
+    var pex=poiOf('lab'),qex=labExpFor();
+    if(pex.expWeek===wkKey()||labExpProg(qex)<qex.target)return;
+    pex.expWeek=wkKey();
+    addMoney(1000);
+    bagOf().rarecandy=(bagOf().rarecandy||0)+1;
+    save();sfx('badge');render(true);
+    toast('+₽1,000 + RARE CANDY — thanks for the data!');
+  }
+  else if(a==='lab-trade'){
+    if(!state.game)return;
+    if(state.session){toast('Not mid-workout!');return;}
+    var trm=findMon(b.dataset.m);
+    if(!trm||trm.uid===state.game.active)return;
+    var trc=0;
+    state.game.mons.forEach(function(m){if(m.sp===trm.sp)trc++;});
+    if(trc<2)return;
+    var trlv=monLevel(trm.xp),trpay=trlv*40,trcandy=trlv>=25;
+    confirmModal('Trade '+DEX[trm.sp].n+' away?',
+      DEX[trm.sp].n+' :L'+trlv+(trm.shiny?' ★':'')+' will be released for good. You receive ₽'+trpay.toLocaleString()+(trcandy?' + a RARE CANDY':'')+'.',
+      'Trade',function(){
+        for(var ti2=0;ti2<state.game.mons.length;ti2++){
+          if(state.game.mons[ti2].uid===trm.uid){state.game.mons.splice(ti2,1);break;}
+        }
+        if(Array.isArray(state.game.partyIds))state.game.partyIds=state.game.partyIds.filter(function(u){return u!==trm.uid;});
+        if(state.game.hurt)delete state.game.hurt[trm.uid];
+        if(state.game.rest)delete state.game.rest[trm.uid];
+        addMoney(trpay);
+        if(trcandy)bagOf().rarecandy=(bagOf().rarecandy||0)+1;
+        save();sfx('save');render(true);
+        toast('+₽'+trpay.toLocaleString()+(trcandy?' + RARE CANDY':''));
+      });
+  }
   else if(a==='mb-fight'){
     if(!state.game||!roadActive())return;
     var mj=parseInt(b.dataset.j,10);
@@ -5508,7 +6481,7 @@ document.addEventListener('click',function(e){
     var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
     state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},round:1,
       boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'},
-      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null,roadLog:{},daily:null,npcq:null,visit:0,beenTo:{0:1}};
+      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null,roadLog:{},poi:{},daily:null,npcq:null,visit:0,beenTo:{0:1}};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;
