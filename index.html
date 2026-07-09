@@ -377,6 +377,66 @@ html.theme-night .btwrap.mode-train>.panel{background:#18261C;border-color:#2E6B
 .dmgfloat{position:absolute;font-family:'Press Start 2P';font-size:12px;color:#D03028;
   animation:dfl .9s ease-out forwards;pointer-events:none;z-index:5}
 @keyframes dfl{from{transform:none;opacity:1}to{transform:translateY(-34px);opacity:0}}
+/* ---------- ball throw theatre ---------- */
+.bball{position:absolute;left:16%;bottom:26%;width:22px;height:22px;image-rendering:pixelated;
+  z-index:6;pointer-events:none}
+.bball.bfly{animation:bflyk .5s linear forwards}
+@keyframes bflyk{0%{left:16%;bottom:26%;transform:rotate(0)}
+  55%{bottom:74%}
+  100%{left:63%;bottom:47%;transform:rotate(660deg)}}
+.bball.bdrop{animation:bdropk .5s ease-in forwards}
+@keyframes bdropk{0%{transform:translateY(0)}45%{transform:translateY(44px)}
+  68%{transform:translateY(30px)}100%{transform:translateY(44px)}}
+.bball.brock{animation:brockk .5s ease-in-out}
+@keyframes brockk{0%,100%{transform:translateY(44px) rotate(0)}
+  25%{transform:translateY(44px) rotate(-24deg) translateX(-2px)}
+  75%{transform:translateY(44px) rotate(22deg) translateX(2px)}}
+.bball.bok{animation:bokk .7s ease-out}
+@keyframes bokk{0%{filter:brightness(1)}25%{filter:brightness(3.2)}100%{filter:brightness(.8)}}
+.bball.bpop{animation:bpopk .4s ease-out forwards}
+@keyframes bpopk{0%{transform:translateY(44px) scale(1);opacity:1}
+  100%{transform:translateY(44px) scale(2.6);opacity:0;filter:brightness(4)}}
+.intoball{animation:intobk .38s ease-in forwards}
+@keyframes intobk{0%{filter:brightness(1);transform:scale(1);opacity:1}
+  35%{filter:brightness(6)}
+  100%{filter:brightness(6);transform:scale(.06);opacity:0}}
+.outball{animation:outbk .32s ease-out}
+@keyframes outbk{0%{filter:brightness(6);transform:scale(.06);opacity:0}
+  60%{filter:brightness(4)}
+  100%{filter:brightness(1);transform:scale(1);opacity:1}}
+.catchstars{position:absolute;left:63%;top:34%;z-index:7;pointer-events:none}
+.catchstars span{position:absolute;font-size:16px;color:#F8C830;text-shadow:0 0 3px rgba(0,0,0,.4);
+  animation:starpop .85s ease-out forwards}
+.catchstars span:nth-child(1){--sx:-18px}
+.catchstars span:nth-child(2){--sx:1px;animation-delay:.08s}
+.catchstars span:nth-child(3){--sx:19px;animation-delay:.16s}
+@keyframes starpop{0%{transform:none;opacity:0}25%{opacity:1}
+  100%{transform:translate(var(--sx),-26px) scale(1.3);opacity:0}}
+/* ---------- ferry travel transition ---------- */
+#travelfx{position:fixed;inset:0;z-index:220;background:#000;opacity:0;
+  display:flex;align-items:center;justify-content:center;padding:18px}
+#travelfx.on{animation:tfxin .35s steps(4) forwards}
+#travelfx.out{animation:tfxout .4s steps(4) forwards}
+@keyframes tfxin{from{opacity:0}to{opacity:1}}
+@keyframes tfxout{from{opacity:1}to{opacity:0}}
+#travelfx .tfxcard{width:100%;max-width:390px;background:var(--cream,#F8F0E0);
+  border:3px solid var(--bord,#583838);border-radius:8px;padding:10px;
+  opacity:0;transform:scale(.92)}
+#travelfx.on .tfxcard{animation:tcardin .3s ease-out .2s forwards}
+@keyframes tcardin{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+.tfxtitle{font-family:'Press Start 2P';font-size:10px;text-align:center;margin:2px 0 9px;
+  color:var(--text,#2A2A2A);line-height:1.5}
+.tfxmap{position:relative;border:2px solid var(--bord,#583838);border-radius:4px;overflow:hidden}
+.tfxmap img{width:100%;display:block;image-rendering:pixelated}
+.tfxsvg{position:absolute;inset:0;width:100%;height:100%}
+.tfxdot{position:absolute;transform:translate(-50%,-50%);z-index:3;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.45));animation:bob 1s ease-in-out infinite}
+.tfxsign{font-family:'Press Start 2P';font-size:11px;text-align:center;background:#FFFFFF;
+  border:2px solid #C05028;border-radius:4px;margin:10px auto 2px;padding:9px 8px;
+  max-width:290px;color:#2A2A2A;line-height:1.6;opacity:0;transform:scale(.6)}
+#travelfx.arrive .tfxsign{animation:tsignpop .38s cubic-bezier(.2,.8,.3,1.3) forwards}
+@keyframes tsignpop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+html.theme-night .tfxsign{background:#222A34;color:#E0E8F0;border-color:#10161E}
 #monsheet{position:fixed;inset:0;background:var(--bg);z-index:60;transform:translateY(102%);
   transition:transform .32s cubic-bezier(.32,.72,.3,1);overflow-y:auto;-webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;padding:calc(env(safe-area-inset-top) + 12px) 0 60px;visibility:hidden}
@@ -564,9 +624,11 @@ function battleModeCls(){
 function render(keepScroll){
   resolveRests();
   if(tab==='lab'&&state.game&&!featOn('lab'))tab='summary';
-  // visiting the QUEST page acknowledges the current claimables → dot clears
+  // visiting the QUEST page acknowledges the claimables YOU CAN SEE — road rewards
+  // only show at the frontier town, so peeking at an old village keeps the dot lit
   if(tab==='quests'&&state.game){
     var _sig=claimSig();
+    if(curTown()<townIdx())_sig=_sig.split(',').filter(function(x){return x&&x.charAt(0)!=='r';}).join(',');
     if(state.game.qSeen!==_sig){state.game.qSeen=_sig;save();}
   }
   document.querySelectorAll('#tabbar button').forEach(function(b){
@@ -826,6 +888,22 @@ function migrateState(){
     }
   }
   if(!(state.version>=9)){state.version=9;changed=true;}
+  // v10: per-road quest history + battle catching (the passive catch bars retired)
+  if(state.game){
+    if(!state.game.roadLog){
+      state.game.roadLog={};
+      // roads already behind you were fully cleared to advance — record them as such
+      var _endIdx=state.game.boss?Math.min(state.game.boss.idx,ROAD_LOC.length):ROAD_LOC.length;
+      for(var _r=0;_r<_endIdx;_r++)state.game.roadLog[_r]={synth:1,round:1};
+      changed=true;
+    }
+    if(state.game.enc&&Object.keys(state.game.enc).length){state.game.enc={};changed=true;}
+    // every caught species counts as seen (fills the AREA DEX silhouettes)
+    Object.keys(state.game.dex||{}).forEach(function(_sp){
+      if(state.game.dex[_sp]&&state.game.dex[_sp].c&&!state.game.seen[_sp]){state.game.seen[_sp]=1;changed=true;}
+    });
+  }
+  if(!(state.version>=10)){state.version=10;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -1461,29 +1539,61 @@ function questDotOn(){
   var s=claimSig();
   return s!==''&&s!==((state.game&&state.game.qSeen)||'');
 }
-/* wild pools per town (index = townIdx). Training spawns from the CURRENT town's
-   list plus every town before it — just like walking the routes back home. */
-var WILD_STAGES=[
-  ['pidgey','rattata','caterpie','metapod','weedle','kakuna','pikachu','spearow','mankey','nidoranf','nidoranm'], /* Viridian */
-  ['zubat','geodude','paras','clefairy','jigglypuff','sandshrew','ekans','magikarp'],                            /* Pewter */
-  ['oddish','bellsprout','abra','meowth','psyduck','diglett','magnemite','krabby'],                              /* Cerulean */
-  ['machop','onix','voltorb','drowzee'],                                                                         /* Vermilion */
-  ['gastly','cubone','venonat','pidgeotto','koffing','vulpix','growlithe'],                                      /* Celadon */
-  ['doduo','exeggcute','rhyhorn','grimer','ponyta'],                                                             /* Fuchsia */
-  ['abra','drowzee','voltorb','magnemite','gastly'],                                                             /* Saffron */
-  ['tentacool','horsea','seel','shellder','staryu','goldeen','poliwag'],                                         /* Cinnabar */
-  ['growlithe','dratini','machop','geodude','zubat','onix']                                                      /* Indigo */
+/* ===== strict per-area encounter tables (v5.17) =====
+   Training wilds spawn ONLY from the table of the town you stand in — real routes.
+   Weights: 10 common · 6 uncommon · 3 rare · 1 very rare. Every species a full dex
+   needs is reachable through these tables + starters + grants + collectors + raids. */
+var AREA_SPAWNS=[
+  /* 0 VIRIDIAN — Routes 1·2·22 + Viridian Forest */
+  [['pidgey',10],['rattata',10],['caterpie',6],['weedle',6],['spearow',6],['mankey',3],['nidoranf',3],['nidoranm',3],['pikachu',3],['bulbasaur',1]],
+  /* 1 PEWTER — Route 3 + Mt. Moon */
+  [['zubat',10],['geodude',10],['spearow',6],['ekans',6],['sandshrew',6],['paras',6],['magikarp',6],['jigglypuff',3],['clefairy',3],['onix',3]],
+  /* 2 CERULEAN — Routes 24·25 + the Power Plant shore */
+  [['oddish',10],['bellsprout',10],['magikarp',10],['psyduck',6],['poliwag',6],['goldeen',6],['krabby',6],['meowth',6],['abra',3],['electabuzz',1]],
+  /* 3 VERMILION — Routes 6·11 + Diglett's Cave */
+  [['diglett',10],['drowzee',10],['tentacool',6],['machop',6],['magnemite',6],['meowth',6],['shellder',3],['voltorb',3],['farfetchd',3],['squirtle',1]],
+  /* 4 CELADON — Routes 7·8·16 + the Rocket back alleys */
+  [['grimer',10],['koffing',10],['growlithe',6],['vulpix',6],['venonat',6],['gastly',6],['cubone',6],['pidgeotto',3],['eevee',1]],
+  /* 5 FUCHSIA — the SAFARI ZONE */
+  [['doduo',10],['exeggcute',6],['rhyhorn',6],['slowpoke',6],['ponyta',6],['tangela',6],['scyther',3],['pinsir',3],['tauros',3],['lickitung',3],['chansey',1],['dratini',1]],
+  /* 6 SAFFRON — the psychic city + Silph Co. */
+  [['abra',10],['drowzee',6],['machop',6],['voltorb',6],['magnemite',6],['koffing',6],['grimer',6],['gastly',3],['mrmime',3],['jynx',3]],
+  /* 7 CINNABAR — the volcanic isle + Seafoam sea */
+  [['tentacool',10],['magikarp',10],['ponyta',6],['growlithe',6],['vulpix',6],['seel',6],['shellder',6],['horsea',6],['staryu',6],['magmar',3],['lapras',1],['charmander',1]],
+  /* 8 INDIGO — Route 23 + Victory Road (MEWTWO appears only for champions) */
+  [['machop',10],['geodude',10],['golbat',6],['onix',6],['graveler',3],['machoke',3],['dratini',3],['mewtwo',1]]
 ];
-function wildPool(){
-  var stage=WILD_STAGES.length-1;
-  if(state.game){
-    stage=curTown();
-    if((state.game.round||1)>1)stage=WILD_STAGES.length-1; /* champions have walked every route */
-  }
-  var n=Math.min(WILD_STAGES.length,Math.max(1,stage+1));
-  var pool=[];
-  for(var i=0;i<n;i++)pool=pool.concat(WILD_STAGES[i]);
-  return pool;
+function isChampion(){return !!(state.game&&(state.game.flags.champion||(state.game.hof&&state.game.hof.length)));}
+function areaSpawnList(t){
+  var list=AREA_SPAWNS[Math.min(t,AREA_SPAWNS.length-1)]||AREA_SPAWNS[0];
+  return list.filter(function(e){return e[0]!=='mewtwo'||isChampion();});
+}
+/* rarity tier of a spawn weight → [label, color] */
+function rarityLab(w){return w>=10?['COMMON','#2E8B48']:(w>=6?['UNCOMMON','#4890D8']:(w>=3?['RARE','#B06AD0']:['V. RARE','#E8A010']));}
+/* ===== authentic species data, national dex order 1..151 ===== */
+/* catch rates (FRLG) — feed the Gen 3/4 capture formula */
+var CR_TBL=[45,45,45,45,45,45,45,45,45,255,120,45,255,120,45,255,120,45,255,127,255,90,255,90,190,75,255,90,235,120,45,235,120,45,150,25,190,75,170,50,255,90,255,120,45,190,75,190,75,255,50,255,90,190,75,190,75,190,75,255,120,45,200,100,50,180,90,45,255,120,45,190,60,255,120,45,190,60,190,75,190,60,45,190,45,190,75,190,75,190,60,190,90,45,45,190,75,225,60,190,60,90,45,190,75,45,45,45,190,60,120,60,30,45,45,225,75,225,60,225,60,45,45,45,45,45,45,45,255,45,45,35,45,45,45,45,45,45,45,45,45,45,25,3,3,3,45,45,45,3,45];
+/* base EXP yields (Gen 1) — feed the classic XP formula base×level/7 */
+var XP_TBL=[64,141,208,65,142,209,66,143,210,53,72,160,52,71,159,55,113,172,57,116,58,162,62,147,82,122,93,163,59,117,194,60,118,195,68,129,63,178,76,109,54,171,78,132,184,70,128,75,138,81,153,69,148,80,174,74,149,91,213,77,131,185,73,145,186,88,146,193,84,151,191,105,205,86,134,177,152,192,99,164,89,161,94,96,158,100,176,90,157,97,203,95,126,190,108,102,165,115,206,103,150,98,212,87,124,139,140,127,114,173,135,204,395,166,175,83,155,111,170,106,207,136,187,137,156,167,200,211,20,214,219,61,92,196,197,198,130,120,199,119,201,202,154,215,216,217,67,144,218,220,64];
+function catchRateOf(sp){return CR_TBL[((DEX[sp]&&DEX[sp].id)||1)-1]||45;}
+function expYieldOf(id){return XP_TBL[(id||1)-1]||64;}
+/* Gen 3/4 capture check: rate × ball, easier at low HP; returns shakes for the show */
+function catchCheck(w,ballMult){
+  var M=Math.max(1,w.max),H=Math.max(1,w.hp);
+  var a=Math.floor((3*M-2*H)*catchRateOf(w.sp)*ballMult/(3*M));
+  if(a>=255)return {caught:true,shakes:4};
+  var b=Math.floor(1048560/Math.sqrt(Math.sqrt(16711680/Math.max(1,a))));
+  var shakes=0;
+  for(var i=0;i<4;i++){if(Math.floor(Math.random()*65536)<b)shakes++;else break;}
+  return {caught:shakes===4,shakes:shakes};
+}
+/* the % shown on the ball picker — chance all four shake checks pass */
+function catchOdds(w,ballMult){
+  var M=Math.max(1,w.max),H=Math.max(1,w.hp);
+  var a=Math.floor((3*M-2*H)*catchRateOf(w.sp)*ballMult/(3*M));
+  if(a>=255)return 100;
+  var b=Math.floor(1048560/Math.sqrt(Math.sqrt(16711680/Math.max(1,a))));
+  return Math.max(1,Math.round(Math.pow(Math.min(1,b/65536),4)*100));
 }
 var MOVESETS={
   charmander:[[7,'EMBER'],[13,'METAL CLAW'],[25,'SCARY FACE'],[31,'FLAMETHROWER']],
@@ -1708,9 +1818,9 @@ var ITEMS={
   superpotion:{n:'SUPER POTION',p:700,d:'Restores 50 HP mid-battle',heal:50,t:2},
   hyperpotion:{n:'HYPER POTION',p:1500,d:'Restores 200 HP mid-battle',heal:200,t:4},
   revive:{n:'REVIVE',p:1500,d:'Revives a fainted teammate to half HP',t:3},
-  pokeball:{n:'POKE BALL',p:200,d:'Fills a catch bar by 10%',ball:0.10,t:0},
-  greatball:{n:'GREAT BALL',p:600,d:'Fills a catch bar by 25%',ball:0.25,t:2},
-  ultraball:{n:'ULTRA BALL',p:1200,d:'Fills a catch bar by 50%',ball:0.50,t:4},
+  pokeball:{n:'POKE BALL',p:200,d:'Throw at a wild POKEMON in battle to catch it',mult:1,t:0},
+  greatball:{n:'GREAT BALL',p:600,d:'A better ball — 1.5× catch rate',mult:1.5,t:2},
+  ultraball:{n:'ULTRA BALL',p:1200,d:'An excellent ball — 2× catch rate',mult:2,t:4},
   fullrestore:{n:'FULL RESTORE',p:2500,d:'Fully heals one POKEMON instantly — no 10h wait at the POKEMON CENTER',heal:9999,t:0},
   luckyegg:{n:'LUCKY EGG',p:1500,d:'2× XP for your whole next workout',t:1},
   hpup:{n:'HP UP',p:3000,d:'+5 MAX HP — a bigger tank in boss fights',v:'hp',t:5},
@@ -1912,22 +2022,12 @@ function daysSinceGameStart(){
   allLogsFlat().forEach(function(o){if(o.l.ts>=state.game.startTs)m[dateKey(o.l.ts)]=1;});
   return Object.keys(m).length;
 }
-function announceEncounter(gk,sp,target){
-  queueModal(function(){
-    cry(sp);
-    showModal('<h3>A wild '+esc(DEX[sp].n)+' appeared!</h3>'+
-      '<div style="text-align:center;padding:8px 0"><img class="bigspr" src="'+sprPath(sp,false)+'" alt=""></div>'+
-      '<p>Catch it by moving '+fmtVol(target)+' '+esc(state.unit)+' of '+gk.toUpperCase()+' volume. Track it in the POKEDEX — it can’t run away.</p>'+
-      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
-    modalOk=function(){closeModal();};
-  });
-}
-function announceCatch(sp,shiny){
+function announceCatch(sp,shiny,lv){
   queueModal(function(){
     sfx('catch');
     cry(sp);
     if(shiny)setTimeout(function(){sfx('shiny');},600);
-    showModal('<h3>Gotcha!</h3><p>'+esc(DEX[sp].n)+' was caught!'+(shiny?' ✨ It’s SHINY!':'')+'</p>'+
+    showModal('<h3>Gotcha!</h3><p>'+esc(DEX[sp].n)+(lv?' :L'+lv:'')+' was caught!'+(shiny?' ✨ It’s SHINY!':'')+'</p>'+
       '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(shiny?' shinyglow':'')+'" src="'+sprPath(sp,shiny)+'" alt=""></div>'+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
     modalOk=function(){closeModal();render(true);};
@@ -1949,34 +2049,10 @@ function grantMon(flag,sp,title,msg){
   });
   return true;
 }
-function caughtFromQueue(gk){
-  var q=CATCH_QUEUES[gk],n=0;
-  q.forEach(function(it){if(state.game.dex[it[0]]&&state.game.dex[it[0]].c)n++;});
-  return n;
-}
 function checkGameEvents(){
   var g=state.game;if(!g)return;
   var changed=false;
-  Object.keys(CATCH_QUEUES).forEach(function(gk){
-    if(g.enc[gk])return;
-    var k=caughtFromQueue(gk),q=CATCH_QUEUES[gk];
-    if(k>=q.length)return;
-    if(groupDaysSince(gk,g.startTs)>=2+3*k){
-      g.enc[gk]={sp:q[k][0],target:q[k][1],startTs:Date.now()};
-      g.seen[q[k][0]]=1;changed=true;
-      announceEncounter(gk,q[k][0],q[k][1]);
-    }
-  });
-  Object.keys(g.enc).forEach(function(gk){
-    var e=g.enc[gk];
-    if(groupVolumeSince(gk,e.startTs)+(e.bonus||0)>=e.target){
-      delete g.enc[gk];
-      var shiny=Math.random()<0.1;
-      addMon(e.sp,shiny);
-      changed=true;
-      announceCatch(e.sp,shiny);
-    }
-  });
+  /* v5.17: the passive catch bars are gone — wilds are caught IN BATTLE with balls */
   var days=daysSinceGameStart();
   if(days>=10&&grantMon('eevee','eevee','A friend appears!','EEVEE was impressed by your 10 training days and joined your team!'))changed=true;
   if(days>=15&&grantMon('rival',g.starter==='charmander'?'squirtle':'charmander','Your rival gave up!','15 training days! Your rival quit the gym and left their partner with you.'))changed=true;
@@ -2253,6 +2329,117 @@ function showBattleBag(){
   showModal(h);
   modalOk=null;
 }
+/* ===== the catch minigame: pick a ball, throw it, watch it shake ===== */
+var throwBusy=false;
+function showThrowModal(){
+  var s=state.session;
+  if(!s||s.mode!=='train'||!s.wild||s.wild.tr||s.blackout||throwBusy)return;
+  var w=s.wild,bag=bagOf();
+  var have=['pokeball','greatball','ultraball'].filter(function(k){return (bag[k]||0)>0;});
+  var hpPct=Math.round(Math.max(0,w.hp)/w.max*100);
+  var h='<h3>THROW A BALL</h3>'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'+
+    '<img src="'+sprPath(w.sp,w.shiny)+'" alt="" style="width:48px;height:48px;image-rendering:pixelated">'+
+    '<div style="flex:1;min-width:0"><div class="pname">WILD '+DEX[w.sp].n+(w.shiny?' <span class="shinystar">★</span>':'')+' <span class="plv">:L'+w.lv+'</span></div>'+
+    '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+hpPct+'%;background:'+hpColor(hpPct)+'"></div></div><span class="barnum">'+hpPct+'%</span></div></div></div>';
+  if(!have.length){
+    h+='<p>No balls in your bag! The POKE MART sells them — every throw spends one ball.</p>'+
+      '<div class="mbtns"><button class="btn" data-action="close-modal">CLOSE</button></div>';
+  }else{
+    have.forEach(function(k){
+      h+='<button class="prow" style="padding:7px 10px" data-action="throw-ball" data-ball="'+k+'">'+
+        '<img src="'+itemIcon(k)+'" alt="" style="width:28px;height:28px;image-rendering:pixelated">'+
+        '<span class="pname" style="flex:1;min-width:0">'+ITEMS[k].n+' <span class="plv">×'+(bag[k]||0)+'</span></span>'+
+        '<span class="plv" style="color:#2E8B48">'+catchOdds(w,ITEMS[k].mult||1)+'%</span></button>';
+    });
+    h+='<div class="plv" style="margin-top:6px">Every throw spends one ball. Weaken the wild first — low HP means a better catch!</div>'+
+      '<div class="mbtns"><button class="btn" data-action="close-modal">CANCEL</button></div>';
+  }
+  showModal(h);
+  modalOk=null;
+}
+var CATCH_FAIL_LINES=['Oh, no! The POKEMON broke free!','Aww! It appeared to be caught!','Aargh! Almost had it!','Gah! It was so close, too!'];
+function runThrow(bk){
+  var s=state.session;
+  if(throwBusy||!s||s.mode!=='train'||!s.wild||s.wild.tr||s.blackout)return;
+  var bag=bagOf();if(!ITEMS[bk]||!ITEMS[bk].mult||(bag[bk]||0)<=0)return;
+  var w=s.wild;
+  // everything is decided and SAVED up front — the animation is pure theatre,
+  // so an interrupted throw can never eat a ball without paying out
+  bag[bk]--;
+  var res=catchCheck(w,ITEMS[bk].mult||1);
+  var wPre={sp:w.sp,lv:w.lv,hp:Math.max(0,w.hp),max:w.max,shiny:w.shiny};
+  if(res.caught){
+    var cm=addMon(w.sp,w.shiny);
+    cm.xp=xpFloor(w.lv); // it keeps the level it fought at
+    s.wild=spawnWild();
+    s.bmsg='A wild '+DEX[s.wild.sp].n+' appeared! Log a set to attack — it fights back!';
+  }else{
+    s.bmsg=CATCH_FAIL_LINES[Math.min(3,res.shakes)]+' Log a set to attack!';
+  }
+  save();
+  closeModal();
+  throwBusy=true;
+  clearBattleAnim();
+  var wrap=bw();
+  if(!wrap){throwBusy=false;render(true);return;}
+  // the panel keeps showing the PRE-throw wild while the ball flies
+  wrap.innerHTML=wildPanelHTML(false,{wild:wPre,lead:leadMon()});
+  alignBack();
+  var scene=bq('.arenabg'),espr=bq('.bt-espr');
+  typeMsg(playerName()+' used '+ITEMS[bk].n+'!');
+  sfx('throw');
+  var ball=document.createElement('img');
+  ball.src=itemIcon(bk);ball.className='bball bfly';ball.alt='';
+  if(scene)scene.appendChild(ball);
+  var T=animTimers;
+  T.push(setTimeout(function(){
+    if(espr)espr.classList.add('intoball');
+    sfx('ballopen');
+  },440));
+  T.push(setTimeout(function(){
+    // land: pin position inline, then bounce (later classes only animate transform/filter)
+    ball.style.left='63%';ball.style.bottom='47%';
+    ball.classList.remove('bfly');ball.classList.add('bdrop');
+  },540));
+  T.push(setTimeout(function(){ball.style.transform='translateY(44px)';},1080));
+  var rocks=res.caught?3:Math.min(3,res.shakes);
+  for(var ri=0;ri<rocks;ri++){
+    (function(ix){T.push(setTimeout(function(){
+      ball.classList.remove('bdrop','brock');void ball.offsetWidth;ball.classList.add('brock');
+      sfx('ballshake');
+    },1300+ix*720));})(ri);
+  }
+  var endT=1300+rocks*720+120;
+  if(res.caught){
+    T.push(setTimeout(function(){
+      ball.classList.add('bok');
+      sfx('ballclick');
+      var st=document.createElement('div');st.className='catchstars';
+      st.innerHTML='<span>★</span><span>★</span><span>★</span>';
+      if(scene)scene.appendChild(st);
+      typeMsg('Gotcha! '+DEX[wPre.sp].n+' was caught!');
+    },endT));
+    T.push(setTimeout(function(){
+      throwBusy=false;
+      announceCatch(wPre.sp,wPre.shiny,wPre.lv);
+      checkGameEvents();
+      updateBattlePanel();
+      sprFx('.bt-espr','slidein-r');
+    },endT+1600));
+  }else{
+    T.push(setTimeout(function(){
+      ball.classList.add('bpop');
+      sfx('ballburst');
+      if(espr){espr.classList.remove('intoball');void espr.offsetWidth;espr.classList.add('outball');}
+      typeMsg(CATCH_FAIL_LINES[Math.min(3,res.shakes)]);
+    },endT));
+    T.push(setTimeout(function(){
+      throwBusy=false;
+      updateBattlePanel();
+    },endT+1500));
+  }
+}
 function activeMonStripHTML(){
   if(!state.game)return '';
   var m=activeMon();if(!m)return '';
@@ -2296,7 +2483,7 @@ function teamHTML(){
         '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div style="width:'+Math.min(100,Math.round(into/span*100))+'%"></div></div></div>'+
         '</div></button>';
     });
-    h+='<div class="about">XP goes to the POKEMON you pick at workout start.<br>New ones are caught by training — check the POKEDEX.</div>';
+    h+='<div class="about">XP goes to the POKEMON you pick at workout start.<br>Catch new ones in battle: weaken a wild, then THROW BALL!</div>';
   }else{
     h+=dexHTML();
   }
@@ -2304,25 +2491,6 @@ function teamHTML(){
 }
 function dexHTML(){
   var g=state.game,h='';
-  var ek=Object.keys(g.enc);
-  if(ek.length){
-    h+='<div class="histday">WILD · FILL THE BAR TO CATCH</div>';
-    var bag=bagOf();
-    ek.forEach(function(gk){
-      var e=g.enc[gk];
-      var prog=Math.min(e.target,groupVolumeSince(gk,e.startTs)+(e.bonus||0));
-      var balls='';
-      ['pokeball','greatball','ultraball'].forEach(function(bk){
-        var c=bag[bk]||0;if(!c)return;
-        balls+='<button class="btn" data-action="throw-ball" data-gk="'+gk+'" data-ball="'+bk+'" style="margin:7px 6px 0 0;padding:8px 7px;font-size:9px">'+
-          '<img src="'+itemIcon(bk)+'" alt="" style="width:15px;height:15px;image-rendering:pixelated;vertical-align:-3px"> ×'+c+'</button>';
-      });
-      h+='<div class="card"><img class="pspr" src="'+sprPath(e.sp,false)+'" alt="">'+
-        '<div style="flex:1;min-width:0"><div class="pname">'+DEX[e.sp].n+'</div>'+
-        '<div class="plv" style="margin:2px 0 6px">'+gk.toUpperCase()+': '+fmtVol(prog)+' / '+fmtVol(e.target)+' '+esc(state.unit)+'</div>'+
-        '<div class="gbar"><div style="width:'+Math.round(prog/e.target*100)+'%"></div></div>'+balls+'</div></div>';
-    });
-  }
   h+='<div class="dexgrid">';
   var c=0;
   DEX_ORDER.forEach(function(sp){
@@ -2927,8 +3095,13 @@ function resolveBossSet(am,entry,vol,id){
   state.session.bmsg=atkMsg+' '+dmg.toLocaleString()+' dmg.';
   var steps=[];
   if(state.game.boss.hp<=0){
+    // the finisher takes the last mon's classic trainer EXP before the concede plays
+    var koF=Math.max(5,Math.round(expYieldOf(bz.monId)*bz.lv/7*1.5*(state.session.lucky?2:1)));
+    entry.xpg=(entry.xpg||0)+koF;entry.mon=am.uid;
+    state.session.xpg=(state.session.xpg||0)+koF;
+    applyXP(am,koF);
     steps.push({msg:atkMsg,sfx:hitSfx,movesfx:mvName,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg],fx:mvType});
-    steps.push({msg:'Foe '+bz.mon+' is unable to battle!',sfx:'faint',cryId:bz.monId,faint:'enemy',hold:1100});
+    steps.push({msg:'Foe '+bz.mon+' is unable to battle! +'+koF+' EXP!',sfx:'faint',cryId:bz.monId,faint:'enemy',hold:1100});
     // the beaten leader steps back out to concede
     steps.push({msg:bz.n+' was defeated!',sfx:'badge',trainer:bz.tr,hold:1600});
     bossDefeated(); // advances the league AND flips the session back to training
@@ -2943,14 +3116,14 @@ function resolveBossSet(am,entry,vol,id){
   }
   var after=bossInfo();
   if(after.memberIdx>bz.memberIdx){
-    // clean KO: the fallen member pays out XP, the next steps up — no counter this turn
-    var ko=Math.max(5,Math.round(bz.memberMax/25));
+    // clean KO: classic trainer EXP (base yield × level / 7 × 1.5) goes to the finisher
+    var ko=Math.max(5,Math.round(expYieldOf(bz.monId)*bz.lv/7*1.5*(state.session.lucky?2:1)));
     entry.xpg=(entry.xpg||0)+ko;entry.mon=am.uid;
     state.session.xpg=(state.session.xpg||0)+ko;
     applyXP(am,ko);
-    state.session.bmsg+=' Foe '+bz.mon+' is unable to battle! +'+ko+' XP! '+bz.n+' sent out '+after.mon+'!';
+    state.session.bmsg+=' Foe '+bz.mon+' is unable to battle! +'+ko+' EXP! '+bz.n+' sent out '+after.mon+'!';
     steps.push({msg:atkMsg,sfx:hitSfx,movesfx:mvName,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg],fx:mvType});
-    steps.push({msg:'Foe '+bz.mon+' is unable to battle! +'+ko+' XP!',sfx:'faint',cryId:bz.monId,faint:'enemy',hold:1100});
+    steps.push({msg:'Foe '+bz.mon+' is unable to battle! +'+ko+' EXP!',sfx:'faint',cryId:bz.monId,faint:'enemy',hold:1100});
     steps.push({msg:bz.n+' sent out '+after.mon+'!',sfx:'battlestart',cryId:after.monId,refresh:true,slide:'enemy'});
   }else{
     // member survives → your strike lands first, THEN it hits back
@@ -2980,13 +3153,17 @@ function badgeCount(){
 function hpColor(pct){return pct>50?'#58C868':(pct>20?'#F8D020':'#F85838');}
 var btPrevPct=null,btPrevMember=null,btPrevPhp=null,introCameo=false;
 function spawnWild(){
-  var pool=wildPool();
-  var sp=pool[Math.floor(Math.random()*pool.length)];
-  // level comes from the AREA now, not from your team (authentic routes)
+  // strict biome spawns: weighted pick from THIS area's table only
+  var list=areaSpawnList(curTown()),tot=0;
+  list.forEach(function(e){tot+=e[1];});
+  var roll=Math.random()*tot,sp=list[0][0];
+  for(var i=0;i<list.length;i++){roll-=list[i][1];if(roll<0){sp=list[i][0];break;}}
+  // level comes from the AREA, not from your team (authentic routes)
   var band=WILD_BANDS[curTown()]||[2,6];
   var wlv=band[0]+Math.floor(Math.random()*(band[1]-band[0]+1));
   var hp=Math.round((500+wlv*45)*(0.8+Math.random()*0.4));
-  return {sp:sp,lv:wlv,hp:hp,max:hp,shiny:Math.random()<0.05};
+  if(state.game)state.game.seen[sp]=1; // spotted — its silhouette fills in on the AREA list
+  return {sp:sp,lv:wlv,hp:hp,max:hp,shiny:Math.random()<0.05,parts:{}};
 }
 function curBattlePct(){
   if(state.session){
@@ -3024,7 +3201,12 @@ function wildPanelHTML(anim,ov){
     wbrow='<div style="font-family:\'Press Start 2P\';font-size:9px;color:#D03028;margin-top:9px;text-align:center;line-height:1.6">ALL POKEMON FAINTED — XP ONLY<br>HEAL AT THE POKEMON CENTER</div>';
   }else{
     var alive=alivePartyMons().length,total=partyMons().length;
-    wbrow='<div style="display:flex;gap:8px;margin-top:8px">'+
+    var wbag=bagOf(),ballCnt=(wbag.pokeball||0)+(wbag.greatball||0)+(wbag.ultraball||0);
+    // wild only — you can't catch another trainer's POKEMON
+    var throwRow=w.tr?'':'<button class="btn acc" data-action="throw-pick" style="width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px">'+
+      '<img src="'+itemIcon('pokeball')+'" alt="" style="width:16px;height:16px;image-rendering:pixelated">'+
+      '<span>THROW BALL'+(ballCnt>0?' · ×'+ballCnt:'')+'</span></button>';
+    wbrow=throwRow+'<div style="display:flex;gap:8px;margin-top:8px">'+
       (total>1?'<button class="btn'+(alive>1?' acc':'')+'" data-action="switch-mon" style="flex:1"'+(alive>1?'':' disabled')+'>SWITCH</button>':'')+
       '<button class="btn" data-action="battle-bag" style="flex:1">BAG</button></div>';
   }
@@ -3477,16 +3659,39 @@ function collectorsHTML(){
 function qRet(inner){var rv=questReveal;questReveal=false;return rv?'<div class="qreveal">'+inner+'</div>':inner;}
 function historicalRoadHTML(t){
   var loc=roadLoc(t),ac=loc.c||'#2E8B48',qs=questsFor(t),bn=BOSSES[t];
+  var g=state.game,lg=(g.roadLog&&g.roadLog[t])||null;
   var h='<div class="titlebar"><h1>QUESTS</h1></div>'+
     '<div class="subtitle">'+loc.n+' · cleared route ✓</div>'+
-    '<div class="mapwrap" style="border-color:'+ac+'"><img class="mapimg" src="'+(loc.img||('sprites/arenas/'+loc.arena+'.png'))+'" alt="'+loc.n+'" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/110;object-fit:cover"><span class="maptag" style="position:absolute;left:8px;bottom:8px;border-color:'+ac+'">'+loc.n+'</span></div>'+
-    '<div class="panel" style="border-color:'+ac+'"><div class="plv">You already blazed through '+loc.n+' on the way to '+(bn?bn.n:'the gym')+'. Everything here is done — a memento of the road behind you.</div></div>';
+    '<div class="mapwrap" style="border-color:'+ac+'"><img class="mapimg" src="'+(loc.img||('sprites/arenas/'+loc.arena+'.png'))+'" alt="'+loc.n+'" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/110;object-fit:cover"><span class="maptag" style="position:absolute;left:8px;bottom:8px;border-color:'+ac+'">'+loc.n+'</span></div>';
+  /* the local clear report: this village's own quest history, in numbers */
+  var rep='';
+  if(lg&&!lg.synth){
+    var durDays=Math.max(1,Math.round((lg.clearTs-lg.startTs)/86400000));
+    rep='<div class="statrow"><span style="color:var(--mut)">CLEARED ON</span><b style="font-weight:400">'+fmtDayKey(dateKey(lg.clearTs))+'</b></div>'+
+      '<div class="statrow"><span style="color:var(--mut)">TIME ON THE ROAD</span><b style="font-weight:400">'+durDays+' day'+(durDays===1?'':'s')+'</b></div>'+
+      '<div class="statrow"><span style="color:var(--mut)">WILDS TIRED OUT</span><b style="font-weight:400">'+(lg.kills||0)+'</b></div>'+
+      (lg.round>1?'<div class="statrow"><span style="color:var(--mut)">ROUND</span><b style="font-weight:400">R'+lg.round+'</b></div>':'');
+  }else{
+    rep='<div class="plv">You blazed through '+loc.n+' on the way to '+(bn?bn.n:'the gym')+'. Every quest was completed and every reward collected.</div>';
+  }
+  var rewardSum=0;qs.forEach(function(q){rewardSum+=q.reward;});
+  rep+='<div class="statrow"><span style="color:var(--mut)">QUEST REWARDS BANKED</span><b style="font-weight:400">₽'+rewardSum.toLocaleString()+'</b></div>';
+  h+='<div class="panel" style="border-color:'+ac+'"><h3>ROUTE REPORT<span class="bestchip" style="border-color:'+ac+'">'+(3+roadMbCount(t))+' / '+(3+roadMbCount(t))+' ✓</span></h3>'+rep+'</div>';
+  /* the finished track — every stop lit green */
+  var nodes='';
+  qs.forEach(function(q){nodes+='<span style="display:inline-flex;width:30px;height:30px;border-radius:50%;border:3px solid #2E8B48;background:var(--boxw);align-items:center;justify-content:center;overflow:hidden;margin-right:6px"><img src="sprites/npc/'+q.npc+'.png" alt="" style="width:16px;image-rendering:pixelated"></span>';});
+  for(var nj=0;nj<roadMbCount(t);nj++){nodes+='<span style="display:inline-flex;width:30px;height:30px;border-radius:50%;border:3px solid #2E8B48;background:var(--boxw);align-items:center;justify-content:center;overflow:hidden;margin-right:6px"><img src="sprites/trainers/'+mbFor(t,nj).cls+'.png" alt="" style="width:22px;image-rendering:pixelated"></span>';}
+  nodes+='<span style="display:inline-flex;width:30px;height:30px;border-radius:50%;border:3px solid #E8A010;background:var(--boxw);align-items:center;justify-content:center;overflow:hidden"><img src="sprites/trainers/'+(bn?bn.tr:'red')+'.png" alt="" style="width:22px;image-rendering:pixelated"></span>';
+  h+='<div class="panel" style="border-color:'+ac+'"><h3>THE TRACK<span class="bestchip" style="border-color:'+ac+'">DONE</span></h3>'+
+    '<div class="gbar" style="margin:8px 0 10px"><div style="width:100%;background:'+ac+'"></div></div>'+
+    '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 0">'+nodes+'</div></div>';
   var qrows='';
   qs.forEach(function(q){
     qrows+='<div class="prow" style="padding:8px 10px;opacity:.82">'+
       '<img src="sprites/npc/'+q.npc+'.png" alt="" style="width:26px;image-rendering:pixelated;flex:none;filter:grayscale(1)">'+
       '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+q.clsN+' '+q.name+' <span style="color:#2E8B48">✓ DONE</span></div>'+
-      '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">“'+q.ask+'”</div></div></div>';
+      '<div class="plv" style="margin:2px 0 4px;white-space:normal;line-height:1.25">“'+q.ask+'”</div>'+
+      '<div class="plv" style="color:#2E8B48">Reward collected: ₽'+q.reward.toLocaleString()+'</div></div></div>';
   });
   h+='<div class="panel"><h3>SIDE QUESTS</h3>'+qrows+'</div>';
   var mrows='';
@@ -3494,10 +3699,19 @@ function historicalRoadHTML(t){
     mrows+='<div class="prow" style="padding:8px 10px;opacity:.82">'+
       '<img src="sprites/trainers/'+mb.cls+'.png" alt="" style="width:40px;height:40px;image-rendering:pixelated;flex:none;filter:grayscale(1)">'+
       '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+mb.clsN+' '+mb.name+' <span style="color:#2E8B48">✓ BEATEN</span></div>'+
-      '<div class="plv" style="margin-top:2px">'+DEX[mb.sp].n+' :L'+mb.lv+'</div></div>'+
+      '<div class="plv" style="margin-top:2px">'+DEX[mb.sp].n+' :L'+mb.lv+' · won ₽'+mb.purse.toLocaleString()+'</div></div>'+
       '<img src="'+sprPath(mb.sp,false)+'" alt="" style="width:38px;height:38px;image-rendering:pixelated;flex:none;filter:grayscale(1);opacity:.6"></div>';
   }
-  h+='<div class="panel"><h3>ROADBLOCKS</h3>'+mrows+'</div>'+dailyPanelHTML()+collectorsHTML();
+  h+='<div class="panel"><h3>ROADBLOCKS</h3>'+mrows+'</div>';
+  /* your live road carries on elsewhere — point the way without spoiling it here */
+  var bz=bossInfo();
+  if(bz&&roadActive()){
+    var frontier=townIdx();
+    h+='<div class="panel" style="border-color:#E8A010"><h3>MEANWHILE…</h3>'+
+      '<div class="plv" style="margin-bottom:6px">Your journey continues through <b>'+roadLoc(state.game.road.idx).n+'</b>. Quest progress keeps counting while you\'re here — see it from '+TOWNS[frontier].n+'.</div>'+
+      '<button class="btn acc" data-action="travel-go" data-t="'+frontier+'" style="width:100%">'+ferryIcon(18)+' FERRY TO '+TOWNS[frontier].n+'</button></div>';
+  }
+  h+=dailyPanelHTML()+collectorsHTML();
   return h;
 }
 function questsHTML(){
@@ -3623,6 +3837,11 @@ function bossDefeated(){
     state.session.blackout=false;
   }
   var stayTown=townIdx(); // where you're standing right now, BEFORE the badge advances
+  // etch the conquered road into the village's local history (the QUEST page shows it there)
+  if(g.road&&g.boss&&g.road.idx===g.boss.idx&&g.boss.idx<ROAD_LOC.length){
+    g.roadLog=g.roadLog||{};
+    g.roadLog[g.road.idx]={round:g.road.round||1,startTs:g.road.startTs,clearTs:Date.now(),kills:g.road.kills||0};
+  }
   var isChamp=bz.idx>=BOSSES.length-1;
   if(isChamp){
     // etch this team into the Hall of Fame
@@ -3877,7 +4096,6 @@ function partyStripHTML(){
   return h+'</div></div>';
 }
 function mapHTML(){
-  var encAlert=(state.game&&state.game.enc&&Object.keys(state.game.enc).length>0);
   var ti=curTown(),tw=TOWNS[ti],story=atStoryTown();
   function spot(key,label,extra){
     var b=tw.hs[key];
@@ -3892,12 +4110,94 @@ function mapHTML(){
     (story?spot('boss','BOSS')
           :'<span class="hotspot" style="left:'+tw.hs.boss[0]+'%;top:'+tw.hs.boss[1]+'%;width:'+tw.hs.boss[2]+'%;height:'+tw.hs.boss[3]+'%"><span class="maptag" style="color:#2E8B48">GYM ✓</span></span>')+
     (featOn('mart')?spot('mart','SHOP'):'')+
-    spot('train','TRAIN',encAlert?'<span class="mapalert">!</span>':'')+
+    spot('train','TRAIN')+
     (tw.hs.center?spot('center','HEAL'):'')+
     '</div>'+
-    partyStripHTML();
+    partyStripHTML()+
+    areaDexHTML();
   if(state.session)h+=heroHTML();
   return h;
+}
+/* ===== the AREA DEX: which POKEMON roam the zone you're standing in ===== */
+function areaDexHTML(){
+  if(!state.game)return '';
+  var t=curTown(),band=WILD_BANDS[t]||[2,6];
+  var list=(AREA_SPAWNS[Math.min(t,AREA_SPAWNS.length-1)]||[]).slice()
+    .sort(function(a,b){return b[1]-a[1]||DEX[a[0]].id-DEX[b[0]].id;});
+  var areaN=(t<ROAD_LOC.length?ROAD_LOC[t].n:TOWNS[t].n);
+  var champOK=isChampion(),cells='',got=0,tot=0;
+  list.forEach(function(e){
+    var sp=e[0],locked=(sp==='mewtwo'&&!champOK);
+    var d=state.game.dex[sp],caught=!!(d&&d.c),seen=!!(state.game.seen[sp]||caught);
+    tot++;if(caught)got++;
+    var rl=rarityLab(e[1]);
+    if(locked){
+      cells+='<div class="dexcell unk"><img src="'+sprPath(sp,false)+'" alt="">'+
+        '<div class="dexname">?????</div>'+
+        '<div style="font-family:\'Press Start 2P\';font-size:7px;color:#E8A010;margin-top:2px">CHAMPION</div></div>';
+      return;
+    }
+    cells+='<button class="dexcell'+(seen?'':' unk')+'" data-action="area-mon" data-sp="'+sp+'" style="cursor:pointer'+(seen&&!caught?';opacity:.85':'')+'">'+
+      '<img src="'+sprPath(sp,!!(d&&d.s))+'" alt=""'+(seen&&!caught?' style="filter:grayscale(1)"':'')+'>'+
+      (caught?'<img src="'+itemIcon('pokeball')+'" alt="caught" style="position:absolute;top:3px;right:4px;width:12px;height:12px;image-rendering:pixelated">':'')+
+      '<div class="dexname">'+(seen?DEX[sp].n:'?????')+'</div>'+
+      '<div style="font-family:\'Press Start 2P\';font-size:7px;color:'+rl[1]+';margin-top:2px">'+rl[0]+'</div></button>';
+  });
+  return '<div class="panel"><h3>AREA POKEMON<span class="bestchip">'+got+' / '+tot+'</span></h3>'+
+    '<div class="plv" style="margin-bottom:2px">'+areaN+' · wild levels '+band[0]+'–'+band[1]+'. Only these species roam here — TRAIN to meet them, weaken one, then THROW BALL to catch it!</div>'+
+    '<div class="dexgrid" style="margin:8px 0 0">'+cells+'</div></div>';
+}
+function showAreaMonModal(sp){
+  if(!state.game||!DEX[sp])return;
+  var t=curTown(),list=AREA_SPAWNS[Math.min(t,AREA_SPAWNS.length-1)]||[];
+  var w=0;list.forEach(function(e){if(e[0]===sp)w=e[1];});
+  var d=state.game.dex[sp],caught=!!(d&&d.c),seen=!!(state.game.seen[sp]||caught);
+  var rl=rarityLab(w),band=WILD_BANDS[t]||[2,6];
+  var chips='';
+  (DEX[sp].t||[]).forEach(function(ty){chips+='<span class="tchip" style="background:'+(TYPE_COLORS[ty]||'#888')+'">'+ty.toUpperCase()+'</span> ';});
+  cry(sp);
+  showModal('<div style="text-align:center;padding:4px 0"><img class="bigspr'+(caught&&d.s?' shinyglow':'')+'" src="'+sprPath(sp,!!(d&&d.s))+'" alt=""'+(seen?'':' style="filter:brightness(0);opacity:.5"')+'></div>'+
+    '<h3 style="text-align:center">'+(seen?DEX[sp].n:'?????')+'</h3>'+
+    '<p style="text-align:center;margin:4px 0">'+(seen?chips:'Not spotted yet')+'</p>'+
+    '<div class="statrow"><span style="color:var(--mut)">RARITY</span><b style="font-weight:400;color:'+rl[1]+'">'+rl[0]+'</b></div>'+
+    '<div class="statrow"><span style="color:var(--mut)">WILD LEVEL</span><b style="font-weight:400">'+band[0]+'–'+band[1]+'</b></div>'+
+    '<div class="statrow"><span style="color:var(--mut)">STATUS</span><b style="font-weight:400">'+(caught?'CAUGHT ✓':(seen?'SEEN':'UNKNOWN'))+'</b></div>'+
+    '<div class="mbtns"><button class="btn acc" data-action="close-modal">CLOSE</button></div>');
+  modalOk=null;
+}
+/* ===== the ferry ride: a GBA-style map transition between villages ===== */
+var travelBusy=false;
+function playTravelFx(from,to,firstTime,done){
+  if(travelBusy||from===to){done();return;}
+  travelBusy=true;
+  var old=document.getElementById('travelfx');
+  if(old&&old.parentNode)old.parentNode.removeChild(old);
+  var x0=TOWN_MAP_XY[from],x1=TOWN_MAP_XY[to];
+  var ov=document.createElement('div');ov.id='travelfx';
+  ov.innerHTML='<div class="tfxcard">'+
+      '<div class="tfxtitle">'+TOWNS[from].n+' ▶ '+TOWNS[to].n+'</div>'+
+      '<div class="tfxmap"><img src="map/kanto.png" alt="Kanto">'+
+        '<svg class="tfxsvg" viewBox="0 0 100 100" preserveAspectRatio="none">'+
+        '<line x1="'+x0[0]+'" y1="'+x0[1]+'" x2="'+x1[0]+'" y2="'+x1[1]+'" stroke="#D03028" stroke-width="1.4" stroke-dasharray="2.6 2.2" vector-effect="non-scaling-stroke"/></svg>'+
+        '<span class="tfxdot" style="left:'+x0[0]+'%;top:'+x0[1]+'%">'+ferryIcon(20)+'</span>'+
+      '</div>'+
+      '<div class="tfxsign">'+(firstTime?'WELCOME TO<br>':'')+TOWNS[to].n+'</div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  sfx('ferry');
+  var dot=ov.querySelector('.tfxdot');
+  requestAnimationFrame(function(){requestAnimationFrame(function(){ov.classList.add('on');});});
+  setTimeout(function(){ // the ferry chugs across in visible GBA steps
+    dot.style.transition='left 1.35s steps(11),top 1.35s steps(11)';
+    dot.style.left=x1[0]+'%';dot.style.top=x1[1]+'%';
+  },480);
+  setTimeout(function(){ov.classList.add('arrive');sfx(firstTime?'badge':'save');},2050);
+  setTimeout(function(){ov.classList.add('out');},2820);
+  setTimeout(function(){
+    if(ov.parentNode)ov.parentNode.removeChild(ov);
+    travelBusy=false;
+    done();
+  },3220);
 }
 function travelHTML(){
   var h='<div class="titlebar"><h1>TOWN MAP</h1></div>';
@@ -4085,6 +4385,12 @@ function sfx(name){
     else if(name==='levelup')[523,659,784,1047].forEach(function(f,i){tone(t+i*0.09,f,0.1,'square',0.055);});
     else if(name==='badge'){[392,523,659,784,1047].forEach(function(f,i){tone(t+i*0.11,f,0.13,'square',0.06);});tone(t+0.56,1319,0.28,'square',0.05);}
     else if(name==='catch'){tone(t,980,0.06,'square',0.06);tone(t+0.07,740,0.06,'square',0.06);tone(t+0.22,523,0.09,'square',0.05);tone(t+0.32,659,0.09,'square',0.05);tone(t+0.42,784,0.16,'square',0.06);}
+    else if(name==='throw')tone(t,420,0.16,'square',0.06,940);
+    else if(name==='ballopen'){tone(t,1180,0.06,'square',0.05);tone(t+0.05,640,0.1,'square',0.05,320);}
+    else if(name==='ballshake')tone(t,185,0.05,'square',0.08);
+    else if(name==='ballclick'){tone(t,520,0.07,'square',0.06);tone(t+0.08,392,0.16,'square',0.05);}
+    else if(name==='ballburst'){tone(t,300,0.08,'square',0.08,180);tone(t+0.06,210,0.13,'square',0.07,110);}
+    else if(name==='ferry'){tone(t,196,0.3,'square',0.06);tone(t+0.26,262,0.44,'square',0.06);}
     else if(name==='shiny')[1568,1865,2093,2637].forEach(function(f,i){tone(t+i*0.07,f,0.09,'triangle',0.05);});
     else if(name==='evolve'){tone(t,300,0.55,'square',0.05,1200);[784,1047,1319].forEach(function(f,i){tone(t+0.6+i*0.1,f,0.12,'square',0.06);});}
     else if(name==='battlestart'){tone(t,392,0.08,'square',0.07);tone(t+0.09,330,0.08,'square',0.07);tone(t+0.18,392,0.08,'square',0.07);tone(t+0.27,494,0.18,'square',0.08);}
@@ -4195,7 +4501,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.16 “Pocket Gym” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.17 “Gotcha!” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -4393,14 +4699,22 @@ function saveLogEntry(){
         var dmgT=Math.round(vol*(1+Math.max(stT.atk,stT.spa)/250)*(wCrit?1.5:1)*heldBoostFor(am,moveTypeOf(wMv)));
         var wPre={sp:wd.sp,lv:wd.lv,hp:Math.max(0,wd.hp),max:wd.max,shiny:wd.shiny,tr:wd.tr};
         var wFrom=Math.round(wPre.hp/wd.max*100);
+        wd.parts=wd.parts||{};wd.parts[am.uid]=1; // everyone who lands a hit shares the EXP
         wd.hp-=dmgT;
         var wTo=Math.round(Math.max(0,wd.hp)/wd.max*100);
         var wAtk=DEX[am.sp].n+' used '+wMv+'!'+(wCrit?' A critical hit!':'');
         var wSteps=[{msg:wAtk,sfx:wCrit?'superhit':'hit',movesfx:wMv,lunge:'player',blink:'enemy',ehp:[wFrom,wTo],dmg:['enemy',dmgT],fx:moveTypeOf(wMv)}];
         if(wd.hp<=0){
-          var wbonus=Math.round(wd.max/(wd.tr?8:10));
+          // classic EXP: base yield × level / 7, ×1.5 for trainer mons, ×2 Lucky Egg,
+          // split among every party member that took part in the fight
+          var wParts=Object.keys(wd.parts||{}).filter(function(u){return !!findMon(u);});
+          if(!wParts.length)wParts=[am.uid];
+          var wGain=Math.round(expYieldOf(DEX[wd.sp].id)*wd.lv/7*(wd.tr?1.5:1)*(state.session.lucky?2:1));
+          var wShare=Math.max(1,Math.round(wGain/wParts.length));
+          wParts.forEach(function(u){var pm=findMon(u);if(pm)applyXP(pm,wShare);});
+          var wbonus=wShare*wParts.length;
           state.session.xpg=(state.session.xpg||0)+wbonus;
-          applyXP(am,wbonus);
+          var splitLab=wParts.length>1?' split '+wParts.length+' ways':'';
           var oldN=DEX[wd.sp].n;
           state.session.wild=spawnWild();
           var newN=DEX[state.session.wild.sp].n;
@@ -4411,7 +4725,7 @@ function saveLogEntry(){
             var mbWin=(wd.tr.mb!==undefined&&state.game.road)?(isRival?' RIVAL DEFEATED!':' ROADBLOCK CLEARED!'):'';
             if(wd.tr.mb!==undefined&&state.game.road)state.game.road.mb[wd.tr.mb]=1;
             state.session.bmsg=wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'! Back to normal training — a wild '+newN+' appeared!';
-            wSteps.push({msg:'Foe '+oldN+' is unable to battle! +'+wbonus+' XP!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
+            wSteps.push({msg:'Foe '+oldN+' is unable to battle! +'+wbonus+' EXP'+splitLab+'!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
             wSteps.push({msg:wd.tr.clsN+' '+wd.tr.name+' was defeated!'+mbWin+' Won ₽'+wd.tr.purse+'!',sfx:'badge',hold:1500});
             wSteps.push({msg:'Back to normal training! A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
             trainerVictoryModal(wd.tr,wPre.sp,wbonus,isRival,newN);
@@ -4419,8 +4733,8 @@ function saveLogEntry(){
             // every tired-out wild counts toward the road + daily quests
             if(state.game.road)state.game.road.kills=(state.game.road.kills||0)+1;
             dailyBumpKill();
-            state.session.bmsg='Wild '+oldN+' fainted! +'+wbonus+' XP! A wild '+newN+' appeared!';
-            wSteps.push({msg:'Wild '+oldN+' fainted! +'+wbonus+' XP!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
+            state.session.bmsg='Wild '+oldN+' fainted! +'+wbonus+' EXP! A wild '+newN+' appeared!';
+            wSteps.push({msg:'Wild '+oldN+' fainted! +'+wbonus+' EXP'+splitLab+'!',sfx:'faint',cry:wPre.sp,faint:'enemy',hold:1100});
             wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
           }
         }else{
@@ -4730,6 +5044,24 @@ function applyImport(txt){
         if(isFinite(rv)&&rv>0)gm.rest[m.uid]=rv;
       });
     }
+    gm.roadLog={};
+    if(d.game.roadLog&&typeof d.game.roadLog==='object'){
+      Object.keys(d.game.roadLog).forEach(function(rk){
+        var ri=parseInt(rk,10),rv=d.game.roadLog[rk];
+        if(!(ri>=0&&ri<ROAD_LOC.length)||!rv)return;
+        gm.roadLog[ri]=rv.synth?{synth:1,round:Math.max(1,parseInt(rv.round,10)||1)}
+          :{round:Math.max(1,parseInt(rv.round,10)||1),startTs:+rv.startTs||Date.now(),
+            clearTs:+rv.clearTs||Date.now(),kills:Math.max(0,parseInt(rv.kills,10)||0)};
+      });
+    }
+    gm.visit=(isFinite(d.game.visit)&&+d.game.visit>=0&&+d.game.visit<TOWNS.length)?+d.game.visit:null;
+    gm.beenTo={};
+    if(d.game.beenTo&&typeof d.game.beenTo==='object'){
+      Object.keys(d.game.beenTo).forEach(function(bk2){
+        var bi2=parseInt(bk2,10);
+        if(bi2>=0&&bi2<TOWNS.length&&d.game.beenTo[bk2])gm.beenTo[bi2]=1;
+      });
+    }
     gm.road=null;
     if(d.game.road&&isFinite(d.game.road.idx)){
       gm.road={idx:Math.max(0,parseInt(d.game.road.idx,10)||0),
@@ -4909,20 +5241,23 @@ document.addEventListener('click',function(e){
   else if(a==='gym-talk'){showStadiumModal();}
   else if(a==='go-quests'){closeModal();tab='quests';render();}
   else if(a==='travel-go'){
-    if(!state.game)return;
+    if(!state.game||travelBusy)return;
     if(state.session){toast('Finish your workout before you travel!');return;}
     var dest=parseInt(b.dataset.t,10);
     if(!(dest>=0&&dest<=townIdx())){toast('You haven’t reached there yet!');return;}
     if(dest===curTown()){tab='map';render();return;}
-    var fare=travelFare(dest),firstTime=!beenTo()[dest];
+    var fare=travelFare(dest),firstTime=!beenTo()[dest],origin=curTown();
     if(fare>0&&money()<fare){toast('Not enough ₽ for the ticket ('+fare+')');return;}
     if(fare>0)state.game.money-=fare;
     state.game.visit=dest;
     state.game.beenTo[dest]=1;
-    if(firstTime)questReveal=true; // fresh village → the QUEST page reveals with a flourish
-    save();sfx(firstTime?'badge':'save');
-    tab='map';render();
-    toast((firstTime?'Welcome to ':'Arrived at ')+TOWNS[dest].n+(fare>0?' · −₽'+fare:' · FREE')+'!');
+    save();
+    closeModal();
+    playTravelFx(origin,dest,firstTime,function(){
+      if(firstTime)questReveal=true; // fresh village → the QUEST page reveals with a flourish
+      tab='map';render();
+      toast((firstTime?'Welcome to ':'Arrived at ')+TOWNS[dest].n+(fare>0?' · −₽'+fare:' · FREE')+'!');
+    });
   }
   else if(a==='pick-move'){showMoveModal();}
   else if(a==='set-move'){
@@ -4961,16 +5296,9 @@ document.addEventListener('click',function(e){
       toast('Bought '+bit.n+'!');
     }
   }
-  else if(a==='throw-ball'){
-    var tgk=b.dataset.gk,tbk=b.dataset.ball,tenc=state.game&&state.game.enc[tgk];
-    if(tenc&&ITEMS[tbk]&&(bagOf()[tbk]||0)>0){
-      bagOf()[tbk]--;
-      tenc.bonus=(tenc.bonus||0)+Math.round(tenc.target*ITEMS[tbk].ball);
-      sfx('hit');save();
-      checkGameEvents();
-      render(true);
-    }
-  }
+  else if(a==='throw-pick'){showThrowModal();}
+  else if(a==='throw-ball'){runThrow(b.dataset.ball);}
+  else if(a==='area-mon'){showAreaMonModal(b.dataset.sp);}
   else if(a==='mb-fight'){
     if(!state.game||!roadActive())return;
     var mj=parseInt(b.dataset.j,10);
@@ -5180,7 +5508,7 @@ document.addEventListener('click',function(e){
     var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
     state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},round:1,
       boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'},
-      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null,daily:null,npcq:null,visit:0,beenTo:{0:1}};
+      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null,roadLog:{},daily:null,npcq:null,visit:0,beenTo:{0:1}};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;
