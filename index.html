@@ -37,6 +37,11 @@
 html.theme-night{--bg:#141A22;--ink:#E8F0F8;--inkmut:#8898B0;
   --cream:#222B38;--cream2:#1B2330;--boxw:#2A3442;--text:#E4ECF4;--mut:#9AA8BC}
 html.theme-day{--bg:#E4E8EE;--ink:#283038;--inkmut:#5A6878}
+/* EMERALD (Hoenn) skin — DAY theme only, night stays untouched by design.
+   Official Emerald window look: soft green page, deep green-teal frames, gold accent */
+html.theme-day.hoenn{--bg:#DCEAE0;--cream2:#E2F0E4;--bord:#20885C;--accent:#188048;--gold:#E8C048}
+html.theme-day.hoenn #tabbar button.on{background:#DFF2E6;border-color:#20885C}
+html.theme-day.hoenn .btn.acc{background:#E4F4EA}
 /* night: the WHOLE UI goes dark — boxes, buttons, battle databoxes, the lot */
 html.theme-night .card.done{background:#26303E;border-color:#46525F}
 html.theme-night #tabbar button.on{background:#4A2A1E}
@@ -889,9 +894,10 @@ function endWorkout(){
 }
 function applyTheme(){
   var th=state.theme==='day'?'theme-day':'theme-night';
-  document.documentElement.className=th;
+  // the EMERALD skin rides on a class so night CSS can simply ignore it
+  document.documentElement.className=th+(state.region==='hoenn'?' hoenn':'');
   var meta=document.querySelector('meta[name="theme-color"]');
-  if(meta)meta.setAttribute('content',state.theme==='day'?'#E4E8EE':'#182028');
+  if(meta)meta.setAttribute('content',state.theme==='day'?(state.region==='hoenn'?'#DCEAE0':'#E4E8EE'):'#182028');
 }
 function migrateState(){
   var changed=false, note=null;
@@ -1014,6 +1020,13 @@ function migrateState(){
     }
   }
   if(!(state.version>=12)){state.version=12;changed=true;}
+  // v13: two regions — the active game lives in state.game, the parked one in state.altGame
+  if(state.region!=='kanto'&&state.region!=='hoenn'){state.region='kanto';changed=true;}
+  if(!('altGame' in state)){state.altGame=null;changed=true;}
+  if(state.game&&!state.game.region){state.game.region=state.region;changed=true;}
+  if(state.altGame&&!state.altGame.region){state.altGame.region=(state.region==='kanto'?'hoenn':'kanto');changed=true;}
+  // a mismatched pair (same region twice after a bad import) parks the duplicate as lost — never happened organically
+  if(!(state.version>=13)){state.version=13;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -1196,7 +1209,7 @@ function cardRank(stars){
 }
 function cardHTML(){
   var h='<div class="titlebar"><h1>TRAINER CARD</h1></div>'+
-    '<div class="subtitle">Earned in the gym, stamped in Kanto</div>';
+    '<div class="subtitle">Earned in the gym, stamped in '+(inHoenn()?'Hoenn':'Kanto')+'</div>';
   var cs=cardStats(),stars=0;
   cs.forEach(function(c){stars+=rankTierOf(c);});
   var rk=cardRank(stars);
@@ -1214,10 +1227,18 @@ function cardHTML(){
     '<div class="statrow"><span style="color:var(--mut)">POKEDEX</span><b style="font-weight:400">'+dexCaughtCount()+' / '+DEX_ORDER.length+'</b></div>'+
     '<div class="statrow"><span style="color:var(--mut)">TIME IN THE GYM</span><b style="font-weight:400">'+days+' day'+(days===1?'':'s')+'</b></div>'+
     '</div></div>';
-  /* the badge case: official gym badge art */
-  var bTypes=['Rock','Water','Electric','Grass','Poison','Psychic','Fire','Ground'];
+  /* the badge case: official gym badge art — Hoenn shows the eight Emerald badges */
   var brow='';
-  bTypes.forEach(function(t,i){brow+='<span style="flex:1;text-align:center">'+badgeImg(t,i<badgeCount(),30)+'</span>';});
+  if(inHoenn()){
+    var hb=['stone','knuckle','dynamo','heat','balance','feather','mind','rain'];
+    hb.forEach(function(bn,i){
+      brow+='<span style="flex:1;text-align:center"><img src="sprites/badges/h-'+bn+'.png" alt="'+bn+' badge" style="width:30px;height:30px;object-fit:contain'+
+        (i<badgeCount()?'':';filter:grayscale(1) contrast(.55);opacity:.38')+'"></span>';
+    });
+  }else{
+    var bTypes=['Rock','Water','Electric','Grass','Poison','Psychic','Fire','Ground'];
+    bTypes.forEach(function(t,i){brow+='<span style="flex:1;text-align:center">'+badgeImg(t,i<badgeCount(),30)+'</span>';});
+  }
   h+='<div style="display:flex;align-items:center;gap:2px;border-top:2px solid rgba(0,0,0,.08);padding-top:8px">'+brow+'</div></div>';
   /* the six fitness ranks */
   var rows='';
@@ -1526,16 +1547,31 @@ function questsFor(i){
 /* your RIVAL ambushes on these roads with the counter-starter, evolving as you go */
 var RIVAL_ROADS={0:0,3:1,5:1,8:2};
 function rivalLine(){
-  return (state.game&&state.game.starter==='squirtle')
+  var st=state.game&&state.game.starter;
+  if(state.region==='hoenn'){
+    if(st==='torchic')return ['mudkip','marshtomp','swampert'];
+    if(st==='mudkip')return ['treecko','grovyle','sceptile'];
+    return ['torchic','combusken','blaziken'];
+  }
+  return (st==='squirtle')
     ?['charmander','charmeleon','charizard']
     :['squirtle','wartortle','blastoise'];
+}
+/* the rival is the other Littleroot kid in Hoenn, BLUE in Kanto */
+function rivalDef(){
+  if(state.region==='hoenn'){
+    var mePl=(state.game&&state.game.player&&state.game.player.spr)||'brendan';
+    return mePl==='may'?{cls:'brendan',name:'BRENDAN'}:{cls:'may',name:'MAY'};
+  }
+  return {cls:'blue',name:'BLUE'};
 }
 function mbFor(i,j){
   var b=BOSSES[i];
   if(j===2&&RIVAL_ROADS[i]!==undefined){
     var rsp=rivalLine()[RIVAL_ROADS[i]];
     var rlv=Math.max(5,b.lv-1);
-    return {cls:'blue',clsN:'RIVAL',name:'BLUE',sp:rsp,lv:rlv,
+    var rd=rivalDef();
+    return {cls:rd.cls,clsN:'RIVAL',name:rd.name,sp:rsp,lv:rlv,
       hp:Math.round((600+rlv*60)*1.9),purse:rlv*60,arena:roadLoc(i).arena,rival:true};
   }
   var c=TRAINER_CLASSES[(i*2+j)%TRAINER_CLASSES.length];
@@ -1665,7 +1701,7 @@ function ensureNpcq(){
 }
 function npcqOpen(q){
   var g=state.game;
-  return !!(g&&g.npcq&&(g.npcq.claimed[q.k]||g.npcq.st[q.k]||badgeCount()>=q.req));
+  return !!(g&&g.npcq&&((g.npcq.claimed&&g.npcq.claimed[q.k])||(g.npcq.st&&g.npcq.st[q.k])||badgeCount()>=q.req));
 }
 function distinctExercisesSince(ts){
   var d={};allLogsFlat().forEach(function(o){if(o.l.ts>=ts)d[o.ex.id]=1;});
@@ -1759,8 +1795,8 @@ function rarityLab(w){return w>=10?['COMMON','#2E8B48']:(w>=6?['UNCOMMON','#4890
 var CR_TBL=[45,45,45,45,45,45,45,45,45,255,120,45,255,120,45,255,120,45,255,127,255,90,255,90,190,75,255,90,235,120,45,235,120,45,150,25,190,75,170,50,255,90,255,120,45,190,75,190,75,255,50,255,90,190,75,190,75,190,75,255,120,45,200,100,50,180,90,45,255,120,45,190,60,255,120,45,190,60,190,75,190,60,45,190,45,190,75,190,75,190,60,190,90,45,45,190,75,225,60,190,60,90,45,190,75,45,45,45,190,60,120,60,30,45,45,225,75,225,60,225,60,45,45,45,45,45,45,45,255,45,45,35,45,45,45,45,45,45,45,45,45,45,25,3,3,3,45,45,45,3,45];
 /* base EXP yields (Gen 1) — feed the classic XP formula base×level/7 */
 var XP_TBL=[64,141,208,65,142,209,66,143,210,53,72,160,52,71,159,55,113,172,57,116,58,162,62,147,82,122,93,163,59,117,194,60,118,195,68,129,63,178,76,109,54,171,78,132,184,70,128,75,138,81,153,69,148,80,174,74,149,91,213,77,131,185,73,145,186,88,146,193,84,151,191,105,205,86,134,177,152,192,99,164,89,161,94,96,158,100,176,90,157,97,203,95,126,190,108,102,165,115,206,103,150,98,212,87,124,139,140,127,114,173,135,204,395,166,175,83,155,111,170,106,207,136,187,137,156,167,200,211,20,214,219,61,92,196,197,198,130,120,199,119,201,202,154,215,216,217,67,144,218,220,64];
-function catchRateOf(sp){return CR_TBL[((DEX[sp]&&DEX[sp].id)||1)-1]||45;}
-function expYieldOf(id){return XP_TBL[(id||1)-1]||64;}
+function catchRateOf(sp){var id=(DEX[sp]&&DEX[sp].id)||1;return id>151?(CR_EXT[id]||45):(CR_TBL[id-1]||45);}
+function expYieldOf(id){id=id||1;return (id>151?XP_EXT[id]:XP_TBL[id-1])||64;}
 /* Gen 3/4 capture check: rate × ball, easier at low HP; returns shakes for the show */
 function catchCheck(w,ballMult){
   var M=Math.max(1,w.max),H=Math.max(1,w.hp);
@@ -2174,12 +2210,12 @@ function queueLevelUp(mon,before,after){
   maybeEvolve(mon);
 }
 function maybeEvolve(mon){
-  var d=DEX[mon.sp];if(!d.evo)return;
-  if(monLevel(mon.xp)<d.evo.lv)return;
-  if(d.evo.choice){
+  var ev=evoOf(mon.sp);if(!ev)return;
+  if(monLevel(mon.xp)<ev.lv)return;
+  if(ev.choice){
     queueModal(function(){
-      var h='<h3>EEVEE is ready to evolve!</h3><p>Choose its evolution:</p>';
-      d.evo.choice.forEach(function(c){
+      var h='<h3>'+esc(DEX[mon.sp].n)+' is ready to evolve!</h3><p>Choose its evolution:</p>';
+      ev.choice.forEach(function(c){
         h+='<button class="prow" data-action="evo-choice" data-m="'+mon.uid+'" data-to="'+c+'">'+
           '<img class="pspr" src="'+sprPath(c,mon.shiny)+'" alt=""><span class="pname">'+DEX[c].n+'</span></button>';
       });
@@ -2189,7 +2225,7 @@ function maybeEvolve(mon){
     });
     return;
   }
-  var to=d.evo.to;
+  var to=ev.to;
   queueModal(function(){
     showModal('<h3>What?</h3><p>'+esc(DEX[mon.sp].n)+' is evolving!</p>'+
       '<div style="text-align:center;padding:8px 0"><img class="bigspr evoflash" src="'+sprPath(mon.sp,mon.shiny)+'" alt=""></div>'+
@@ -2280,34 +2316,50 @@ function grantMon(flag,sp,title,msg){
 function checkGameEvents(){
   var g=state.game;if(!g)return;
   var changed=false;
-  /* v5.17: the passive catch bars are gone — wilds are caught IN BATTLE with balls */
+  var ho=inHoenn();
+  // the KANTO champion unlocks the EMERALD campaign — announced once
+  if(!ho&&!g.flags.sstidal&&(g.flags.champion||(g.hof&&g.hof.length))){
+    g.flags.sstidal=1;changed=true;
+    queueModal(function(){
+      sfx('badge');
+      showModal('<h3 style="text-align:center">S.S. TIDAL</h3>'+
+        '<div style="text-align:center;padding:4px 0">'+ferryIcon(44)+'</div>'+
+        '<p style="text-align:center">A ferry ticket arrives from a distant region… <b>HOENN</b> awaits, Champion! A brand-new campaign — new POKEMON, new gyms, new league.</p>'+
+        '<p style="text-align:center">Sail any time from <b>OPTION → Region</b>.</p>'+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">AMAZING</button></div>');
+      modalOk=function(){closeModal();render(true);};
+    });
+  }
+  /* v5.17: the passive catch bars are gone — wilds are caught IN BATTLE with balls.
+     Milestone friends wear local colors: Hoenn hands out Hoenn POKEMON. */
   var days=daysSinceGameStart();
-  if(days>=10&&grantMon('eevee','eevee','A friend appears!','EEVEE was impressed by your 10 training days and joined your team!'))changed=true;
-  if(days>=15&&grantMon('rival',g.starter==='charmander'?'squirtle':'charmander','Your rival gave up!','15 training days! Your rival quit the gym and left their partner with you.'))changed=true;
-  if(days>=50&&grantMon('snorlax','snorlax','Something heavy arrived…','50 training days! SNORLAX respects your consistency and joined you.'))changed=true;
+  if(days>=10&&grantMon('eevee',ho?'skitty':'eevee','A friend appears!',(ho?'SKITTY':'EEVEE')+' was impressed by your 10 training days and joined your team!'))changed=true;
+  if(days>=15&&grantMon('rival',rivalLine()[0],'Your rival gave up!','15 training days! Your rival quit the gym and left their partner with you.'))changed=true;
+  if(days>=50&&grantMon('snorlax',ho?'slaking':'snorlax','Something heavy arrived…','50 training days! '+(ho?'Even SLAKING rolled over to join you.':'SNORLAX respects your consistency and joined you.')))changed=true;
   if(!g.flags.gastly){
     var night=allLogsFlat().some(function(o){
       if(o.l.ts<g.startTs)return false;
       var hh=new Date(o.l.ts).getHours();return hh>=21||hh<5;
     });
-    if(night&&grantMon('gastly','gastly','Something stirs in the dark…','You trained at night. GASTLY slipped out of the shadows and joined you!'))changed=true;
+    if(night&&grantMon('gastly',ho?'duskull':'gastly','Something stirs in the dark…','You trained at night. '+(ho?'DUSKULL drifted out of the gloom':'GASTLY slipped out of the shadows')+' and joined you!'))changed=true;
   }
-  // PR-gated fighters: lifetime heaviest single lift
+  // PR-gated bruisers: lifetime heaviest single lift
   var maxW=0;
   allLogsFlat().forEach(function(o){if(o.l.w>maxW)maxW=o.l.w;});
-  if(maxW>=70&&grantMon('pr70','hitmonchan','A challenger!','Your 70 '+state.unit+' lift impressed HITMONCHAN — it joined to spar with you!'))changed=true;
-  if(maxW>=100&&grantMon('pr100','primeape','Something angry appears!','100 '+state.unit+' on the bar?! PRIMEAPE is furious it cannot lift that. It joined to learn.'))changed=true;
-  if(maxW>=130&&grantMon('pr130','hitmonlee','A challenger!','130 '+state.unit+'! HITMONLEE bows to your strength and joins your team!'))changed=true;
-  if(maxW>=160&&grantMon('pr160','rhydon','The ground shakes…','160 '+state.unit+'?! RHYDON felt the tremor and had to meet you!'))changed=true;
+  if(maxW>=70&&grantMon('pr70',ho?'rhyhorn':'hitmonchan','A challenger!','Your 70 '+state.unit+' lift impressed '+(ho?'RHYHORN':'HITMONCHAN')+' — it joined to train with you!'))changed=true;
+  if(maxW>=100&&grantMon('pr100',ho?'pinsir':'primeape','Something angry appears!','100 '+state.unit+' on the bar?! '+(ho?'PINSIR snapped its pincers in respect and joined you.':'PRIMEAPE is furious it cannot lift that. It joined to learn.')))changed=true;
+  if(maxW>=130&&grantMon('pr130',ho?'hariyama':'hitmonlee','A challenger!','130 '+state.unit+'! '+(ho?'HARIYAMA':'HITMONLEE')+' bows to your strength and joins your team!'))changed=true;
+  if(maxW>=160&&grantMon('pr160',ho?'aggron':'rhydon','The ground shakes…','160 '+state.unit+'?! '+(ho?'AGGRON':'RHYDON')+' felt the tremor and had to meet you!'))changed=true;
   // PROF. OAK's aide waits at 50 dex entries with the EXP SHARE, like Route 15
   if(!g.flags.expshare&&dexCaughtCount()>=50){
     g.flags.expshare=1;
     bagOf().expshare=(bagOf().expshare||0)+1;
     changed=true;
+    var pAide=profName(),pAideSpr=profSpr(); // pin the professor NOW — the modal may pop after a region switch
     queueModal(function(){
       sfx('badge');
-      showModal('<div style="text-align:center;padding-bottom:2px"><img src="sprites/trainers/oak.png" alt="" style="width:56px;height:56px;image-rendering:pixelated"></div>'+
-        '<h3 style="text-align:center">PROF. OAK’s AIDE</h3>'+
+      showModal('<div style="text-align:center;padding-bottom:2px"><img src="'+pAideSpr+'" alt="" style="width:56px;height:56px;image-rendering:pixelated"></div>'+
+        '<h3 style="text-align:center">'+pAide+'’s AIDE</h3>'+
         '<p style="text-align:center">“50 POKEMON caught — the professor is delighted! Take this EXP SHARE. Whoever holds it earns half of everything your lead earns.”</p>'+
         '<div style="text-align:center;padding:6px 0">'+itemImg('expshare',40)+'</div>'+
         '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
@@ -2462,10 +2514,11 @@ function checkGameEvents(){
       g.flags[eg[0]]=1;
       g.egg={left:30};
       changed=true;
+      var pEgg=profName(),pEggSpr=profSpr(); // pin the professor at queue time
       queueModal(function(){
         sfx('catch');
-        showModal('<div style="text-align:center;padding-bottom:4px"><img src="sprites/trainers/oak.png" alt="" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
-          '<h3>PROF. OAK</h3><p>Take this EGG from the daycare! It hatches as you log sets. I wonder what’s inside…</p>'+
+        showModal('<div style="text-align:center;padding-bottom:4px"><img src="'+pEggSpr+'" alt="" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
+          '<h3>'+pEgg+'</h3><p>Take this EGG from the daycare! It hatches as you log sets. I wonder what’s inside…</p>'+
           '<div style="text-align:center;padding:4px 0">'+eggSVG(52)+'</div>'+
           '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
         modalOk=function(){closeModal();render(true);};
@@ -2477,12 +2530,23 @@ function checkGameEvents(){
 
 /* ===== game: screens ===== */
 function showStarterModal(){
-  showModal('<div style="text-align:center;padding-bottom:4px"><img src="sprites/trainers/oak.png" alt="Prof. Oak" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
-    '<h3>PROF. OAK</h3><p>'+(pendingName?esc(pendingName)+'! ':'')+'Welcome to the world of POKEMON! Your gym adventure is about to unfold. Choose your partner:</p>'+
-    '<button class="prow" data-action="pick-starter" data-sp="charmander"><img class="pspr" src="sprites/4.png" alt="">'+
-    '<span><span class="pname">CHARMANDER</span><br><span class="plv">the Fire type</span></span></button>'+
-    '<button class="prow" data-action="pick-starter" data-sp="squirtle"><img class="pspr" src="sprites/7.png" alt="">'+
-    '<span><span class="pname">SQUIRTLE</span><br><span class="plv">the Water type</span></span></button>',true);
+  var rows;
+  if(inHoenn()){
+    rows='<button class="prow" data-action="pick-starter" data-sp="treecko"><img class="pspr" src="sprites/252.png" alt="">'+
+      '<span><span class="pname">TREECKO</span><br><span class="plv">the Grass type</span></span></button>'+
+      '<button class="prow" data-action="pick-starter" data-sp="torchic"><img class="pspr" src="sprites/255.png" alt="">'+
+      '<span><span class="pname">TORCHIC</span><br><span class="plv">the Fire type</span></span></button>'+
+      '<button class="prow" data-action="pick-starter" data-sp="mudkip"><img class="pspr" src="sprites/258.png" alt="">'+
+      '<span><span class="pname">MUDKIP</span><br><span class="plv">the Water type</span></span></button>';
+  }else{
+    rows='<button class="prow" data-action="pick-starter" data-sp="charmander"><img class="pspr" src="sprites/4.png" alt="">'+
+      '<span><span class="pname">CHARMANDER</span><br><span class="plv">the Fire type</span></span></button>'+
+      '<button class="prow" data-action="pick-starter" data-sp="squirtle"><img class="pspr" src="sprites/7.png" alt="">'+
+      '<span><span class="pname">SQUIRTLE</span><br><span class="plv">the Water type</span></span></button>';
+  }
+  showModal('<div style="text-align:center;padding-bottom:4px"><img src="'+profSpr()+'" alt="'+profName()+'" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
+    '<h3>'+profName()+'</h3><p>'+(pendingName?esc(pendingName)+'! ':'')+
+    (inHoenn()?'Welcome to HOENN! I was just attacked by a wild POOCHYENA — quick, grab a POKE BALL from my bag:':'Welcome to the world of POKEMON! Your gym adventure is about to unfold. Choose your partner:')+'</p>'+rows,true);
   modalOk=null;
 }
 var pendingMode='train';
@@ -2754,7 +2818,7 @@ function activeMonStripHTML(){
 }
 function teamHTML(){
   var h='<div class="titlebar"><h1>POKEMON</h1></div>';
-  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet '+profName()+'.</div>';
   h+='<div class="subtitle">Your partners, powered by your sets</div>'+
     '<div style="margin:0 12px 4px;display:flex;align-items:center;gap:8px"><div class="seg" style="display:inline-flex">'+
     '<button data-action="team-view" data-v="party" class="'+(teamView==='party'?'on':'')+'">TEAM</button>'+
@@ -3005,7 +3069,10 @@ var EFF2={
   Fighting:{Normal:1.5,Rock:1.5,Ice:1.5,Psychic:0.67,Flying:0.67,Poison:0.67,Ghost:0.5},
   Ghost:{Psychic:1.5,Ghost:1.5,Normal:0.5},
   Dragon:{Dragon:1.5},
-  Flying:{Grass:1.5,Fighting:1.5,Electric:0.67,Rock:0.67}
+  Flying:{Grass:1.5,Fighting:1.5,Electric:0.67,Rock:0.67},
+  /* Hoenn league types (Norman, Sidney) */
+  Normal:{Rock:0.67,Ghost:0.5},
+  Dark:{Psychic:1.5,Ghost:1.5,Fighting:0.67,Dark:0.67}
 };
 var MOVE_EFF={
   Fighting:{Rock:2,Ice:2,Normal:2,Psychic:0.5,Poison:0.5,Flying:0.5,Ghost:0.25},
@@ -3106,7 +3173,7 @@ var TOWNS=[
     hs:{boss:[21,6,55,32],mart:[3,34,18,26],train:[10,64,80,33],center:[59,34,18,26]},wp:[35,45],
     npc:[['man',30,49],['youngster',66,49]]}
 ];
-function townIdx(){return Math.min(badgeCount(),8);}
+function townIdx(){return Math.min(badgeCount(),TOWNS.length-1);}
 /* the town you're STANDING in — your story town, or one you've travelled to */
 function curTown(){
   var g=state.game;
@@ -3133,6 +3200,14 @@ var WILD_BANDS=[[2,6],[6,10],[10,16],[16,22],[20,28],[26,34],[30,38],[34,44],[42
 var WX_NAMES={rain:'RAIN',sun:'HARSH SUN',fog:'FOG',sand:'SANDSTORM'};
 function wxFor(t){
   var h=strHash(todayKey()+'-wx-'+t)%100;
+  if(inHoenn()){ // Hoenn is the weather region — still pure art, never gameplay
+    if(t===4)return h<38?'sun':(h<52?'sand':'clear');       // Lavaridge under the volcano
+    if(t===6)return h<44?'rain':(h<56?'fog':'clear');       // Fortree's endless showers
+    if(t===7||t===8)return h<30?'rain':(h<42?'fog':'clear');// the eastern seas
+    if(t===2)return h<26?'sun':(h<36?'fog':'clear');        // Dewford beach days
+    if(t===9)return h<26?'fog':(h<38?'rain':'clear');       // Victory Road broods
+    return h<20?'rain':(h<32?'sun':(h<38?'fog':'clear'));
+  }
   if(t===7)return h<40?'sun':(h<52?'fog':'clear');         // Cinnabar bakes
   if(t===2||t===3)return h<28?'rain':(h<38?'fog':'clear'); // the coasts drizzle
   if(t===5)return h<22?'sun':(h<34?'sand':'clear');        // safari dust
@@ -4159,7 +4234,7 @@ function historicalRoadHTML(t){
 }
 function questsHTML(){
   var h='<div class="titlebar"><h1>QUESTS</h1></div>';
-  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet '+profName()+'.</div>';
   ensureRoad();
   var g=state.game,bz=bossInfo();
   if(!bz)return qRet(h+'<div class="empty"><div class="big">🏆</div>All roads conquered, CHAMPION.</div>');
@@ -4221,9 +4296,9 @@ function questsHTML(){
 }
 function labHTML(){
   var h='<div class="titlebar"><h1>LAB</h1></div>';
-  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet '+profName()+'.</div>';
   var g=state.game;
-  h+='<div class="subtitle">PROF. OAK’s research corner</div>';
+  h+='<div class="subtitle">'+profName()+'’s research corner</div>';
   /* the daycare incubator */
   h+='<div class="panel"><h3>DAYCARE EGG</h3>';
   if(g.egg){
@@ -4233,7 +4308,7 @@ function labHTML(){
       '<div class="plv" style="margin:3px 0 5px">Hatches in '+eleft+' set'+(eleft===1?'':'s')+' — keep logging!</div>'+
       '<div class="gbar exp"><div style="width:'+Math.max(0,Math.round((30-eleft)/30*100))+'%"></div></div></div></div>';
   }else{
-    h+='<div class="plv">The incubator is empty. PROF. OAK hands an EGG over at 1, 4 and 7 badges — it hatches as you log sets.</div>';
+    h+='<div class="plv">The incubator is empty. '+profName()+' hands an EGG over at 1, 4 and 7 badges — it hatches as you log sets.</div>';
   }
   h+='</div>';
   /* the raid board */
@@ -4393,7 +4468,7 @@ function showStadiumModal(){
 }
 function martHTML(){
   var h='<div class="titlebar"><h1>POKE MART</h1></div>';
-  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet '+profName()+'.</div>';
   var bag=bagOf();
   var ti=curTown();
   h+='<div class="subtitle">'+TOWNS[ti].n+' branch — each new town stocks more</div>'+
@@ -4445,7 +4520,7 @@ var GYMS=[
 ];
 function gymhallHTML(){
   var h='<div class="titlebar"><h1>GYM</h1></div>';
-  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet '+profName()+'.</div>';
   var bz=bossInfo();
   if(!bz)return h+'<div class="empty"><div class="big">🏆</div>The league is quiet… every boss is beaten.</div>';
   var gy=GYMS[bz.idx]||GYMS[0];
@@ -4555,7 +4630,7 @@ function mapHTML(){
   }
   var h='<div class="titlebar"><h1>'+tw.n+'</h1>'+
     (story?'':'<button class="textbtn" data-action="travel-go" data-t="'+townIdx()+'">'+TOWNS[townIdx()].n+' →</button>')+'</div>'+
-    '<div class="subtitle">'+tw.sub+' · town '+(ti+1)+'/9'+(story?'':' · visiting')+wxChipHTML(ti)+'</div>'+
+    '<div class="subtitle">'+tw.sub+' · town '+(ti+1)+'/'+TOWNS.length+(story?'':' · visiting')+wxChipHTML(ti)+'</div>'+
     '<div class="mapwrap">'+
     '<img class="mapimg" src="'+tw.img+'" alt="'+tw.n+'" style="width:100%;display:block;image-rendering:pixelated">'+
     wxOverlayHTML(ti)+
@@ -4672,6 +4747,584 @@ var POIS=[
     st:function(){var p=poiOf('front');return 'STREAK '+(p.streak||0);}}
 ];
 function poiDef(k){var out=null;POIS.forEach(function(p){if(p.k===k)out=p;});return out;}
+/* ============ HOENN (EMERALD) REGION PACK — v6.0 ============ */
+/* ===== HOENN (Emerald) species data - generated from PokeAPI ===== */
+var HOENN_DEX_ADD={
+  treecko:{n:'TREECKO',id:252,t:['Grass'],bs:[40,45,35,65,55,70],evo:{lv:16,to:'grovyle'}},
+  grovyle:{n:'GROVYLE',id:253,t:['Grass'],bs:[50,65,45,85,65,95],evo:{lv:36,to:'sceptile'}},
+  sceptile:{n:'SCEPTILE',id:254,t:['Grass'],bs:[70,85,65,105,85,120]},
+  torchic:{n:'TORCHIC',id:255,t:['Fire'],bs:[45,60,40,70,50,45],evo:{lv:16,to:'combusken'}},
+  combusken:{n:'COMBUSKEN',id:256,t:['Fire','Fighting'],bs:[60,85,60,85,60,55],evo:{lv:36,to:'blaziken'}},
+  blaziken:{n:'BLAZIKEN',id:257,t:['Fire','Fighting'],bs:[80,120,70,110,70,80]},
+  mudkip:{n:'MUDKIP',id:258,t:['Water'],bs:[50,70,50,50,50,40],evo:{lv:16,to:'marshtomp'}},
+  marshtomp:{n:'MARSHTOMP',id:259,t:['Water','Ground'],bs:[70,85,70,60,70,50],evo:{lv:36,to:'swampert'}},
+  swampert:{n:'SWAMPERT',id:260,t:['Water','Ground'],bs:[100,110,90,85,90,60]},
+  poochyena:{n:'POOCHYENA',id:261,t:['Dark'],bs:[35,55,35,30,30,35],evo:{lv:18,to:'mightyena'}},
+  mightyena:{n:'MIGHTYENA',id:262,t:['Dark'],bs:[70,90,70,60,60,70]},
+  zigzagoon:{n:'ZIGZAGOON',id:263,t:['Normal'],bs:[38,30,41,30,41,60],evo:{lv:20,to:'linoone'}},
+  linoone:{n:'LINOONE',id:264,t:['Normal'],bs:[78,70,61,50,61,100]},
+  wurmple:{n:'WURMPLE',id:265,t:['Bug'],bs:[45,45,35,20,30,20],evo:{lv:7,choice:['silcoon','cascoon']}},
+  silcoon:{n:'SILCOON',id:266,t:['Bug'],bs:[50,35,55,25,25,15],evo:{lv:10,to:'beautifly'}},
+  beautifly:{n:'BEAUTIFLY',id:267,t:['Bug','Flying'],bs:[60,70,50,100,50,65]},
+  cascoon:{n:'CASCOON',id:268,t:['Bug'],bs:[50,35,55,25,25,15],evo:{lv:10,to:'dustox'}},
+  dustox:{n:'DUSTOX',id:269,t:['Bug','Poison'],bs:[60,50,70,50,90,65]},
+  lotad:{n:'LOTAD',id:270,t:['Water','Grass'],bs:[40,30,30,40,50,30],evo:{lv:14,to:'lombre'}},
+  lombre:{n:'LOMBRE',id:271,t:['Water','Grass'],bs:[60,50,50,60,70,50],evo:{lv:30,to:'ludicolo'}},
+  ludicolo:{n:'LUDICOLO',id:272,t:['Water','Grass'],bs:[80,70,70,90,100,70]},
+  seedot:{n:'SEEDOT',id:273,t:['Grass'],bs:[40,40,50,30,30,30],evo:{lv:14,to:'nuzleaf'}},
+  nuzleaf:{n:'NUZLEAF',id:274,t:['Grass','Dark'],bs:[70,70,40,60,40,60],evo:{lv:30,to:'shiftry'}},
+  shiftry:{n:'SHIFTRY',id:275,t:['Grass','Dark'],bs:[90,100,60,90,60,80]},
+  taillow:{n:'TAILLOW',id:276,t:['Normal','Flying'],bs:[40,55,30,30,30,85],evo:{lv:22,to:'swellow'}},
+  swellow:{n:'SWELLOW',id:277,t:['Normal','Flying'],bs:[60,85,60,75,50,125]},
+  wingull:{n:'WINGULL',id:278,t:['Water','Flying'],bs:[40,30,30,55,30,85],evo:{lv:25,to:'pelipper'}},
+  pelipper:{n:'PELIPPER',id:279,t:['Water','Flying'],bs:[60,50,100,95,70,65]},
+  ralts:{n:'RALTS',id:280,t:['Psychic'],bs:[28,25,25,45,35,40],evo:{lv:20,to:'kirlia'}},
+  kirlia:{n:'KIRLIA',id:281,t:['Psychic'],bs:[38,35,35,65,55,50],evo:{lv:30,to:'gardevoir'}},
+  gardevoir:{n:'GARDEVOIR',id:282,t:['Psychic'],bs:[68,65,65,125,115,80]},
+  surskit:{n:'SURSKIT',id:283,t:['Bug','Water'],bs:[40,30,32,50,52,65],evo:{lv:22,to:'masquerain'}},
+  masquerain:{n:'MASQUERAIN',id:284,t:['Bug','Flying'],bs:[70,60,62,100,82,80]},
+  shroomish:{n:'SHROOMISH',id:285,t:['Grass'],bs:[60,40,60,40,60,35],evo:{lv:23,to:'breloom'}},
+  breloom:{n:'BRELOOM',id:286,t:['Grass','Fighting'],bs:[60,130,80,60,60,70]},
+  slakoth:{n:'SLAKOTH',id:287,t:['Normal'],bs:[60,60,60,35,35,30],evo:{lv:18,to:'vigoroth'}},
+  vigoroth:{n:'VIGOROTH',id:288,t:['Normal'],bs:[80,80,80,55,55,90],evo:{lv:36,to:'slaking'}},
+  slaking:{n:'SLAKING',id:289,t:['Normal'],bs:[150,160,100,95,65,100]},
+  nincada:{n:'NINCADA',id:290,t:['Bug','Ground'],bs:[31,45,90,30,30,40],evo:{lv:20,choice:['ninjask','shedinja']}},
+  ninjask:{n:'NINJASK',id:291,t:['Bug','Flying'],bs:[61,90,45,50,50,160]},
+  shedinja:{n:'SHEDINJA',id:292,t:['Bug','Ghost'],bs:[1,90,45,30,30,40]},
+  whismur:{n:'WHISMUR',id:293,t:['Normal'],bs:[64,51,23,51,23,28],evo:{lv:20,to:'loudred'}},
+  loudred:{n:'LOUDRED',id:294,t:['Normal'],bs:[84,71,43,71,43,48],evo:{lv:40,to:'exploud'}},
+  exploud:{n:'EXPLOUD',id:295,t:['Normal'],bs:[104,91,63,91,73,68]},
+  makuhita:{n:'MAKUHITA',id:296,t:['Fighting'],bs:[72,60,30,20,30,25],evo:{lv:24,to:'hariyama'}},
+  hariyama:{n:'HARIYAMA',id:297,t:['Fighting'],bs:[144,120,60,40,60,50]},
+  azurill:{n:'AZURILL',id:298,t:['Normal'],bs:[50,20,40,20,40,20],evo:{lv:10,to:'marill'}},
+  marill:{n:'MARILL',id:183,t:['Water'],bs:[70,20,50,20,50,40],evo:{lv:18,to:'azumarill'}},
+  azumarill:{n:'AZUMARILL',id:184,t:['Water'],bs:[100,50,80,60,80,50]},
+  nosepass:{n:'NOSEPASS',id:299,t:['Rock'],bs:[30,45,135,45,90,30]},
+  skitty:{n:'SKITTY',id:300,t:['Normal'],bs:[50,45,45,35,35,50],evo:{lv:28,to:'delcatty'}},
+  delcatty:{n:'DELCATTY',id:301,t:['Normal'],bs:[70,65,65,55,55,90]},
+  crobat:{n:'CROBAT',id:169,t:['Poison','Flying'],bs:[85,90,80,70,80,130]},
+  sableye:{n:'SABLEYE',id:302,t:['Dark','Ghost'],bs:[50,75,75,65,65,50]},
+  mawile:{n:'MAWILE',id:303,t:['Steel'],bs:[50,85,85,55,55,50]},
+  aron:{n:'ARON',id:304,t:['Steel','Rock'],bs:[50,70,100,40,40,30],evo:{lv:32,to:'lairon'}},
+  lairon:{n:'LAIRON',id:305,t:['Steel','Rock'],bs:[60,90,140,50,50,40],evo:{lv:42,to:'aggron'}},
+  aggron:{n:'AGGRON',id:306,t:['Steel','Rock'],bs:[70,110,180,60,60,50]},
+  meditite:{n:'MEDITITE',id:307,t:['Fighting','Psychic'],bs:[30,40,55,40,55,60],evo:{lv:37,to:'medicham'}},
+  medicham:{n:'MEDICHAM',id:308,t:['Fighting','Psychic'],bs:[60,60,75,60,75,80]},
+  electrike:{n:'ELECTRIKE',id:309,t:['Electric'],bs:[40,45,40,65,40,65],evo:{lv:26,to:'manectric'}},
+  manectric:{n:'MANECTRIC',id:310,t:['Electric'],bs:[70,75,60,105,60,105]},
+  plusle:{n:'PLUSLE',id:311,t:['Electric'],bs:[60,50,40,85,75,95]},
+  minun:{n:'MINUN',id:312,t:['Electric'],bs:[60,40,50,75,85,95]},
+  volbeat:{n:'VOLBEAT',id:313,t:['Bug'],bs:[65,73,75,47,85,85]},
+  illumise:{n:'ILLUMISE',id:314,t:['Bug'],bs:[65,47,75,73,85,85]},
+  bellossom:{n:'BELLOSSOM',id:182,t:['Grass'],bs:[75,80,95,90,100,50]},
+  roselia:{n:'ROSELIA',id:315,t:['Grass','Poison'],bs:[50,60,45,100,80,65]},
+  gulpin:{n:'GULPIN',id:316,t:['Poison'],bs:[70,43,53,43,53,40],evo:{lv:26,to:'swalot'}},
+  swalot:{n:'SWALOT',id:317,t:['Poison'],bs:[100,73,83,73,83,55]},
+  carvanha:{n:'CARVANHA',id:318,t:['Water','Dark'],bs:[45,90,20,65,20,65],evo:{lv:30,to:'sharpedo'}},
+  sharpedo:{n:'SHARPEDO',id:319,t:['Water','Dark'],bs:[70,120,40,95,40,95]},
+  wailmer:{n:'WAILMER',id:320,t:['Water'],bs:[130,70,35,70,35,60],evo:{lv:40,to:'wailord'}},
+  wailord:{n:'WAILORD',id:321,t:['Water'],bs:[170,90,45,90,45,60]},
+  numel:{n:'NUMEL',id:322,t:['Fire','Ground'],bs:[60,60,40,65,45,35],evo:{lv:33,to:'camerupt'}},
+  camerupt:{n:'CAMERUPT',id:323,t:['Fire','Ground'],bs:[70,100,70,105,75,40]},
+  slugma:{n:'SLUGMA',id:218,t:['Fire'],bs:[40,40,40,70,40,20],evo:{lv:38,to:'magcargo'}},
+  magcargo:{n:'MAGCARGO',id:219,t:['Fire','Rock'],bs:[60,50,120,90,80,30]},
+  torkoal:{n:'TORKOAL',id:324,t:['Fire'],bs:[70,85,140,85,70,20]},
+  spoink:{n:'SPOINK',id:325,t:['Psychic'],bs:[60,25,35,70,80,60],evo:{lv:32,to:'grumpig'}},
+  grumpig:{n:'GRUMPIG',id:326,t:['Psychic'],bs:[80,45,65,90,110,80]},
+  spinda:{n:'SPINDA',id:327,t:['Normal'],bs:[60,60,60,60,60,60]},
+  skarmory:{n:'SKARMORY',id:227,t:['Steel','Flying'],bs:[65,80,140,40,70,70]},
+  trapinch:{n:'TRAPINCH',id:328,t:['Ground'],bs:[45,100,45,45,45,10],evo:{lv:35,to:'vibrava'}},
+  vibrava:{n:'VIBRAVA',id:329,t:['Ground','Dragon'],bs:[50,70,50,50,50,70],evo:{lv:45,to:'flygon'}},
+  flygon:{n:'FLYGON',id:330,t:['Ground','Dragon'],bs:[80,100,80,80,80,100]},
+  cacnea:{n:'CACNEA',id:331,t:['Grass'],bs:[50,85,40,85,40,35],evo:{lv:32,to:'cacturne'}},
+  cacturne:{n:'CACTURNE',id:332,t:['Grass','Dark'],bs:[70,115,60,115,60,55]},
+  swablu:{n:'SWABLU',id:333,t:['Normal','Flying'],bs:[45,40,60,40,75,50],evo:{lv:35,to:'altaria'}},
+  altaria:{n:'ALTARIA',id:334,t:['Dragon','Flying'],bs:[75,70,90,70,105,80]},
+  zangoose:{n:'ZANGOOSE',id:335,t:['Normal'],bs:[73,115,60,60,60,90]},
+  seviper:{n:'SEVIPER',id:336,t:['Poison'],bs:[73,100,60,100,60,65]},
+  lunatone:{n:'LUNATONE',id:337,t:['Rock','Psychic'],bs:[90,55,65,95,85,70]},
+  solrock:{n:'SOLROCK',id:338,t:['Rock','Psychic'],bs:[90,95,85,55,65,70]},
+  barboach:{n:'BARBOACH',id:339,t:['Water','Ground'],bs:[50,48,43,46,41,60],evo:{lv:30,to:'whiscash'}},
+  whiscash:{n:'WHISCASH',id:340,t:['Water','Ground'],bs:[110,78,73,76,71,60]},
+  corphish:{n:'CORPHISH',id:341,t:['Water'],bs:[43,80,65,50,35,35],evo:{lv:30,to:'crawdaunt'}},
+  crawdaunt:{n:'CRAWDAUNT',id:342,t:['Water','Dark'],bs:[63,120,85,90,55,55]},
+  baltoy:{n:'BALTOY',id:343,t:['Ground','Psychic'],bs:[40,40,55,40,70,55],evo:{lv:36,to:'claydol'}},
+  claydol:{n:'CLAYDOL',id:344,t:['Ground','Psychic'],bs:[60,70,105,70,120,75]},
+  lileep:{n:'LILEEP',id:345,t:['Rock','Grass'],bs:[66,41,77,61,87,23],evo:{lv:40,to:'cradily'}},
+  cradily:{n:'CRADILY',id:346,t:['Rock','Grass'],bs:[86,81,97,81,107,43]},
+  anorith:{n:'ANORITH',id:347,t:['Rock','Bug'],bs:[45,95,50,40,50,75],evo:{lv:40,to:'armaldo'}},
+  armaldo:{n:'ARMALDO',id:348,t:['Rock','Bug'],bs:[75,125,100,70,80,45]},
+  igglybuff:{n:'IGGLYBUFF',id:174,t:['Normal'],bs:[90,30,15,40,20,15],evo:{lv:10,to:'jigglypuff'}},
+  feebas:{n:'FEEBAS',id:349,t:['Water'],bs:[20,15,20,10,55,80],evo:{lv:30,to:'milotic'}},
+  milotic:{n:'MILOTIC',id:350,t:['Water'],bs:[95,60,79,100,125,81]},
+  castform:{n:'CASTFORM',id:351,t:['Normal'],bs:[70,70,70,70,70,70]},
+  kecleon:{n:'KECLEON',id:352,t:['Normal'],bs:[60,90,70,60,120,40]},
+  shuppet:{n:'SHUPPET',id:353,t:['Ghost'],bs:[44,75,35,63,33,45],evo:{lv:37,to:'banette'}},
+  banette:{n:'BANETTE',id:354,t:['Ghost'],bs:[64,115,65,83,63,65]},
+  duskull:{n:'DUSKULL',id:355,t:['Ghost'],bs:[20,40,90,30,90,25],evo:{lv:37,to:'dusclops'}},
+  dusclops:{n:'DUSCLOPS',id:356,t:['Ghost'],bs:[40,70,130,60,130,25]},
+  tropius:{n:'TROPIUS',id:357,t:['Grass','Flying'],bs:[99,68,83,72,87,51]},
+  chimecho:{n:'CHIMECHO',id:358,t:['Psychic'],bs:[75,50,80,95,90,65]},
+  absol:{n:'ABSOL',id:359,t:['Dark'],bs:[65,130,60,75,60,75]},
+  pichu:{n:'PICHU',id:172,t:['Electric'],bs:[20,40,15,35,35,60],evo:{lv:10,to:'pikachu'}},
+  wynaut:{n:'WYNAUT',id:360,t:['Psychic'],bs:[95,23,48,23,48,23],evo:{lv:15,to:'wobbuffet'}},
+  wobbuffet:{n:'WOBBUFFET',id:202,t:['Psychic'],bs:[190,33,58,33,58,33]},
+  natu:{n:'NATU',id:177,t:['Psychic','Flying'],bs:[40,50,45,70,45,70],evo:{lv:25,to:'xatu'}},
+  xatu:{n:'XATU',id:178,t:['Psychic','Flying'],bs:[65,75,70,95,70,95]},
+  girafarig:{n:'GIRAFARIG',id:203,t:['Normal','Psychic'],bs:[70,80,65,90,65,85]},
+  phanpy:{n:'PHANPY',id:231,t:['Ground'],bs:[90,60,60,40,40,40],evo:{lv:25,to:'donphan'}},
+  donphan:{n:'DONPHAN',id:232,t:['Ground'],bs:[90,120,120,60,60,50]},
+  heracross:{n:'HERACROSS',id:214,t:['Bug','Fighting'],bs:[80,125,75,40,95,85]},
+  snorunt:{n:'SNORUNT',id:361,t:['Ice'],bs:[50,50,50,50,50,50],evo:{lv:42,to:'glalie'}},
+  glalie:{n:'GLALIE',id:362,t:['Ice'],bs:[80,80,80,80,80,80]},
+  spheal:{n:'SPHEAL',id:363,t:['Ice','Water'],bs:[70,40,50,55,50,25],evo:{lv:32,to:'sealeo'}},
+  sealeo:{n:'SEALEO',id:364,t:['Ice','Water'],bs:[90,60,70,75,70,45],evo:{lv:44,to:'walrein'}},
+  walrein:{n:'WALREIN',id:365,t:['Ice','Water'],bs:[110,80,90,95,90,65]},
+  clamperl:{n:'CLAMPERL',id:366,t:['Water'],bs:[35,64,85,74,55,32],evo:{lv:30,choice:['huntail','gorebyss']}},
+  huntail:{n:'HUNTAIL',id:367,t:['Water'],bs:[55,104,105,94,75,52]},
+  gorebyss:{n:'GOREBYSS',id:368,t:['Water'],bs:[55,84,105,114,75,52]},
+  relicanth:{n:'RELICANTH',id:369,t:['Water','Rock'],bs:[100,90,130,45,65,55]},
+  corsola:{n:'CORSOLA',id:222,t:['Water','Rock'],bs:[65,55,95,65,95,35]},
+  chinchou:{n:'CHINCHOU',id:170,t:['Water','Electric'],bs:[75,38,38,56,56,67],evo:{lv:27,to:'lanturn'}},
+  lanturn:{n:'LANTURN',id:171,t:['Water','Electric'],bs:[125,58,58,76,76,67]},
+  luvdisc:{n:'LUVDISC',id:370,t:['Water'],bs:[43,30,55,40,65,97]},
+  kingdra:{n:'KINGDRA',id:230,t:['Water','Dragon'],bs:[75,95,95,95,95,85]},
+  bagon:{n:'BAGON',id:371,t:['Dragon'],bs:[45,75,60,40,30,50],evo:{lv:30,to:'shelgon'}},
+  shelgon:{n:'SHELGON',id:372,t:['Dragon'],bs:[65,95,100,60,50,50],evo:{lv:50,to:'salamence'}},
+  salamence:{n:'SALAMENCE',id:373,t:['Dragon','Flying'],bs:[95,135,80,110,80,100]},
+  beldum:{n:'BELDUM',id:374,t:['Steel','Psychic'],bs:[40,55,80,35,60,30],evo:{lv:20,to:'metang'}},
+  metang:{n:'METANG',id:375,t:['Steel','Psychic'],bs:[60,75,100,55,80,50],evo:{lv:45,to:'metagross'}},
+  metagross:{n:'METAGROSS',id:376,t:['Steel','Psychic'],bs:[80,135,130,95,90,70]},
+  regirock:{n:'REGIROCK',id:377,t:['Rock'],bs:[80,100,200,50,100,50]},
+  regice:{n:'REGICE',id:378,t:['Ice'],bs:[80,50,100,100,200,50]},
+  registeel:{n:'REGISTEEL',id:379,t:['Steel'],bs:[80,75,150,75,150,50]},
+  latias:{n:'LATIAS',id:380,t:['Dragon','Psychic'],bs:[80,80,90,110,130,110]},
+  latios:{n:'LATIOS',id:381,t:['Dragon','Psychic'],bs:[80,90,80,130,110,110]},
+  kyogre:{n:'KYOGRE',id:382,t:['Water'],bs:[100,100,90,150,140,90]},
+  groudon:{n:'GROUDON',id:383,t:['Ground'],bs:[100,150,140,100,90,90]},
+  rayquaza:{n:'RAYQUAZA',id:384,t:['Dragon','Flying'],bs:[105,150,90,150,90,95]},
+  jirachi:{n:'JIRACHI',id:385,t:['Steel','Psychic'],bs:[100,100,100,100,100,100]},
+  deoxys:{n:'DEOXYS',id:386,t:['Psychic'],bs:[50,150,50,150,50,150]}
+};
+var HOENN_DEX_ORDER=['treecko','grovyle','sceptile','torchic','combusken','blaziken','mudkip','marshtomp','swampert','poochyena','mightyena','zigzagoon','linoone','wurmple','silcoon','beautifly','cascoon','dustox','lotad','lombre','ludicolo','seedot','nuzleaf','shiftry','taillow','swellow','wingull','pelipper','ralts','kirlia','gardevoir','surskit','masquerain','shroomish','breloom','slakoth','vigoroth','slaking','abra','kadabra','alakazam','nincada','ninjask','shedinja','whismur','loudred','exploud','makuhita','hariyama','goldeen','seaking','magikarp','gyarados','azurill','marill','azumarill','geodude','graveler','golem','nosepass','skitty','delcatty','zubat','golbat','crobat','tentacool','tentacruel','sableye','mawile','aron','lairon','aggron','machop','machoke','machamp','meditite','medicham','electrike','manectric','plusle','minun','magnemite','magneton','voltorb','electrode','volbeat','illumise','oddish','gloom','vileplume','bellossom','doduo','dodrio','roselia','gulpin','swalot','carvanha','sharpedo','wailmer','wailord','numel','camerupt','slugma','magcargo','torkoal','grimer','muk','koffing','weezing','spoink','grumpig','sandshrew','sandslash','spinda','skarmory','trapinch','vibrava','flygon','cacnea','cacturne','swablu','altaria','zangoose','seviper','lunatone','solrock','barboach','whiscash','corphish','crawdaunt','baltoy','claydol','lileep','cradily','anorith','armaldo','igglybuff','jigglypuff','wigglytuff','feebas','milotic','castform','staryu','starmie','kecleon','shuppet','banette','duskull','dusclops','tropius','chimecho','absol','vulpix','ninetales','pichu','pikachu','raichu','psyduck','golduck','wynaut','wobbuffet','natu','xatu','girafarig','phanpy','donphan','pinsir','heracross','rhyhorn','rhydon','snorunt','glalie','spheal','sealeo','walrein','clamperl','huntail','gorebyss','relicanth','corsola','chinchou','lanturn','luvdisc','horsea','seadra','kingdra','bagon','shelgon','salamence','beldum','metang','metagross','regirock','regice','registeel','latias','latios','kyogre','groudon','rayquaza','jirachi','deoxys'];
+var CR_EXT={252:45,253:45,254:45,255:45,256:45,257:45,258:45,259:45,260:45,261:255,262:127,263:255,264:90,265:255,266:120,267:45,268:120,269:45,270:255,271:120,272:45,273:255,274:120,275:45,276:200,277:45,278:190,279:45,280:235,281:120,282:45,283:200,284:75,285:255,286:90,287:255,288:120,289:45,290:255,291:120,292:45,293:190,294:120,295:45,296:180,297:200,298:150,183:190,184:75,299:255,300:255,301:60,169:90,302:45,303:45,304:180,305:90,306:45,307:180,308:90,309:120,310:45,311:200,312:200,313:150,314:150,182:45,315:150,316:225,317:75,318:225,319:60,320:125,321:60,322:255,323:150,218:190,219:75,324:90,325:255,326:60,327:255,227:25,328:255,329:120,330:45,331:190,332:60,333:255,334:45,335:90,336:90,337:45,338:45,339:190,340:75,341:205,342:155,343:255,344:90,345:45,346:45,347:45,348:45,174:170,349:255,350:60,351:45,352:200,353:225,354:45,355:190,356:90,357:200,358:45,359:30,172:190,360:125,202:45,177:190,178:75,203:60,231:120,232:60,214:45,361:190,362:75,363:255,364:120,365:45,366:255,367:60,368:60,369:25,222:60,170:190,171:75,370:225,230:45,371:45,372:45,373:45,374:3,375:3,376:3,377:3,378:3,379:3,380:3,381:3,382:3,383:3,384:45,385:3,386:3};
+var XP_EXT={252:62,253:142,254:239,255:62,256:142,257:239,258:62,259:142,260:241,261:56,262:147,263:56,264:147,265:56,266:72,267:178,268:72,269:173,270:44,271:119,272:216,273:44,274:119,275:216,276:54,277:159,278:54,279:154,280:40,281:97,282:233,283:54,284:159,285:59,286:161,287:56,288:154,289:252,290:53,291:160,292:83,293:48,294:126,295:221,296:47,297:166,298:38,183:88,184:189,299:75,300:52,301:140,169:241,302:133,303:133,304:66,305:151,306:239,307:56,308:144,309:59,310:166,311:142,312:142,313:151,314:151,182:221,315:140,316:60,317:163,318:61,319:161,320:80,321:175,322:61,323:161,218:50,219:151,324:165,325:66,326:165,327:126,227:163,328:58,329:119,330:234,331:67,332:166,333:62,334:172,335:160,336:160,337:161,338:161,339:58,340:164,341:62,342:164,343:60,344:175,345:71,346:173,347:71,348:173,174:42,349:40,350:189,351:147,352:154,353:59,354:159,355:59,356:159,357:161,358:159,359:163,172:41,360:52,202:142,177:64,178:165,203:159,231:66,232:175,214:175,361:60,362:168,363:58,364:144,365:239,366:69,367:170,368:170,369:170,222:144,170:66,171:161,370:116,230:243,371:60,372:147,373:270,374:60,375:147,376:270,377:261,378:261,379:261,380:270,381:270,382:302,383:302,384:306,385:270,386:270};
+var HOENN_MOVESETS={
+  treecko:[[1,'POUND'],[11,'QUICK ATTACK'],[26,'MEGA DRAIN'],[46,'GIGA DRAIN']],
+  grovyle:[[1,'QUICK ATTACK'],[1,'ABSORB'],[29,'LEAF BLADE'],[53,'FALSE SWIPE']],
+  sceptile:[[1,'QUICK ATTACK'],[1,'ABSORB'],[29,'LEAF BLADE'],[59,'FALSE SWIPE']],
+  torchic:[[1,'SCRATCH'],[16,'PECK'],[28,'QUICK ATTACK'],[43,'FLAMETHROWER']],
+  combusken:[[1,'SCRATCH'],[16,'DOUBLE KICK'],[32,'QUICK ATTACK'],[50,'SKY UPPERCUT']],
+  blaziken:[[1,'SCRATCH'],[16,'DOUBLE KICK'],[36,'BLAZE KICK'],[59,'SKY UPPERCUT']],
+  mudkip:[[1,'TACKLE'],[10,'WATER GUN'],[33,'WHIRLPOOL'],[42,'HYDRO PUMP']],
+  marshtomp:[[1,'TACKLE'],[1,'MUD-SLAP'],[31,'TAKE DOWN'],[46,'EARTHQUAKE']],
+  swampert:[[1,'TACKLE'],[1,'MUD-SLAP'],[31,'TAKE DOWN'],[52,'EARTHQUAKE']],
+  poochyena:[[1,'TACKLE'],[13,'BITE'],[41,'CRUNCH'],[45,'THIEF']],
+  mightyena:[[1,'BITE'],[1,'TACKLE'],[47,'CRUNCH'],[52,'THIEF']],
+  zigzagoon:[[1,'TACKLE'],[9,'HEADBUTT'],[25,'PIN MISSILE'],[29,'COVET']],
+  linoone:[[1,'HEADBUTT'],[1,'TACKLE'],[35,'COVET'],[41,'SLASH']],
+  wurmple:[[1,'STRING SHOT'],[1,'TACKLE'],[5,'POISON STING']],
+  silcoon:[[1,'HARDEN']],
+  beautifly:[[1,'ABSORB'],[13,'GUST'],[34,'SILVER WIND'],[38,'GIGA DRAIN']],
+  cascoon:[[1,'HARDEN']],
+  dustox:[[1,'CONFUSION'],[13,'GUST'],[24,'PSYBEAM'],[34,'SILVER WIND']],
+  lotad:[[1,'ASTONISH'],[3,'GROWL'],[7,'ABSORB'],[43,'MEGA DRAIN']],
+  lombre:[[1,'ASTONISH'],[19,'FAKE OUT'],[37,'THIEF'],[49,'HYDRO PUMP']],
+  ludicolo:[[1,'GROWL'],[1,'NATURE POWER'],[1,'ABSORB'],[1,'ASTONISH']],
+  seedot:[[1,'BIDE'],[3,'HARDEN'],[7,'GROWTH'],[43,'EXPLOSION']],
+  nuzleaf:[[1,'POUND'],[19,'FAKE OUT'],[37,'RAZOR WIND'],[49,'EXTRASENSORY']],
+  shiftry:[[1,'GROWTH'],[1,'NATURE POWER'],[1,'POUND'],[1,'HARDEN']],
+  taillow:[[1,'PECK'],[8,'QUICK ATTACK'],[13,'WING ATTACK'],[34,'AERIAL ACE']],
+  swellow:[[1,'QUICK ATTACK'],[1,'PECK'],[13,'WING ATTACK'],[38,'AERIAL ACE']],
+  wingull:[[1,'WATER GUN'],[13,'WING ATTACK'],[31,'QUICK ATTACK'],[43,'PURSUIT']],
+  pelipper:[[1,'WATER SPORT'],[1,'WING ATTACK'],[1,'WATER GUN'],[61,'HYDRO PUMP']],
+  ralts:[[6,'CONFUSION'],[26,'PSYCHIC'],[36,'FUTURE SIGHT'],[46,'DREAM EATER']],
+  kirlia:[[1,'CONFUSION'],[26,'PSYCHIC'],[40,'FUTURE SIGHT'],[54,'DREAM EATER']],
+  gardevoir:[[1,'CONFUSION'],[26,'PSYCHIC'],[42,'FUTURE SIGHT'],[60,'DREAM EATER']],
+  surskit:[[1,'BUBBLE'],[7,'QUICK ATTACK'],[13,'SWEET SCENT'],[25,'BUBBLEBEAM']],
+  masquerain:[[1,'QUICK ATTACK'],[1,'BUBBLE'],[26,'GUST'],[47,'SILVER WIND']],
+  shroomish:[[1,'ABSORB'],[4,'TACKLE'],[22,'HEADBUTT'],[45,'GIGA DRAIN']],
+  breloom:[[1,'ABSORB'],[16,'MEGA DRAIN'],[23,'MACH PUNCH'],[54,'DYNAMICPUNCH']],
+  slakoth:[[1,'YAWN'],[1,'SCRATCH'],[19,'FAINT ATTACK'],[31,'COVET']],
+  vigoroth:[[1,'UPROAR'],[1,'SCRATCH'],[31,'SLASH'],[43,'FOCUS PUNCH']],
+  slaking:[[1,'YAWN'],[1,'SCRATCH'],[19,'FAINT ATTACK'],[31,'COVET']],
+  nincada:[[1,'SCRATCH'],[14,'FURY SWIPES'],[31,'MUD-SLAP'],[45,'DIG']],
+  ninjask:[[1,'LEECH LIFE'],[1,'SCRATCH'],[20,'FURY CUTTER'],[31,'SLASH']],
+  shedinja:[[1,'SCRATCH'],[5,'LEECH LIFE'],[14,'FURY SWIPES'],[38,'SHADOW BALL']],
+  whismur:[[1,'POUND'],[5,'UPROAR'],[25,'STOMP'],[45,'HYPER VOICE']],
+  loudred:[[1,'POUND'],[1,'ASTONISH'],[29,'STOMP'],[57,'HYPER VOICE']],
+  exploud:[[1,'UPROAR'],[1,'ASTONISH'],[40,'HYPER BEAM'],[63,'HYPER VOICE']],
+  makuhita:[[1,'TACKLE'],[13,'VITAL THROW'],[28,'KNOCK OFF'],[31,'SMELLINGSALT']],
+  hariyama:[[1,'ARM THRUST'],[13,'VITAL THROW'],[29,'KNOCK OFF'],[33,'SMELLINGSALT']],
+  azurill:[[1,'SPLASH'],[10,'BUBBLE'],[15,'SLAM'],[21,'WATER GUN']],
+  marill:[[1,'TACKLE'],[15,'ROLLOUT'],[28,'DOUBLE-EDGE'],[45,'HYDRO PUMP']],
+  azumarill:[[1,'WATER GUN'],[15,'ROLLOUT'],[34,'DOUBLE-EDGE'],[57,'HYDRO PUMP']],
+  nosepass:[[1,'TACKLE'],[13,'ROCK THROW'],[28,'ROCK SLIDE'],[43,'ZAP CANNON']],
+  skitty:[[1,'TACKLE'],[15,'DOUBLESLAP'],[31,'COVET'],[39,'DOUBLE-EDGE']],
+  delcatty:[[1,'ATTRACT'],[1,'SING'],[1,'DOUBLESLAP'],[1,'GROWL']],
+  crobat:[[1,'ASTONISH'],[16,'BITE'],[35,'AIR CUTTER'],[49,'POISON FANG']],
+  sableye:[[1,'SCRATCH'],[17,'FURY SWIPES'],[29,'FAINT ATTACK'],[41,'SHADOW BALL']],
+  mawile:[[1,'ASTONISH'],[11,'BITE'],[26,'FAINT ATTACK'],[36,'CRUNCH']],
+  aron:[[1,'TACKLE'],[10,'HEADBUTT'],[25,'TAKE DOWN'],[44,'DOUBLE-EDGE']],
+  lairon:[[1,'HEADBUTT'],[1,'MUD-SLAP'],[25,'TAKE DOWN'],[53,'DOUBLE-EDGE']],
+  aggron:[[1,'HEADBUTT'],[1,'MUD-SLAP'],[25,'TAKE DOWN'],[63,'DOUBLE-EDGE']],
+  meditite:[[1,'BIDE'],[9,'CONFUSION'],[18,'HIDDEN POWER'],[32,'HI JUMP KICK']],
+  medicham:[[1,'ICE PUNCH'],[1,'CONFUSION'],[18,'HIDDEN POWER'],[32,'HI JUMP KICK']],
+  electrike:[[1,'TACKLE'],[17,'QUICK ATTACK'],[33,'BITE'],[36,'THUNDER']],
+  manectric:[[1,'TACKLE'],[17,'QUICK ATTACK'],[39,'BITE'],[45,'THUNDER']],
+  plusle:[[1,'GROWL'],[10,'QUICK ATTACK'],[19,'SPARK'],[37,'THUNDER']],
+  minun:[[1,'GROWL'],[10,'QUICK ATTACK'],[19,'SPARK'],[37,'THUNDER']],
+  volbeat:[[1,'TACKLE'],[17,'QUICK ATTACK'],[25,'SIGNAL BEAM'],[37,'DOUBLE-EDGE']],
+  illumise:[[1,'TACKLE'],[5,'SWEET SCENT'],[17,'QUICK ATTACK'],[37,'COVET']],
+  bellossom:[[1,'MAGICAL LEAF'],[1,'ABSORB'],[44,'PETAL DANCE'],[55,'SOLARBEAM']],
+  roselia:[[1,'ABSORB'],[17,'MEGA DRAIN'],[33,'GIGA DRAIN'],[49,'PETAL DANCE']],
+  gulpin:[[1,'POUND'],[6,'YAWN'],[14,'SLUDGE'],[39,'SLUDGE BOMB']],
+  swalot:[[1,'SLUDGE'],[1,'POUND'],[26,'BODY SLAM'],[48,'SLUDGE BOMB']],
+  carvanha:[[1,'BITE'],[7,'RAGE'],[22,'CRUNCH'],[31,'TAKE DOWN']],
+  sharpedo:[[1,'BITE'],[1,'RAGE'],[33,'SLASH'],[48,'SKULL BASH']],
+  wailmer:[[10,'WATER GUN'],[19,'WHIRLPOOL'],[28,'WATER PULSE'],[50,'HYDRO PUMP']],
+  wailord:[[1,'ROLLOUT'],[19,'WHIRLPOOL'],[28,'WATER PULSE'],[59,'HYDRO PUMP']],
+  numel:[[1,'TACKLE'],[29,'TAKE DOWN'],[41,'FLAMETHROWER'],[49,'DOUBLE-EDGE']],
+  camerupt:[[1,'EMBER'],[29,'TAKE DOWN'],[37,'EARTHQUAKE'],[45,'ERUPTION']],
+  slugma:[[1,'SMOG'],[15,'ROCK THROW'],[43,'ROCK SLIDE'],[50,'BODY SLAM']],
+  magcargo:[[1,'ROCK THROW'],[1,'SMOG'],[48,'ROCK SLIDE'],[60,'BODY SLAM']],
+  torkoal:[[1,'EMBER'],[17,'FIRE SPIN'],[30,'FLAMETHROWER'],[46,'HEAT WAVE']],
+  spoink:[[16,'PSYBEAM'],[34,'PSYCHIC'],[37,'SNORE'],[43,'BOUNCE']],
+  grumpig:[[1,'PSYBEAM'],[37,'PSYCHIC'],[43,'SNORE'],[55,'BOUNCE']],
+  spinda:[[1,'TACKLE'],[12,'FAINT ATTACK'],[27,'DIZZY PUNCH'],[56,'THRASH']],
+  skarmory:[[1,'PECK'],[13,'SWIFT'],[29,'AIR CUTTER'],[32,'STEEL WING']],
+  trapinch:[[1,'BITE'],[25,'SAND TOMB'],[41,'DIG'],[57,'HYPER BEAM']],
+  vibrava:[[1,'FAINT ATTACK'],[1,'SAND TOMB'],[35,'DRAGONBREATH'],[57,'HYPER BEAM']],
+  flygon:[[1,'FAINT ATTACK'],[1,'SAND TOMB'],[35,'DRAGONBREATH'],[65,'HYPER BEAM']],
+  cacnea:[[1,'POISON STING'],[5,'ABSORB'],[29,'FAINT ATTACK'],[37,'NEEDLE ARM']],
+  cacturne:[[1,'ABSORB'],[1,'POISON STING'],[29,'FAINT ATTACK'],[41,'NEEDLE ARM']],
+  swablu:[[1,'PECK'],[8,'ASTONISH'],[18,'FURY ATTACK'],[31,'TAKE DOWN']],
+  altaria:[[1,'ASTONISH'],[18,'FURY ATTACK'],[35,'DRAGONBREATH'],[59,'SKY ATTACK']],
+  zangoose:[[1,'SCRATCH'],[13,'FURY CUTTER'],[25,'PURSUIT'],[55,'FALSE SWIPE']],
+  seviper:[[1,'WRAP'],[10,'BITE'],[28,'CRUNCH'],[34,'POISON FANG']],
+  lunatone:[[1,'TACKLE'],[13,'ROCK THROW'],[43,'FUTURE SIGHT'],[49,'EXPLOSION']],
+  solrock:[[1,'TACKLE'],[13,'ROCK THROW'],[37,'ROCK SLIDE'],[49,'EXPLOSION']],
+  barboach:[[1,'MUD-SLAP'],[11,'WATER GUN'],[31,'EARTHQUAKE'],[36,'FUTURE SIGHT']],
+  whiscash:[[1,'MUD-SLAP'],[11,'WATER GUN'],[36,'EARTHQUAKE'],[46,'FUTURE SIGHT']],
+  corphish:[[1,'BUBBLE'],[10,'VICEGRIP'],[26,'KNOCK OFF'],[35,'CRABHAMMER']],
+  crawdaunt:[[1,'VICEGRIP'],[1,'BUBBLE'],[26,'KNOCK OFF'],[39,'CRABHAMMER']],
+  baltoy:[[1,'CONFUSION'],[7,'MUD-SLAP'],[19,'SELFDESTRUCT'],[45,'EXPLOSION']],
+  claydol:[[1,'RAPID SPIN'],[11,'PSYBEAM'],[25,'ANCIENTPOWER'],[55,'EXPLOSION']],
+  lileep:[[1,'ASTONISH'],[8,'CONSTRICT'],[15,'ACID'],[43,'ANCIENTPOWER']],
+  cradily:[[1,'ACID'],[1,'ASTONISH'],[1,'CONSTRICT'],[48,'ANCIENTPOWER']],
+  anorith:[[1,'SCRATCH'],[25,'METAL CLAW'],[43,'FURY CUTTER'],[55,'ROCK BLAST']],
+  armaldo:[[1,'WATER GUN'],[25,'METAL CLAW'],[46,'FURY CUTTER'],[64,'ROCK BLAST']],
+  igglybuff:[[1,'SING'],[1,'CHARM'],[4,'DEFENSE CURL'],[9,'POUND']],
+  feebas:[[1,'SPLASH'],[15,'TACKLE'],[30,'FLAIL']],
+  milotic:[[1,'WATER GUN'],[5,'WRAP'],[25,'TWISTER'],[40,'HYDRO PUMP']],
+  castform:[[1,'TACKLE'],[10,'POWDER SNOW'],[10,'WATER GUN'],[30,'WEATHER BALL']],
+  kecleon:[[1,'THIEF'],[1,'ASTONISH'],[12,'FURY SWIPES'],[49,'ANCIENTPOWER']],
+  shuppet:[[1,'KNOCK OFF'],[8,'SCREECH'],[37,'FAINT ATTACK'],[44,'SHADOW BALL']],
+  banette:[[1,'CURSE'],[1,'KNOCK OFF'],[39,'FAINT ATTACK'],[48,'SHADOW BALL']],
+  duskull:[[1,'LEER'],[16,'ASTONISH'],[27,'PURSUIT'],[49,'FUTURE SIGHT']],
+  dusclops:[[1,'BIND'],[16,'ASTONISH'],[37,'SHADOW PUNCH'],[58,'FUTURE SIGHT']],
+  tropius:[[1,'GUST'],[17,'STOMP'],[37,'BODY SLAM'],[41,'SOLARBEAM']],
+  chimecho:[[1,'WRAP'],[14,'CONFUSION'],[22,'UPROAR'],[46,'PSYCHIC']],
+  absol:[[1,'SCRATCH'],[17,'RAZOR WIND'],[36,'SLASH'],[41,'FUTURE SIGHT']],
+  pichu:[[1,'CHARM'],[1,'THUNDERSHOCK'],[6,'TAIL WHIP'],[8,'THUNDER WAVE']],
+  wynaut:[[1,'ENCORE'],[1,'SPLASH'],[1,'CHARM'],[15,'MIRROR COAT']],
+  wobbuffet:[[1,'MIRROR COAT'],[1,'DESTINY BOND'],[1,'COUNTER'],[1,'SAFEGUARD']],
+  natu:[[1,'LEER'],[1,'PECK'],[30,'FUTURE SIGHT'],[50,'PSYCHIC']],
+  xatu:[[1,'LEER'],[1,'PECK'],[35,'FUTURE SIGHT'],[65,'PSYCHIC']],
+  girafarig:[[1,'TACKLE'],[13,'CONFUSION'],[43,'PSYBEAM'],[49,'CRUNCH']],
+  phanpy:[[1,'TACKLE'],[25,'TAKE DOWN'],[33,'ROLLOUT'],[49,'DOUBLE-EDGE']],
+  donphan:[[1,'HORN ATTACK'],[25,'FURY ATTACK'],[41,'RAPID SPIN'],[49,'EARTHQUAKE']],
+  heracross:[[1,'TACKLE'],[17,'FURY ATTACK'],[37,'TAKE DOWN'],[53,'MEGAHORN']],
+  snorunt:[[1,'POWDER SNOW'],[16,'ICY WIND'],[28,'CRUNCH'],[43,'BLIZZARD']],
+  glalie:[[1,'POWDER SNOW'],[16,'ICY WIND'],[28,'CRUNCH'],[53,'BLIZZARD']],
+  spheal:[[1,'POWDER SNOW'],[13,'ICE BALL'],[25,'AURORA BEAM'],[43,'BLIZZARD']],
+  sealeo:[[1,'POWDER SNOW'],[13,'ICE BALL'],[25,'AURORA BEAM'],[47,'BLIZZARD']],
+  walrein:[[1,'POWDER SNOW'],[13,'ICE BALL'],[25,'AURORA BEAM'],[50,'BLIZZARD']],
+  clamperl:[[1,'WATER GUN'],[1,'IRON DEFENSE'],[1,'CLAMP'],[1,'WHIRLPOOL']],
+  huntail:[[1,'WHIRLPOOL'],[8,'BITE'],[36,'CRUNCH'],[50,'HYDRO PUMP']],
+  gorebyss:[[1,'WHIRLPOOL'],[8,'CONFUSION'],[36,'PSYCHIC'],[50,'HYDRO PUMP']],
+  relicanth:[[1,'TACKLE'],[15,'ROCK TOMB'],[43,'ANCIENTPOWER'],[64,'HYDRO PUMP']],
+  corsola:[[1,'TACKLE'],[23,'BUBBLEBEAM'],[34,'ROCK BLAST'],[45,'ANCIENTPOWER']],
+  chinchou:[[1,'BUBBLE'],[17,'WATER GUN'],[37,'TAKE DOWN'],[41,'HYDRO PUMP']],
+  lanturn:[[1,'BUBBLE'],[17,'WATER GUN'],[43,'TAKE DOWN'],[50,'HYDRO PUMP']],
+  luvdisc:[[1,'TACKLE'],[4,'CHARM'],[12,'WATER GUN'],[24,'TAKE DOWN']],
+  kingdra:[[1,'BUBBLE'],[1,'WATER GUN'],[29,'TWISTER'],[51,'HYDRO PUMP']],
+  bagon:[[1,'RAGE'],[17,'HEADBUTT'],[41,'CRUNCH'],[53,'DOUBLE-EDGE']],
+  shelgon:[[1,'HEADBUTT'],[1,'RAGE'],[56,'CRUNCH'],[78,'DOUBLE-EDGE']],
+  salamence:[[1,'RAGE'],[25,'EMBER'],[61,'CRUNCH'],[93,'DOUBLE-EDGE']],
+  beldum:[[1,'TAKE DOWN']],
+  metang:[[1,'TAKE DOWN'],[20,'CONFUSION'],[38,'PSYCHIC'],[62,'HYPER BEAM']],
+  metagross:[[1,'TAKE DOWN'],[1,'CONFUSION'],[38,'PSYCHIC'],[77,'HYPER BEAM']],
+  regirock:[[1,'EXPLOSION'],[25,'SUPERPOWER'],[49,'ZAP CANNON'],[65,'HYPER BEAM']],
+  regice:[[1,'EXPLOSION'],[25,'SUPERPOWER'],[49,'ZAP CANNON'],[65,'HYPER BEAM']],
+  registeel:[[1,'EXPLOSION'],[25,'SUPERPOWER'],[49,'ZAP CANNON'],[65,'HYPER BEAM']],
+  latias:[[1,'PSYWAVE'],[20,'DRAGONBREATH'],[35,'MIST BALL'],[40,'PSYCHIC']],
+  latios:[[1,'PSYWAVE'],[20,'DRAGONBREATH'],[35,'LUSTER PURGE'],[40,'PSYCHIC']],
+  kyogre:[[1,'WATER PULSE'],[20,'BODY SLAM'],[45,'HYDRO PUMP'],[75,'WATER SPOUT']],
+  groudon:[[1,'MUD SHOT'],[20,'SLASH'],[45,'FIRE BLAST'],[75,'ERUPTION']],
+  rayquaza:[[1,'TWISTER'],[20,'DRAGON CLAW'],[60,'EXTREMESPEED'],[75,'HYPER BEAM']],
+  jirachi:[[1,'CONFUSION'],[20,'PSYCHIC'],[40,'FUTURE SIGHT'],[50,'DOOM DESIRE']],
+  deoxys:[[1,'SWIFT'],[25,'PURSUIT'],[40,'PSYCHIC'],[55,'HYPER BEAM']]
+};
+var HOENN_MOVE_TYPES={'ABSORB':'Grass','ACID':'Poison','AERIAL ACE':'Flying','AIR CUTTER':'Flying','ANCIENTPOWER':'Rock','ARM THRUST':'Fighting','ASTONISH':'Ghost','ATTRACT':'Normal','AURORA BEAM':'Ice','BIDE':'Normal','BIND':'Normal','BITE':'Dark','BLAZE KICK':'Fire','BLIZZARD':'Ice','BODY SLAM':'Normal','BOUNCE':'Flying','BUBBLE':'Water','BUBBLEBEAM':'Water','CHARM':'Normal','CLAMP':'Water','CONFUSION':'Psychic','CONSTRICT':'Normal','COUNTER':'Fighting','COVET':'Normal','CRABHAMMER':'Water','CRUNCH':'Dark','CURSE':'Ghost','DEFENSE CURL':'Normal','DESTINY BOND':'Ghost','DIG':'Ground','DIZZY PUNCH':'Normal','DOOM DESIRE':'Steel','DOUBLE KICK':'Fighting','DOUBLE-EDGE':'Normal','DOUBLESLAP':'Normal','DRAGON CLAW':'Dragon','DRAGONBREATH':'Dragon','DREAM EATER':'Psychic','DYNAMICPUNCH':'Fighting','EARTHQUAKE':'Ground','EMBER':'Fire','ENCORE':'Normal','ERUPTION':'Fire','EXPLOSION':'Normal','EXTRASENSORY':'Psychic','EXTREMESPEED':'Normal','FAKE OUT':'Normal','FALSE SWIPE':'Normal','FAINT ATTACK':'Dark','FIRE BLAST':'Fire','FIRE SPIN':'Fire','FLAIL':'Normal','FLAMETHROWER':'Fire','FOCUS PUNCH':'Fighting','FURY ATTACK':'Normal','FURY CUTTER':'Bug','FURY SWIPES':'Normal','FUTURE SIGHT':'Psychic','GIGA DRAIN':'Grass','GROWL':'Normal','GROWTH':'Normal','GUST':'Flying','HARDEN':'Normal','HEADBUTT':'Normal','HEAT WAVE':'Fire','HIDDEN POWER':'Normal','HI JUMP KICK':'Fighting','HORN ATTACK':'Normal','HYDRO PUMP':'Water','HYPER BEAM':'Normal','HYPER VOICE':'Normal','ICE BALL':'Ice','ICE PUNCH':'Ice','ICY WIND':'Ice','IRON DEFENSE':'Steel','KNOCK OFF':'Dark','LEAF BLADE':'Grass','LEECH LIFE':'Bug','LEER':'Normal','LUSTER PURGE':'Psychic','MACH PUNCH':'Fighting','MAGICAL LEAF':'Grass','MEGA DRAIN':'Grass','MEGAHORN':'Bug','METAL CLAW':'Steel','MIRROR COAT':'Psychic','MIST BALL':'Psychic','MUD SHOT':'Ground','MUD-SLAP':'Ground','NATURE POWER':'Normal','NEEDLE ARM':'Grass','PECK':'Flying','PETAL DANCE':'Grass','PIN MISSILE':'Bug','POISON FANG':'Poison','POISON STING':'Poison','POUND':'Normal','POWDER SNOW':'Ice','PSYBEAM':'Psychic','PSYCHIC':'Psychic','PSYWAVE':'Psychic','PURSUIT':'Dark','QUICK ATTACK':'Normal','RAGE':'Normal','RAPID SPIN':'Normal','RAZOR WIND':'Normal','ROCK BLAST':'Rock','ROCK SLIDE':'Rock','ROCK THROW':'Rock','ROCK TOMB':'Rock','ROLLOUT':'Rock','SAFEGUARD':'Normal','SAND TOMB':'Ground','SCRATCH':'Normal','SCREECH':'Normal','SELFDESTRUCT':'Normal','SHADOW BALL':'Ghost','SHADOW PUNCH':'Ghost','SIGNAL BEAM':'Bug','SILVER WIND':'Bug','SING':'Normal','SKULL BASH':'Normal','SKY ATTACK':'Flying','SKY UPPERCUT':'Fighting','SLAM':'Normal','SLASH':'Normal','SLUDGE':'Poison','SLUDGE BOMB':'Poison','SMELLINGSALT':'Normal','SMOG':'Poison','SNORE':'Normal','SOLARBEAM':'Grass','SPARK':'Electric','SPLASH':'Normal','STEEL WING':'Steel','STOMP':'Normal','STRING SHOT':'Bug','SUPERPOWER':'Fighting','SWEET SCENT':'Normal','SWIFT':'Normal','TACKLE':'Normal','TAIL WHIP':'Normal','TAKE DOWN':'Normal','THIEF':'Dark','THRASH':'Normal','THUNDER':'Electric','THUNDER WAVE':'Electric','THUNDERSHOCK':'Electric','TWISTER':'Dragon','UPROAR':'Normal','VICEGRIP':'Normal','VITAL THROW':'Fighting','WATER GUN':'Water','WATER PULSE':'Water','WATER SPORT':'Water','WATER SPOUT':'Water','WEATHER BALL':'Normal','WHIRLPOOL':'Water','WING ATTACK':'Flying','WRAP':'Normal','YAWN':'Normal','ZAP CANNON':'Electric'};
+/* merge the Hoenn species into the shared DEX/MOVESETS/MOVE_TYPES supersets.
+   Slugs are shared across regions — Kanto natives keep their entries, sprites stay id-keyed. */
+(function(){
+  var k;
+  for(k in HOENN_DEX_ADD)if(!DEX[k])DEX[k]=HOENN_DEX_ADD[k];
+  for(k in HOENN_MOVESETS)if(!MOVESETS[k])MOVESETS[k]=HOENN_MOVESETS[k];
+  for(k in HOENN_MOVE_TYPES)if(!MOVE_TYPES[k])MOVE_TYPES[k]=HOENN_MOVE_TYPES[k];
+})();
+/* Gen-3 evolutions that EXTEND a Kanto species only while in Hoenn (kept out of Kanto's dex) */
+var HOENN_EVO_EXT={golbat:{lv:40,to:'crobat'},seadra:{lv:42,to:'kingdra'},gloom:{lv:36,choice:['vileplume','bellossom']}};
+function evoOf(sp){
+  if(state.region==='hoenn'&&HOENN_EVO_EXT[sp])return HOENN_EVO_EXT[sp];
+  return DEX[sp]&&DEX[sp].evo;
+}
+var HOENN_STARTERS=['treecko','torchic','mudkip'];
+/* what hatches from BIRCH's daycare eggs — babies and early-route friends */
+var HOENN_EGG_POOL=['wynaut','azurill','igglybuff','pichu','skitty','taillow','zigzagoon','ralts','aron','swablu'];
+/* ten towns, badge-gated in story order — official Emerald maps + their real slogans */
+var HOENN_TOWNS=[
+  {n:'LITTLEROOT TOWN',sub:'A town that can’t be shaded any hue',img:'map/hoenn/littleroot.png',
+    hs:{boss:[36,57,29,26],mart:[59,16,27,25],train:[4,52,26,34],center:[12,15,26,25]},wp:[46,6],
+    npc:[['boy',52,44],['lass',24,52]]},
+  {n:'RUSTBORO CITY',sub:'The city probing the integration of nature and science',img:'map/hoenn/rustboro.png',
+    hs:{boss:[57,13,18,15],mart:[36,79,13,14],train:[15,34,24,18],center:[36,58,14,14]},wp:[8,46],
+    npc:[['man',62,42],['lass',28,50],['youngster',70,72]]},
+  {n:'DEWFORD TOWN',sub:'A tiny island in the blue sea',img:'map/hoenn/dewford.png',
+    hs:{boss:[24,58,30,26],mart:[37,20,20,20],train:[68,58,29,30],center:[2,32,22,22]},wp:[50,8],
+    npc:[['oldman',60,40],['boy',20,80]]},
+  {n:'MAUVILLE CITY',sub:'The bright and shiny city of fun!',img:'map/hoenn/mauville.png',
+    hs:{boss:[7,7,18,30],mart:[55,52,12,28],train:[2,55,22,38],center:[52,7,13,28]},wp:[35,40],
+    npc:[['man',44,40],['lass',80,40],['youngster',30,75]]},
+  {n:'LAVARIDGE TOWN',sub:'An excellent place for relaxing!',img:'map/hoenn/lavaridge.png',
+    hs:{boss:[8,60,32,25],mart:[70,14,22,18],train:[40,42,25,15],center:[37,17,22,17]},wp:[55,52],
+    npc:[['oldman',20,30],['lass',60,60]]},
+  {n:'PETALBURG CITY',sub:'Where people mingle with nature',img:'map/hoenn/petalburg.png',
+    hs:{boss:[40,17,19,14],mart:[79,32,17,13],train:[6,52,26,30],center:[62,45,16,13]},wp:[50,86],
+    npc:[['man',36,58],['boy',56,70],['lass',24,36]]},
+  {n:'FORTREE CITY',sub:'The treetop city that frolics with nature',img:'map/hoenn/fortree.png',
+    hs:{boss:[46,40,17,20],mart:[6,57,15,27],train:[70,55,26,35],center:[2,13,15,27]},wp:[35,82],
+    npc:[['lass',30,30],['youngster',60,74]]},
+  {n:'MOSSDEEP CITY',sub:'Our slogan: Cherish POKEMON!',img:'map/hoenn/mossdeep.png',
+    hs:{boss:[40,11,14,15],mart:[41,37,11,14],train:[55,52,25,25],center:[22,29,12,18]},wp:[15,70],
+    npc:[['man',60,30],['lass',35,60],['boy',65,66]]},
+  {n:'SOOTOPOLIS CITY',sub:'The mystical city where history slumbers',img:'map/hoenn/sootopolis.png',
+    hs:{boss:[48,58,26,17],mart:[7,50,22,18],train:[28,76,44,15],center:[30,21,28,19]},wp:[50,92],
+    npc:[['oldman',70,26],['lass',20,66]]},
+  {n:'EVER GRANDE CITY',sub:'The paradise of flowers, the sea, and POKEMON',img:'map/hoenn/evergrande.png',
+    hs:{boss:[33,1,35,17],mart:[37,30,26,12],train:[15,52,62,32]},wp:[48,90],
+    npc:[['man',30,42],['youngster',66,48]]}
+];
+/* markers on the official RSE region map (x%,y% on map/hoenn.png) */
+var HOENN_TOWN_MAP_XY=[[27,73],[10,37],[17,89],[47,45],[30,35],[19,57],[54,25],[83,40],[71,49],[91,62]];
+var HOENN_WILD_BANDS=[[2,6],[6,10],[10,16],[16,22],[20,28],[24,32],[28,36],[32,40],[36,46],[42,52]];
+/* strict per-area spawns from the real Emerald routes around each stop */
+var HOENN_AREA_SPAWNS=[
+  /* 0 LITTLEROOT — Routes 101·102·103 */
+  [['zigzagoon',10],['poochyena',10],['wurmple',10],['taillow',6],['wingull',6],['lotad',6],['seedot',3],['ralts',3],['surskit',3],['marill',3]],
+  /* 1 RUSTBORO — Routes 104·116 + Petalburg Woods */
+  [['shroomish',10],['whismur',10],['nincada',6],['taillow',6],['wingull',6],['skitty',3],['slakoth',3],['abra',3],['treecko',1]],
+  /* 2 DEWFORD — Route 106 + Granite Cave */
+  [['zubat',10],['makuhita',10],['geodude',6],['aron',6],['tentacool',6],['magikarp',6],['sableye',3],['mawile',3],['machop',3]],
+  /* 3 MAUVILLE — Routes 110·117·118 */
+  [['electrike',10],['gulpin',10],['oddish',6],['magnemite',6],['plusle',6],['minun',6],['doduo',3],['volbeat',3],['illumise',3],['voltorb',3],['roselia',1]],
+  /* 4 LAVARIDGE — Routes 111·112·113 + Fiery Path */
+  [['numel',10],['slugma',10],['sandshrew',6],['spinda',6],['machop',6],['meditite',6],['barboach',6],['trapinch',3],['cacnea',3],['baltoy',3],['torkoal',3],['skarmory',1],['torchic',1]],
+  /* 5 PETALBURG — Routes 115·118 on the way home */
+  [['linoone',10],['swablu',10],['kecleon',6],['marill',6],['goldeen',6],['jigglypuff',3],['zangoose',3],['seviper',3],['heracross',1]],
+  /* 6 FORTREE — Routes 119·120·121 + Mt. Pyre outskirts */
+  [['oddish',10],['kecleon',10],['natu',6],['duskull',6],['shuppet',6],['vulpix',3],['tropius',3],['absol',3],['wobbuffet',3],['chimecho',1]],
+  /* 7 MOSSDEEP — Routes 124·125 over open sea */
+  [['tentacool',10],['wingull',10],['pelipper',6],['wailmer',6],['magikarp',6],['spheal',6],['staryu',3],['chinchou',3],['clamperl',3],['relicanth',1]],
+  /* 8 SOOTOPOLIS — Routes 126·128·129, the crater waters */
+  [['magikarp',10],['luvdisc',10],['wailmer',6],['horsea',6],['spheal',6],['corsola',3],['gyarados',3],['seadra',3],['mudkip',1]],
+  /* 9 EVER GRANDE — Victory Road */
+  [['golbat',10],['loudred',10],['hariyama',6],['lairon',6],['medicham',6],['whismur',6],['zubat',6],['sableye',3],['mawile',3],['bagon',1]]
+];
+/* nine roads with Emerald biomes — same quest engine, Hoenn palette */
+var HOENN_ROAD_LOC=[
+  {n:'PETALBURG WOODS',arena:'grass',img:'map/road/h-woods.png',c:'#2E8B48',bg:'#CFE8CB',pb:'#EDF7EA',bx:'#F6FBF4'},
+  {n:'GRANITE CAVE',arena:'cave',img:'map/road/h-granite.png',c:'#8A6E52',bg:'#DDD2C2',pb:'#F0E9DE',bx:'#F7F2EA'},
+  {n:'ROUTE 110',arena:'water',img:'map/road/h-coast.png',c:'#4890D8',bg:'#CDE1F6',pb:'#EAF3FC',bx:'#F4F9FE'},
+  {n:'JAGGED PASS',arena:'cave',img:'map/road/h-jagged.png',c:'#B05838',bg:'#EAD5C8',pb:'#F5EAE2',bx:'#FAF3EE'},
+  {n:'ROUTE 111 DESERT',arena:'sand',img:'map/road/h-desert.png',c:'#C8A050',bg:'#ECE2C6',pb:'#F7F1DF',bx:'#FBF7EC'},
+  {n:'ROUTE 119',arena:'grass',img:'map/road/h-jungle.png',c:'#1E7A3A',bg:'#C6E4C0',pb:'#E7F4E3',bx:'#F2FAF0'},
+  {n:'ROUTE 124',arena:'water',img:'map/road/h-sea.png',c:'#4890D8',bg:'#CDE1F6',pb:'#EAF3FC',bx:'#F4F9FE'},
+  {n:'ROUTE 126 DEEP SEA',arena:'water',img:'map/road/h-deep.png',c:'#3868B8',bg:'#C9D8F0',pb:'#E6EEF9',bx:'#F1F6FC'},
+  {n:'VICTORY ROAD',arena:'cave',img:'map/road/h-victory.png',c:'#7A6A58',bg:'#DCD3C6',pb:'#EFEAE0',bx:'#F6F2EB'}
+];
+/* the same 13-boss difficulty curve as Kanto, worn by the Hoenn league */
+var HOENN_BOSSES=[
+  {n:'ROXANNE',tr:'roxanne',gym:'RUSTBORO GYM',badge:'STONE BADGE',lv:14,hp:12000,
+    team:[{mon:'GEODUDE',monId:74,type:'Rock',frac:0.3},{mon:'NOSEPASS',monId:299,type:'Rock',frac:0.7}]},
+  {n:'BRAWLY',tr:'brawly',gym:'DEWFORD GYM',badge:'KNUCKLE BADGE',lv:21,hp:16000,
+    team:[{mon:'MACHOP',monId:66,type:'Fighting',frac:0.3},{mon:'MEDITITE',monId:307,type:'Fighting',frac:0.3},{mon:'MAKUHITA',monId:296,type:'Fighting',frac:0.4}]},
+  {n:'WATTSON',tr:'wattson',gym:'MAUVILLE GYM',badge:'DYNAMO BADGE',lv:24,hp:21000,
+    team:[{mon:'VOLTORB',monId:100,type:'Electric',frac:0.25},{mon:'MAGNETON',monId:82,type:'Electric',frac:0.3},{mon:'MANECTRIC',monId:310,type:'Electric',frac:0.45}]},
+  {n:'FLANNERY',tr:'flannery',gym:'LAVARIDGE GYM',badge:'HEAT BADGE',lv:29,hp:27000,
+    team:[{mon:'NUMEL',monId:322,type:'Fire',frac:0.25},{mon:'SLUGMA',monId:218,type:'Fire',frac:0.3},{mon:'TORKOAL',monId:324,type:'Fire',frac:0.45}]},
+  {n:'NORMAN',tr:'norman',gym:'PETALBURG GYM',badge:'BALANCE BADGE',lv:37,hp:34000,
+    team:[{mon:'SPINDA',monId:327,type:'Normal',frac:0.25},{mon:'VIGOROTH',monId:288,type:'Normal',frac:0.3},{mon:'SLAKING',monId:289,type:'Normal',frac:0.45}]},
+  {n:'WINONA',tr:'winona',gym:'FORTREE GYM',badge:'FEATHER BADGE',lv:43,hp:42000,
+    team:[{mon:'SWELLOW',monId:277,type:'Flying',frac:0.25},{mon:'PELIPPER',monId:279,type:'Flying',frac:0.3},{mon:'ALTARIA',monId:334,type:'Flying',frac:0.45}]},
+  {n:'TATE & LIZA',tr:'tateliza',gym:'MOSSDEEP GYM',badge:'MIND BADGE',lv:47,hp:52000,
+    team:[{mon:'LUNATONE',monId:337,type:'Psychic',frac:0.5},{mon:'SOLROCK',monId:338,type:'Psychic',frac:0.5}]},
+  {n:'JUAN',tr:'juan',gym:'SOOTOPOLIS GYM',badge:'RAIN BADGE',lv:50,hp:64000,
+    team:[{mon:'LUVDISC',monId:370,type:'Water',frac:0.2},{mon:'SEALEO',monId:364,type:'Water',frac:0.35},{mon:'KINGDRA',monId:230,type:'Water',frac:0.45}]},
+  {n:'SIDNEY',tr:'sidney',gym:'ELITE FOUR',badge:'',lv:54,hp:78000,
+    team:[{mon:'MIGHTYENA',monId:262,type:'Dark',frac:0.3},{mon:'SHIFTRY',monId:275,type:'Dark',frac:0.3},{mon:'ABSOL',monId:359,type:'Dark',frac:0.4}]},
+  {n:'PHOEBE',tr:'phoebe',gym:'ELITE FOUR',badge:'',lv:56,hp:94000,
+    team:[{mon:'SABLEYE',monId:302,type:'Ghost',frac:0.25},{mon:'BANETTE',monId:354,type:'Ghost',frac:0.3},{mon:'DUSCLOPS',monId:356,type:'Ghost',frac:0.45}]},
+  {n:'GLACIA',tr:'glacia',gym:'ELITE FOUR',badge:'',lv:58,hp:112000,
+    team:[{mon:'GLALIE',monId:362,type:'Ice',frac:0.3},{mon:'SEALEO',monId:364,type:'Ice',frac:0.3},{mon:'WALREIN',monId:365,type:'Ice',frac:0.4}]},
+  {n:'DRAKE',tr:'drakeh',gym:'ELITE FOUR',badge:'',lv:60,hp:132000,
+    team:[{mon:'SHELGON',monId:372,type:'Dragon',frac:0.25},{mon:'FLYGON',monId:330,type:'Dragon',frac:0.3},{mon:'SALAMENCE',monId:373,type:'Dragon',frac:0.45}]},
+  {n:'CHAMPION WALLACE',tr:'wallace',gym:'POKEMON LEAGUE',badge:'HALL OF FAME',lv:63,hp:160000,
+    team:[{mon:'WAILORD',monId:321,type:'Water',frac:0.25},{mon:'GYARADOS',monId:130,type:'Water',frac:0.3},{mon:'MILOTIC',monId:350,type:'Water',frac:0.45}]}
+];
+/* official Emerald gym halls + the league chambers */
+var HOENN_GYMS=[
+  {img:'map/gym/rustboro.png',lx:50,ly:15},
+  {img:'map/gym/dewford.png',lx:50,ly:12},
+  {img:'map/gym/mauville.png',lx:50,ly:12},
+  {img:'map/gym/lavaridge.png',lx:50,ly:20},
+  {img:'map/gym/petalburg.png',lx:50,ly:10},
+  {img:'map/gym/fortree.png',lx:50,ly:12},
+  {img:'map/gym/mossdeep.png',lx:50,ly:10},
+  {img:'map/gym/sootopolis.png',lx:50,ly:14},
+  {img:'map/gym/sidney.png',lx:50,ly:22},
+  {img:'map/gym/phoebe.png',lx:50,ly:22},
+  {img:'map/gym/glacia.png',lx:50,ly:22},
+  {img:'map/gym/drakeh.png',lx:50,ly:22},
+  {img:'map/gym/wallace.png',lx:50,ly:25}
+];
+var HOENN_RIVAL_ROADS={0:0,3:1,5:1,8:2};
+/* legendary raids, Hoenn flavor — the story titans wait for the Magma/Aqua arc */
+var HOENN_RAIDS=[
+  {k:'castform',req:1,target:15000,lv:20,flavor:'The Weather Institute lost its strange creation.'},
+  {k:'beldum',req:2,target:30000,lv:20,flavor:'A metal life-form pulses in a Mossdeep lab.'},
+  {k:'regirock',req:3,target:60000,lv:35,flavor:'Something ancient stirs in the Desert Ruins.'},
+  {k:'regice',req:5,target:80000,lv:35,flavor:'The Island Cave breathes a freezing mist.'},
+  {k:'registeel',req:7,target:100000,lv:35,flavor:'The Ancient Tomb hums with iron resonance.'},
+  {k:'latias',req:'champion',target:150000,lv:40,flavor:'A red streak crosses the Hoenn sky… chasing you?'}
+];
+var HOENN_RAID_SPECIES={};HOENN_RAIDS.forEach(function(r){HOENN_RAID_SPECIES[r.k]=1;});
+var HOENN_TRAINER_CLASSES=[
+  ['camper','CAMPER',['zigzagoon','taillow','poochyena','shroomish']],
+  ['aromalady','AROMA LADY',['shroomish','roselia','gloom']],
+  ['bugmaniac','BUG MANIAC',['wurmple','dustox','masquerain','nincada']],
+  ['birdkeeper','BIRD KEEPER',['taillow','wingull','swellow','natu']],
+  ['battlegirl','BATTLE GIRL',['meditite','makuhita','machop']],
+  ['hexmaniac','HEX MANIAC',['shuppet','duskull','spoink']],
+  ['dragontamer','DRAGON TAMER',['bagon','swablu','trapinch']],
+  ['hfisher','FISHERMAN',['magikarp','tentacool','carvanha','barboach']],
+  ['kindler','KINDLER',['numel','slugma','vulpix']],
+  ['blackbelt','BLACK BELT',['makuhita','machop','hariyama']]
+];
+/* Hoenn collectors pay in species no route offers */
+var HOENN_NPCQ=[
+  {k:'snorunt',req:3,npc:'lass',who:'LASS WINTER',mon:'snorunt',t:'ex',target:12,
+   ask:'My SNORUNT slid all the way down from Shoal Cave! Show it 12 different exercises and it stays with you.'},
+  {k:'spoink',req:4,npc:'man',who:'RICH BOY GARET',mon:'spoink',t:'sets',target:80,
+   ask:'SPOINK bounces nonstop — log 80 sets to keep up and it is yours!'},
+  {k:'girafarig',req:5,npc:'oldman',who:'WARDEN OTIS',mon:'girafarig',t:'volume',target:20000,
+   ask:'GIRAFARIG only respects raw power. Move 20,000 kg in total!'},
+  {k:'phanpy',req:6,npc:'boy',who:'SCHOOL KID TONY',mon:'phanpy',t:'days',target:8,
+   ask:'PHANPY loves routine! Train on 8 different days and take it home.'}
+];
+var HOENN_DAILY_POOL=[
+  {t:'sets',target:10,ask:'Log 10 sets today',reward:200,sp:'makuhita'},
+  {t:'vol',target:5000,ask:'Move 5,000 kg today',reward:250,sp:'aron'},
+  {t:'kills',target:4,ask:'Tire out 4 wild POKEMON today',reward:200,sp:'taillow'},
+  {t:'groups',target:2,ask:'Train 2 different muscle groups today',reward:200,sp:'zigzagoon'},
+  {t:'ex',target:4,ask:'Log sets in 4 different exercises today',reward:200,sp:'plusle'},
+  {t:'session',target:1,ask:'Finish a workout today',reward:150,sp:'slaking'}
+];
+/* the special places of Hoenn open with the Magma/Aqua story pack (v6.1) */
+var HOENN_POIS=[];
+var HOENN_FEATURES=[
+  {k:'mart',n:'POKE MART',icon:'sprites/items/pokeball.png',
+   d:'The SHOP is open! Stock up on potions, balls and more in every town from now on.',
+   cond:function(){return townIdx()>=1;}},
+  {k:'lab',n:'BIRCH’S LAB',icon:'sprites/trainers/birch.png',
+   d:'PROF. BIRCH opened his LAB — a whole new tab with daycare EGGS and legendary RAIDS!',
+   cond:function(){
+     if(badgeCount()>=2)return true;
+     var r=state.game.road;
+     return townIdx()>=1&&!!(r&&r.idx===1&&r.mb[0]&&r.mb[1]);
+   }},
+  {k:'collectors',n:'COLLECTORS',icon:'sprites/npc/lass.png',
+   d:'Collectors around Hoenn now post special requests on the QUEST page — rare POKEMON await!',
+   cond:function(){return townIdx()>=2;}}
+];
+/* ---- the region switch: state.game is always the ACTIVE region's save ---- */
+var KANTO_TOWNS=TOWNS,KANTO_TOWN_MAP_XY=TOWN_MAP_XY,KANTO_WILD_BANDS=WILD_BANDS,
+    KANTO_AREA_SPAWNS=AREA_SPAWNS,KANTO_BOSSES=BOSSES,KANTO_ROAD_LOC=ROAD_LOC,KANTO_GYMS=GYMS,
+    KANTO_RAIDS=RAIDS,KANTO_RAID_SPECIES=RAID_SPECIES,KANTO_POIS=POIS,KANTO_RIVAL_ROADS=RIVAL_ROADS,
+    KANTO_TRAINER_CLASSES=TRAINER_CLASSES,KANTO_NPCQ=NPCQ,KANTO_DAILY_POOL=DAILY_POOL,
+    KANTO_DEX_ORDER=DEX_ORDER,KANTO_FEATURES=FEATURES;
+var KANTO_EGG_POOL=['pidgey','pikachu','machop','geodude','abra','growlithe','gastly','magikarp','dratini','eevee','rattata','oddish','poliwag','ponyta','magnemite','voltorb','clefairy','jigglypuff','diglett','mankey'];
+function inHoenn(){return state.region==='hoenn';}
+function setRegionTables(){
+  var ho=inHoenn();
+  TOWNS=ho?HOENN_TOWNS:KANTO_TOWNS;
+  TOWN_MAP_XY=ho?HOENN_TOWN_MAP_XY:KANTO_TOWN_MAP_XY;
+  WILD_BANDS=ho?HOENN_WILD_BANDS:KANTO_WILD_BANDS;
+  AREA_SPAWNS=ho?HOENN_AREA_SPAWNS:KANTO_AREA_SPAWNS;
+  BOSSES=ho?HOENN_BOSSES:KANTO_BOSSES;
+  ROAD_LOC=ho?HOENN_ROAD_LOC:KANTO_ROAD_LOC;
+  GYMS=ho?HOENN_GYMS:KANTO_GYMS;
+  RAIDS=ho?HOENN_RAIDS:KANTO_RAIDS;
+  RAID_SPECIES=ho?HOENN_RAID_SPECIES:KANTO_RAID_SPECIES;
+  POIS=ho?HOENN_POIS:KANTO_POIS;
+  RIVAL_ROADS=ho?HOENN_RIVAL_ROADS:KANTO_RIVAL_ROADS;
+  TRAINER_CLASSES=ho?HOENN_TRAINER_CLASSES:KANTO_TRAINER_CLASSES;
+  NPCQ=ho?HOENN_NPCQ:KANTO_NPCQ;
+  DAILY_POOL=ho?HOENN_DAILY_POOL:KANTO_DAILY_POOL;
+  DEX_ORDER=ho?HOENN_DEX_ORDER:KANTO_DEX_ORDER;
+  FEATURES=ho?HOENN_FEATURES:KANTO_FEATURES;
+}
+function regionName(){return inHoenn()?'HOENN':'KANTO';}
+function regionMapImg(){return inHoenn()?'map/hoenn.png':'map/kanto.png';}
+function profName(){return inHoenn()?'PROF. BIRCH':'PROF. OAK';}
+function profSpr(){return 'sprites/trainers/'+(inHoenn()?'birch':'oak')+'.png';}
+function kantoGame(){return state.region==='kanto'?state.game:state.altGame;}
+function hoennUnlocked(){
+  if(state.dev)return true;
+  var kg=kantoGame();
+  return !!(kg&&kg.flags&&(kg.flags.champion||(kg.hof&&kg.hof.length)));
+}
+function switchRegion(to){
+  to=(to==='hoenn')?'hoenn':'kanto';
+  if(to===state.region)return;
+  if(state.session){toast('Finish your workout before sailing!');return;}
+  if(to==='hoenn'&&!hoennUnlocked()){toast('Beat the KANTO CHAMPION first!');return;}
+  var t=state.game;state.game=state.altGame;state.altGame=t;
+  state.region=to;
+  if(state.game)state.game.region=to;
+  setRegionTables();
+  applyTheme();
+  save();
+  tab='summary';
+  render();
+  var ho=inHoenn();
+  queueModal(function(){
+    sfx('travel');
+    showModal('<h3 style="text-align:center">S.S. TIDAL</h3>'+
+      '<div style="text-align:center;padding:4px 0">'+ferryIcon(44)+'</div>'+
+      '<p style="text-align:center">The ferry sets sail… welcome to <b>'+regionName()+'</b>!</p>'+
+      (ho&&!state.game?'<p style="text-align:center">A new adventure begins — fresh team, fresh money, fresh DEX. Your KANTO save is parked safely on board.</p>':'')+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">STEP ASHORE</button></div>',true);
+    modalOk=function(){
+      closeModal();
+      if(!state.game)setTimeout(showGenderModal,300);
+      else render(true);
+    };
+  });
+}
+/* ============ end HOENN REGION PACK ============ */
 /* every building banner: its official FRLG art + name tag, in the building's colors */
 function poiBanner(k,tag){
   var d=poiDef(k);if(!d)return '';
@@ -5647,7 +6300,7 @@ function playTravelFx(from,to,firstTime,done){
 }
 function travelHTML(){
   var h='<div class="titlebar"><h1>TOWN MAP</h1></div>';
-  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet '+profName()+'.</div>';
   var here=curTown(),reached=townIdx(),devAll=!!state.dev;
   h+='<div class="subtitle">'+(devAll?'DEV MODE — every town open, all rides free':'Tap a place you’ve been to hop over by ferry')+'</div>';
   /* the official Kanto region map — the town NAMES are the markers, coloured by status */
@@ -5659,7 +6312,7 @@ function travelHTML(){
       ' style="left:'+xy[0]+'%;top:'+xy[1]+'%" aria-label="'+tw.n+'">'+
       '<span class="tlbl" style="color:'+col+(i===here||i===reached?';font-weight:700':'')+'">'+(unlocked?tw.n.split(' ')[0]:'?????')+'</span></button>';
   });
-  h+='<div class="mapwrap kanto"><img class="mapimg" src="map/kanto.png" alt="Kanto" style="width:100%;display:block;image-rendering:pixelated">'+markers+'</div>';
+  h+='<div class="mapwrap kanto"><img class="mapimg" src="'+regionMapImg()+'" alt="'+regionName()+'" style="width:100%;display:block;image-rendering:pixelated">'+markers+'</div>';
   /* legend — coloured words, matching the map names */
   h+='<div class="plv" style="margin:2px 12px 0;display:flex;gap:14px;flex-wrap:wrap">'+
     '<b style="color:#D03028">Here</b>'+
@@ -5687,7 +6340,7 @@ function travelHTML(){
 }
 function centerHTML(){
   var h='<div class="titlebar"><h1>POKEMON CENTER</h1></div>';
-  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet PROF. OAK.</div>';
+  if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet '+profName()+'.</div>';
   var g=state.game,rest=restOf(),bag=bagOf();
   h+='<div class="subtitle">'+TOWNS[curTown()].n+' branch</div>'+
     '<div class="mapwrap"><img class="mapimg" src="map/center.png" alt="Pokemon Center" style="width:100%;display:block;image-rendering:pixelated">'+
@@ -5735,17 +6388,23 @@ function centerHTML(){
 /* ===== game: hero ===== */
 var pendingGender=null,pendingName=null,titlePlayed=false;
 function playerName(){return (state.game&&state.game.player&&state.game.player.name)?state.game.player.name:'TRAINER';}
-function playerSpr(){return (state.game&&state.game.player&&state.game.player.spr==='leaf')?'leaf':'red';}
+function playerSpr(){
+  var s=state.game&&state.game.player&&state.game.player.spr;
+  if(['red','leaf','brendan','may'].indexOf(s)>=0)return s;
+  return inHoenn()?'brendan':'red';
+}
 function showGenderModal(){
-  showModal('<div style="text-align:center;padding-bottom:4px"><img src="sprites/trainers/oak.png" alt="Prof. Oak" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
-    '<h3>PROF. OAK</h3><p>'+(state.game?'Ah, trainer! I forgot to register you. ':'')+'Are you a boy? Or are you a girl?</p>'+
-    '<button class="prow" data-action="pick-gender" data-g="red"><img class="pspr" src="sprites/trainers/red.png" alt=""><span class="pname">BOY</span></button>'+
-    '<button class="prow" data-action="pick-gender" data-g="leaf"><img class="pspr" src="sprites/trainers/leaf.png" alt=""><span class="pname">GIRL</span></button>',true);
+  var ho=inHoenn();
+  var boy=ho?'brendan':'red',girl=ho?'may':'leaf';
+  showModal('<div style="text-align:center;padding-bottom:4px"><img src="'+profSpr()+'" alt="'+profName()+'" style="width:64px;height:64px;image-rendering:pixelated"></div>'+
+    '<h3>'+profName()+'</h3><p>'+(state.game?'Ah, trainer! I forgot to register you. ':'')+'Are you a boy? Or are you a girl?</p>'+
+    '<button class="prow" data-action="pick-gender" data-g="'+boy+'"><img class="pspr" src="sprites/trainers/'+boy+'.png" alt=""><span class="pname">BOY</span></button>'+
+    '<button class="prow" data-action="pick-gender" data-g="'+girl+'"><img class="pspr" src="sprites/trainers/'+girl+'.png" alt=""><span class="pname">GIRL</span></button>',true);
   modalOk=null;
 }
 function afterNamePicked(){
   if(state.game){
-    state.game.player={name:pendingName||'RED',spr:pendingGender||'red'};
+    state.game.player={name:pendingName||(inHoenn()?'BRENDAN':'RED'),spr:pendingGender||(inHoenn()?'brendan':'red')};
     save();render(true);
     toast('Registered, '+playerName()+'!');
   }else{
@@ -5934,6 +6593,10 @@ function settingsHTML(){
   '<div class="srow"><div><div class="lab">Developer mode</div><div class="sub">Preview: travel to any town free. No progress is changed</div></div>'+
     '<div class="seg"><button data-action="devmode" data-d="on" class="'+(state.dev?'on':'')+'">ON</button>'+
     '<button data-action="devmode" data-d="off" class="'+(state.dev?'':'on')+'">OFF</button></div></div>'+
+  (hoennUnlocked()?
+  '<div class="srow"><div><div class="lab">Region</div><div class="sub">The S.S. TIDAL sails between campaigns — each keeps its own save</div></div>'+
+    '<div class="seg"><button data-action="region" data-r="kanto" class="'+(!inHoenn()?'on':'')+'">KANTO</button>'+
+    '<button data-action="region" data-r="hoenn" class="'+(inHoenn()?'on':'')+'">HOENN</button></div></div>':'')+
   '<div class="srow"><div><div class="lab">Trainer name</div><div class="sub">'+esc(playerName())+'</div></div>'+
     '<button class="btn" data-action="rename-trainer">Edit</button></div>'+
   '<div class="srow"><div><div class="lab">Unit</div><div class="sub">Label for logged weights</div></div>'+
@@ -5950,7 +6613,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.19.1 “Athlete’s Pack” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.0 “Emerald” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -6275,7 +6938,7 @@ function saveLogEntry(){
       if(state.game.egg){
         state.game.egg.left-=entry.s;
         if(state.game.egg.left<=0){
-          var HATCH=['pidgey','pikachu','machop','geodude','abra','growlithe','gastly','magikarp','dratini','eevee','rattata','oddish','poliwag','ponyta','magnemite','voltorb','clefairy','jigglypuff','diglett','mankey'];
+          var HATCH=inHoenn()?HOENN_EGG_POOL:KANTO_EGG_POOL;
           var hsp=HATCH[Math.floor(Math.random()*HATCH.length)];
           var hshiny=Math.random()<0.2;
           state.game.egg=null;
@@ -6478,11 +7141,18 @@ function applyImport(txt){
       sets:Math.max(0,parseInt(s.sets,10)||0),volume:Math.max(0,Math.round(+s.volume)||0),
       exercises:Math.max(0,parseInt(s.exercises,10)||0)};})
     .sort(function(a,b){return a.start-b.start;}):[];
+  var region=(d.region==='hoenn')?'hoenn':'kanto';
+  /* one sanitizer per game object — each validated against ITS region's tables */
+  function sanitizeGame(dgame,reg){
+  var hoR=(reg==='hoenn');
+  var R_NPCQ=hoR?HOENN_NPCQ:KANTO_NPCQ,R_RAIDSP=hoR?HOENN_RAID_SPECIES:KANTO_RAID_SPECIES,
+      R_TOWNS=hoR?HOENN_TOWNS:KANTO_TOWNS,R_ROADS=hoR?HOENN_ROAD_LOC:KANTO_ROAD_LOC,R_TMAX=R_TOWNS.length-1;
   var gm=null;
-  if(d.game&&Array.isArray(d.game.mons)){
-    gm={startTs:+d.game.startTs||Date.now(),
-      starter:d.game.starter==='squirtle'?'squirtle':'charmander',
-      mons:d.game.mons.filter(function(m){return m&&DEX[m.sp];}).map(function(m){
+  if(dgame&&Array.isArray(dgame.mons)){
+    gm={startTs:+dgame.startTs||Date.now(),
+      starter:hoR?(HOENN_STARTERS.indexOf(dgame.starter)>=0?dgame.starter:'treecko')
+                 :(dgame.starter==='squirtle'?'squirtle':'charmander'),
+      mons:dgame.mons.filter(function(m){return m&&DEX[m.sp];}).map(function(m){
         var nm={uid:m.uid||uid(),sp:m.sp,xp:Math.max(0,Math.round(+m.xp)||0),shiny:!!m.shiny,ts:+m.ts||Date.now()};
         if(m.vits&&typeof m.vits==='object'){
           var vt={};
@@ -6495,76 +7165,77 @@ function applyImport(txt){
         if(m.held&&ITEMS[m.held]&&ITEMS[m.held].hold)nm.held=m.held;
         return nm;
       }),
-      active:typeof d.game.active==='string'?d.game.active:null,
-      enc:(d.game.enc&&typeof d.game.enc==='object')?d.game.enc:{},
-      flags:(d.game.flags&&typeof d.game.flags==='object')?d.game.flags:{},
-      seen:(d.game.seen&&typeof d.game.seen==='object')?d.game.seen:{},
-      dex:(d.game.dex&&typeof d.game.dex==='object')?d.game.dex:{}};
-    gm.round=Math.max(1,parseInt(d.game.round,10)||1);
+      active:typeof dgame.active==='string'?dgame.active:null,
+      enc:(dgame.enc&&typeof dgame.enc==='object')?dgame.enc:{},
+      flags:(dgame.flags&&typeof dgame.flags==='object')?dgame.flags:{},
+      seen:(dgame.seen&&typeof dgame.seen==='object')?dgame.seen:{},
+      dex:(dgame.dex&&typeof dgame.dex==='object')?dgame.dex:{}};
+    gm.round=Math.max(1,parseInt(dgame.round,10)||1);
     gm.boss=null;
-    var bi=(d.game.boss&&isFinite(d.game.boss.idx)&&BOSSES[+d.game.boss.idx])?+d.game.boss.idx:0;
+    var bi=(dgame.boss&&isFinite(dgame.boss.idx)&&BOSSES[+dgame.boss.idx])?+dgame.boss.idx:0;
     var bmax=hpFor(bi,gm.round);
-    var bh=(d.game.boss&&isFinite(d.game.boss.hp))?Math.min(bmax,Math.max(1,Math.round(+d.game.boss.hp))):bmax;
-    if(!gm.flags.champion||d.game.boss){
+    var bh=(dgame.boss&&isFinite(dgame.boss.hp))?Math.min(bmax,Math.max(1,Math.round(+dgame.boss.hp))):bmax;
+    if(!gm.flags.champion||dgame.boss){
       gm.boss={idx:bi,hp:bh};
     }else{
       gm.round=Math.max(2,gm.round);
       gm.boss={idx:0,hp:hpFor(0,gm.round)};
     }
-    gm.player=(d.game.player&&typeof d.game.player.name==='string')?
-      {name:String(d.game.player.name).slice(0,10),spr:d.game.player.spr==='leaf'?'leaf':'red'}:null;
-    gm.egg=(d.game.egg&&isFinite(d.game.egg.left)&&+d.game.egg.left>0)?{left:Math.round(+d.game.egg.left)}:null;
-    gm.money=Math.max(0,Math.round(+d.game.money)||0);
+    gm.player=(dgame.player&&typeof dgame.player.name==='string')?
+      {name:String(dgame.player.name).slice(0,10),
+       spr:hoR?(dgame.player.spr==='may'?'may':'brendan'):(dgame.player.spr==='leaf'?'leaf':'red')}:null;
+    gm.egg=(dgame.egg&&isFinite(dgame.egg.left)&&+dgame.egg.left>0)?{left:Math.round(+dgame.egg.left)}:null;
+    gm.money=Math.max(0,Math.round(+dgame.money)||0);
     gm.bag={};
-    if(d.game.bag&&typeof d.game.bag==='object'){
-      Object.keys(d.game.bag).forEach(function(bk){
+    if(dgame.bag&&typeof dgame.bag==='object'){
+      Object.keys(dgame.bag).forEach(function(bk){
         var key=bk==='xattack'?'fullrestore':bk;
         if(!ITEMS[key])return;
-        var bc=parseInt(d.game.bag[bk],10);
+        var bc=parseInt(dgame.bag[bk],10);
         if(bc>0)gm.bag[key]=Math.min(99,(gm.bag[key]||0)+bc);
       });
     }
-    gm.hof=Array.isArray(d.game.hof)?d.game.hof.filter(function(e){return e&&isFinite(e.ts)&&Array.isArray(e.team);})
+    gm.hof=Array.isArray(dgame.hof)?dgame.hof.filter(function(e){return e&&isFinite(e.ts)&&Array.isArray(e.team);})
       .map(function(e){return {ts:+e.ts,round:Math.max(1,parseInt(e.round,10)||1),
         team:e.team.filter(function(t){return t&&DEX[t.sp];})
           .map(function(t){return {sp:t.sp,lv:Math.max(1,Math.min(100,parseInt(t.lv,10)||1)),shiny:!!t.shiny};})};}):[];
-    gm.partyIds=Array.isArray(d.game.partyIds)?d.game.partyIds.filter(function(x){return typeof x==='string';}).slice(0,6):null;
+    gm.partyIds=Array.isArray(dgame.partyIds)?dgame.partyIds.filter(function(x){return typeof x==='string';}).slice(0,6):null;
     if(gm.partyIds&&!gm.partyIds.length)gm.partyIds=null;
     gm.medals={};
-    if(d.game.medals&&typeof d.game.medals==='object'){
-      MEDAL_ORDER.forEach(function(t){if(d.game.medals[t])gm.medals[t]=1;});
-      SPECIAL_MEDALS.forEach(function(s2){if(d.game.medals[s2.k])gm.medals[s2.k]=1;});
+    if(dgame.medals&&typeof dgame.medals==='object'){
+      MEDAL_ORDER.forEach(function(t){if(dgame.medals[t])gm.medals[t]=1;});
+      SPECIAL_MEDALS.forEach(function(s2){if(dgame.medals[s2.k])gm.medals[s2.k]=1;});
     }
     gm.hurt={};
-    if(d.game.hurt&&typeof d.game.hurt==='object'){
+    if(dgame.hurt&&typeof dgame.hurt==='object'){
       gm.mons.forEach(function(m){
-        var hv=parseInt(d.game.hurt[m.uid],10);
+        var hv=parseInt(dgame.hurt[m.uid],10);
         if(hv>=0&&isFinite(hv))gm.hurt[m.uid]=hv;
       });
     }
-    gm.raid=(d.game.raid&&RAID_SPECIES[d.game.raid.k]&&isFinite(d.game.raid.startTs))?
-      {k:d.game.raid.k,startTs:+d.game.raid.startTs}:null;
+    gm.raid=(dgame.raid&&R_RAIDSP[dgame.raid.k]&&isFinite(dgame.raid.startTs))?
+      {k:dgame.raid.k,startTs:+dgame.raid.startTs}:null;
     gm.rest={};
-    if(d.game.rest&&typeof d.game.rest==='object'){
+    if(dgame.rest&&typeof dgame.rest==='object'){
       gm.mons.forEach(function(m){
-        var rv=+d.game.rest[m.uid];
+        var rv=+dgame.rest[m.uid];
         if(isFinite(rv)&&rv>0)gm.rest[m.uid]=rv;
       });
     }
     gm.roadLog={};
-    if(d.game.roadLog&&typeof d.game.roadLog==='object'){
-      Object.keys(d.game.roadLog).forEach(function(rk){
-        var ri=parseInt(rk,10),rv=d.game.roadLog[rk];
-        if(!(ri>=0&&ri<ROAD_LOC.length)||!rv)return;
+    if(dgame.roadLog&&typeof dgame.roadLog==='object'){
+      Object.keys(dgame.roadLog).forEach(function(rk){
+        var ri=parseInt(rk,10),rv=dgame.roadLog[rk];
+        if(!(ri>=0&&ri<R_ROADS.length)||!rv)return;
         gm.roadLog[ri]=rv.synth?{synth:1,round:Math.max(1,parseInt(rv.round,10)||1)}
           :{round:Math.max(1,parseInt(rv.round,10)||1),startTs:+rv.startTs||Date.now(),
             clearTs:+rv.clearTs||Date.now(),kills:Math.max(0,parseInt(rv.kills,10)||0)};
       });
     }
     gm.poi={};
-    if(d.game.poi&&typeof d.game.poi==='object'){
+    if(dgame.poi&&typeof dgame.poi==='object'){
       var pin=function(v,mx){var n2=parseInt(v,10);return (n2>=0&&isFinite(n2))?Math.min(mx||999999,n2):0;};
-      var psrc=d.game.poi;
+      var psrc=dgame.poi;
       if(psrc.tower)gm.poi.tower={floor:pin(psrc.tower.floor,8),clears:pin(psrc.tower.clears),weekKey:typeof psrc.tower.weekKey==='string'?psrc.tower.weekKey:''};
       if(psrc.corner)gm.poi.corner={coins:pin(psrc.corner.coins),date:typeof psrc.corner.date==='string'?psrc.corner.date:'',spins:pin(psrc.corner.spins,20)};
       if(psrc.hideout)gm.poi.hideout={floor:pin(psrc.hideout.floor,4),scope:psrc.hideout.scope?1:0};
@@ -6578,48 +7249,61 @@ function applyImport(txt){
       }
       if(psrc.front)gm.poi.front={streak:pin(psrc.front.streak,999),best:pin(psrc.front.best,999)};
     }
-    gm.bp=Math.max(0,Math.round(+d.game.bp)||0);
-    gm.bestStreak=Math.max(0,parseInt(d.game.bestStreak,10)||0);
-    gm.visit=(isFinite(d.game.visit)&&+d.game.visit>=0&&+d.game.visit<TOWNS.length)?+d.game.visit:null;
+    gm.bp=Math.max(0,Math.round(+dgame.bp)||0);
+    gm.bestStreak=Math.max(0,parseInt(dgame.bestStreak,10)||0);
+    gm.visit=(isFinite(dgame.visit)&&+dgame.visit>=0&&+dgame.visit<R_TOWNS.length)?+dgame.visit:null;
     gm.beenTo={};
-    if(d.game.beenTo&&typeof d.game.beenTo==='object'){
-      Object.keys(d.game.beenTo).forEach(function(bk2){
+    if(dgame.beenTo&&typeof dgame.beenTo==='object'){
+      Object.keys(dgame.beenTo).forEach(function(bk2){
         var bi2=parseInt(bk2,10);
-        if(bi2>=0&&bi2<TOWNS.length&&d.game.beenTo[bk2])gm.beenTo[bi2]=1;
+        if(bi2>=0&&bi2<R_TOWNS.length&&dgame.beenTo[bk2])gm.beenTo[bi2]=1;
       });
     }
     gm.road=null;
-    if(d.game.road&&isFinite(d.game.road.idx)){
-      gm.road={idx:Math.max(0,parseInt(d.game.road.idx,10)||0),
-        round:Math.max(1,parseInt(d.game.road.round,10)||1),
-        startTs:+d.game.road.startTs||Date.now(),
-        kills:Math.max(0,parseInt(d.game.road.kills,10)||0),mb:{},qdone:{}};
-      if(d.game.road.mb&&typeof d.game.road.mb==='object')Object.keys(d.game.road.mb).forEach(function(mk){if(d.game.road.mb[mk])gm.road.mb[mk]=1;});
-      if(d.game.road.qdone&&typeof d.game.road.qdone==='object')Object.keys(d.game.road.qdone).forEach(function(qk){if(d.game.road.qdone[qk])gm.road.qdone[qk]=1;});
-      if(d.game.road.qann&&typeof d.game.road.qann==='object'){gm.road.qann={};Object.keys(d.game.road.qann).forEach(function(ak){if(d.game.road.qann[ak])gm.road.qann[ak]=1;});}
-      if(d.game.road.clearmsg)gm.road.clearmsg=1;
+    if(dgame.road&&isFinite(dgame.road.idx)){
+      gm.road={idx:Math.max(0,parseInt(dgame.road.idx,10)||0),
+        round:Math.max(1,parseInt(dgame.road.round,10)||1),
+        startTs:+dgame.road.startTs||Date.now(),
+        kills:Math.max(0,parseInt(dgame.road.kills,10)||0),mb:{},qdone:{}};
+      if(dgame.road.mb&&typeof dgame.road.mb==='object')Object.keys(dgame.road.mb).forEach(function(mk){if(dgame.road.mb[mk])gm.road.mb[mk]=1;});
+      if(dgame.road.qdone&&typeof dgame.road.qdone==='object')Object.keys(dgame.road.qdone).forEach(function(qk){if(dgame.road.qdone[qk])gm.road.qdone[qk]=1;});
+      if(dgame.road.qann&&typeof dgame.road.qann==='object'){gm.road.qann={};Object.keys(dgame.road.qann).forEach(function(ak){if(dgame.road.qann[ak])gm.road.qann[ak]=1;});}
+      if(dgame.road.clearmsg)gm.road.clearmsg=1;
     }
     gm.daily=null;
-    if(d.game.daily&&typeof d.game.daily==='object'&&typeof d.game.daily.date==='string'){
-      gm.daily={date:d.game.daily.date,claimed:{},kills:Math.max(0,parseInt(d.game.daily.kills,10)||0),
-        streak:Math.max(0,parseInt(d.game.daily.streak,10)||0),
-        lastDone:typeof d.game.daily.lastDone==='string'?d.game.daily.lastDone:null};
-      if(d.game.daily.claimed&&typeof d.game.daily.claimed==='object')Object.keys(d.game.daily.claimed).forEach(function(ck){if(d.game.daily.claimed[ck])gm.daily.claimed[ck]=1;});
+    if(dgame.daily&&typeof dgame.daily==='object'&&typeof dgame.daily.date==='string'){
+      gm.daily={date:dgame.daily.date,claimed:{},kills:Math.max(0,parseInt(dgame.daily.kills,10)||0),
+        streak:Math.max(0,parseInt(dgame.daily.streak,10)||0),
+        lastDone:typeof dgame.daily.lastDone==='string'?dgame.daily.lastDone:null};
+      if(dgame.daily.claimed&&typeof dgame.daily.claimed==='object')Object.keys(dgame.daily.claimed).forEach(function(ck){if(dgame.daily.claimed[ck])gm.daily.claimed[ck]=1;});
     }
     gm.npcq=null;
-    if(d.game.npcq&&isFinite(d.game.npcq.startTs)){
-      gm.npcq={startTs:+d.game.npcq.startTs,claimed:{}};
-      if(d.game.npcq.claimed&&typeof d.game.npcq.claimed==='object'){
-        NPCQ.forEach(function(q){if(d.game.npcq.claimed[q.k])gm.npcq.claimed[q.k]=1;});
+    if(dgame.npcq&&isFinite(dgame.npcq.startTs)){
+      gm.npcq={startTs:+dgame.npcq.startTs,claimed:{},st:{}};
+      if(dgame.npcq.st&&typeof dgame.npcq.st==='object'){
+        R_NPCQ.forEach(function(q){var sv=+dgame.npcq.st[q.k];if(isFinite(sv)&&sv>0)gm.npcq.st[q.k]=sv;});
+      }
+      if(dgame.npcq.claimed&&typeof dgame.npcq.claimed==='object'){
+        R_NPCQ.forEach(function(q){if(dgame.npcq.claimed[q.k])gm.npcq.claimed[q.k]=1;});
       }
     }
-    gm.visit=(d.game.visit!=null&&isFinite(d.game.visit))?Math.max(0,Math.min(8,parseInt(d.game.visit,10))):null;
+    gm.visit=(dgame.visit!=null&&isFinite(dgame.visit))?Math.max(0,Math.min(R_TMAX,parseInt(dgame.visit,10))):null;
     gm.beenTo={};
-    if(d.game.beenTo&&typeof d.game.beenTo==='object'){
-      for(var bt=0;bt<=8;bt++)if(d.game.beenTo[bt])gm.beenTo[bt]=1;
-    }else{for(var bt2=0;bt2<=townIdx();bt2++)gm.beenTo[bt2]=1;}
+    if(dgame.beenTo&&typeof dgame.beenTo==='object'){
+      for(var bt=0;bt<=R_TMAX;bt++)if(dgame.beenTo[bt])gm.beenTo[bt]=1;
+    }else{
+      var btMax=Math.min(R_TMAX,(gm.flags&&gm.flags.champion)?R_TMAX:Math.min(gm.boss?gm.boss.idx:0,8));
+      for(var bt2=0;bt2<=btMax;bt2++)gm.beenTo[bt2]=1;
+    }
+    gm.region=reg;
   }
-  state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,gamePlayed:(d.gamePlayed||gm)?1:0,sound:d.sound!==false};
+  return gm;
+  }
+  var gm=sanitizeGame(d.game,region);
+  var altGm=sanitizeGame(d.altGame,region==='hoenn'?'kanto':'hoenn');
+  state={version:+d.version||1,unit:d.unit==='lb'?'lb':'kg',groups:ng,logs:nl,sessions:ns,session:null,theme:d.theme==='day'?'day':'night',game:gm,altGame:altGm,region:region,gamePlayed:(d.gamePlayed||gm||altGm)?1:0,sound:d.sound!==false};
+  setRegionTables();
+  applyTheme();
   save();
   editMode=false;tab='workout';render();
 }
@@ -6754,16 +7438,16 @@ document.addEventListener('click',function(e){
     else if(bid==='boss'){
       if(state.session){tab='workout';render();}
       else if(state.game){tab='gymhall';render();}
-      else toast('Meet PROF. OAK first!');
+      else toast('Meet '+profName()+' first!');
     }
     else if(bid==='mart'){
-      if(!state.game){toast('Meet PROF. OAK first!');}
+      if(!state.game){toast('Meet '+profName()+' first!');}
       else if(!featOn('mart')){toast('The MART opens once you reach the next town!');}
       else{tab='mart';render();}
     }
     else if(bid==='center'){
       if(state.game){tab='center';render();}
-      else toast('Meet PROF. OAK first!');
+      else toast('Meet '+profName()+' first!');
     }
   }
   else if(a==='use-xatk'){
@@ -7194,18 +7878,21 @@ document.addEventListener('click',function(e){
   }
   else if(a==='reset-game'){
     if(!state.game){toast('No adventure to reset');return;}
-    confirmModal('Restart the adventure?','Your team, badges and POKEDEX are wiped and PROF. OAK greets you again. Workout data stays untouched. No retro XP this time — a true fresh start.','Restart',function(){
+    confirmModal('Restart the '+regionName()+' adventure?','Your '+regionName()+' team, badges and POKEDEX are wiped and '+profName()+' greets you again. The other region and all workout data stay untouched. No retro XP this time — a true fresh start.','Restart',function(){
       state.game=null;save();
       tab='summary';render();
       setTimeout(showStarterModal,350);
     });
   }
   else if(a==='pick-starter'){
-    var ssp=b.dataset.sp==='squirtle'?'squirtle':'charmander';
-    var retro=state.gamePlayed?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
+    var ssp;
+    if(inHoenn())ssp=HOENN_STARTERS.indexOf(b.dataset.sp)>=0?b.dataset.sp:'treecko';
+    else ssp=b.dataset.sp==='squirtle'?'squirtle':'charmander';
+    // Hoenn is a locked fresh start — no retro XP, ever
+    var retro=(inHoenn()||state.gamePlayed)?0:Math.min(Math.round(totalVolumeAll()/10),xpFloor(15));
     state.game={startTs:Date.now(),starter:ssp,mons:[],active:null,enc:{},flags:{},seen:{},dex:{},round:1,
-      boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||'RED',spr:pendingGender||'red'},
-      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null,roadLog:{},poi:{},bp:0,bestStreak:0,daily:null,npcq:null,visit:0,beenTo:{0:1}};
+      boss:{idx:0,hp:BOSSES[0].hp},player:{name:pendingName||(inHoenn()?'BRENDAN':'RED'),spr:pendingGender||(inHoenn()?'brendan':'red')},
+      money:3000,bag:{},hof:[],partyIds:null,egg:null,medals:{},hurt:{},raid:null,rest:{},road:null,roadLog:{},poi:{},bp:0,bestStreak:0,daily:null,npcq:null,visit:0,beenTo:{0:1},region:state.region};
     state.gamePlayed=1;
     var sm=addMon(ssp,false);
     sm.xp=retro;
@@ -7227,7 +7914,7 @@ document.addEventListener('click',function(e){
     if(em&&DEX[b.dataset.to]){closeModal();doEvolve(em,b.dataset.to);}
   }
   else if(a==='pick-gender'){
-    pendingGender=b.dataset.g==='leaf'?'leaf':'red';
+    pendingGender=['red','leaf','brendan','may'].indexOf(b.dataset.g)>=0?b.dataset.g:(inHoenn()?'brendan':'red');
     closeModal();
     promptModal('And your name is…?',state.game&&state.game.player?state.game.player.name:'',function(v){
       pendingName=v.toUpperCase().slice(0,10);
@@ -7237,7 +7924,7 @@ document.addEventListener('click',function(e){
   else if(a==='rename-trainer'){
     if(!state.game)return;
     promptModal('Trainer name',playerName(),function(v){
-      if(!state.game.player)state.game.player={name:'RED',spr:'red'};
+      if(!state.game.player)state.game.player={name:inHoenn()?'BRENDAN':'RED',spr:inHoenn()?'brendan':'red'};
       state.game.player.name=v.toUpperCase().slice(0,10);
       save();render(true);
     });
@@ -7253,6 +7940,7 @@ document.addEventListener('click',function(e){
     save();render(true);
     toast(state.dev?'DEV MODE ON — every town open on the TOWN MAP':'DEV MODE OFF');
   }
+  else if(a==='region'){switchRegion(b.dataset.r);}
   else if(a==='goto-edit'){tab='workout';editMode=true;render();}
   else if(a==='export'){exportData();}
   else if(a==='copy'){copyData();}
@@ -7307,7 +7995,9 @@ document.addEventListener('click',function(e){
 window.addEventListener('error',function(ev){
   try{toast('⚠️ '+String((ev&&ev.message)||'Something glitched').slice(0,90));}catch(e){}
 });
+setRegionTables(); // active region's tables must be live before migrations touch BOSSES/TOWNS
 var staleNote=migrateState();
+setRegionTables(); // migrations may have (re)set state.region on old saves
 applyTheme();
 render();
 ensureTicker();
