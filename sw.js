@@ -1,6 +1,6 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v40';
+const CACHE = 'gym-tracker-v41';
 const TOWN_MAPS = ['viridian','pewter','cerulean','vermilion','celadon','fuchsia','saffron','cinnabar','indigo'];
 const ARENAS = ['gym','grass','water','cave','pond','ice','sand','poison','teal','psychic'];
 /* The full Kanto 151 — every species is catchable (front + shiny + back + back-shiny). */
@@ -10,11 +10,12 @@ const WILD_IDS = [];
 const TRAINERS = ['red','leaf','oak','brock','misty','ltsurge','erika','koga','sabrina','blaine','giovanni','lorelei','bruno','agatha','lance','blue',
   'bugcatcher','youngster','lass','hiker','fisherman','picnicker'];
 const ITEM_KEYS = ['potion','superpotion','hyperpotion','fullrestore','revive','pokeball','greatball','ultraball','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy',
-  'charcoal','mysticwater','magnet','blackbelt','twistedspoon','sharpbeak','hardstone','scopelens','leftovers'];
+  'charcoal','mysticwater','magnet','blackbelt','twistedspoon','sharpbeak','hardstone','scopelens','leftovers','expshare'];
 const BADGE_TYPES = ['normal','fire','water','electric','grass','psychic','fighting','flying','poison','ground','rock','bug','ghost','ice','dragon','steel'];
 const NPCS = ['nurse','lass','boy','oldman','man','youngster','chef','jiggly'];
 const GYM_ROOMS = ['pewter','cerulean','vermilion','celadon','fuchsia','saffron','cinnabar','viridian','lorelei','bruno','agatha','lance','champion'];
 const ROAD_MAPS = ['forest','mtmoon','bridge','route8','hideout','silph','cycling','seafoam','victory'];
+const POI_MAPS = ['tower','dept','corner','hideout','safari','silph','tower2','lab'];
 /* Cries (sounds/cries/*.mp3) are NOT precached — the fetch handler caches them the first time they play. */
 const ASSETS = [
   './',
@@ -41,7 +42,9 @@ const ASSETS = [
   .concat(NPCS.map((n) => './sprites/npc/' + n + '.png'))
   .concat(GYM_ROOMS.map((g) => './map/gym/' + g + '.png'))
   .concat(ROAD_MAPS.map((r) => './map/road/' + r + '.png'))
+  .concat(POI_MAPS.map((p) => './map/poi/' + p + '.png'))
   .concat(['./map/center.png', './map/mart.png', './map/kanto.png']);
+/* Sugimori artwork (sprites/art/*.png) is NOT precached — the fetch handler caches each on first view. */
 
 self.addEventListener('install', (e) => {
   // Add each asset individually so one missing file can't abort the whole install.
