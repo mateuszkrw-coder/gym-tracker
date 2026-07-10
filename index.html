@@ -305,8 +305,36 @@ button.dexcell{display:block;width:100%;font:inherit;white-space:normal}
 .lunge-r{animation:lungeR .5s ease 1}
 @keyframes blinkHit{0%,49%{opacity:1}50%,100%{opacity:.15}}
 .blink{animation:blinkHit .14s steps(1) 4}
-@keyframes faintdrop{to{transform:translateY(36px);opacity:0}}
+@keyframes faintdrop{55%{opacity:1}to{transform:translateY(190px);opacity:0}}
 .faintdrop{animation:faintdrop .55s ease-in forwards}
+/* GBA send-out: the ball pops open in a white burst and the mon materializes */
+@keyframes matzk{0%{transform:scale(.1);filter:brightness(7) saturate(0);opacity:0}
+  30%{opacity:1}
+  75%{transform:scale(1.04);filter:brightness(7) saturate(0)}
+  100%{transform:none;opacity:1}}
+.matz{animation:matzk .55s ease-out .28s backwards}
+.bt-pspr.matz{transform-origin:50% 90%}
+.bt-espr.matz{transform-origin:50% 85%}
+/* wild mons don't live in balls — they pounce in from the side and settle */
+@keyframes wildink{0%{transform:translate(96px,-30px) scale(.9);opacity:0}
+  55%{transform:translate(12px,-5px);opacity:1}
+  80%{transform:translate(3px,2px)}
+  100%{transform:none}}
+.wildin{animation:wildink .5s ease-out}
+.sendball{position:absolute;width:20px;height:20px;image-rendering:pixelated;z-index:6;
+  pointer-events:none;animation:sballk .46s ease-in both}
+.sendball.sb-p{left:16%;bottom:16%}
+.sendball.sb-e{right:14%;top:34%}
+@keyframes sballk{0%{transform:translateY(-26px) scale(.7) rotate(-30deg);opacity:0}
+  30%{transform:none;opacity:1}
+  72%{transform:none;filter:none}
+  100%{transform:scale(2.2);opacity:0;filter:brightness(5)}}
+.sendburst{position:absolute;width:16px;height:16px;border-radius:50%;z-index:5;pointer-events:none;
+  background:radial-gradient(circle,rgba(255,255,255,.95) 25%,rgba(255,255,255,0) 70%);
+  animation:sburstk .5s ease-out .3s both}
+.sendburst.sb-p{left:15%;bottom:11%}
+.sendburst.sb-e{right:13%;top:30%}
+@keyframes sburstk{0%{transform:scale(.3);opacity:0}25%{opacity:1}100%{transform:scale(6);opacity:0}}
 .bob{animation:bob 1.6s ease-in-out infinite}
 .bt-msg.msgdone::after{content:'▼';color:var(--red);font-size:13px;margin-left:5px;
   display:inline-block;animation:bob 0.8s steps(2) infinite}
@@ -452,6 +480,13 @@ html.theme-night .btwrap.mode-train>.panel{background:#18261C;border-color:#2E6B
 #travelfx.arrive .tfxsign{animation:tsignpop .38s cubic-bezier(.2,.8,.3,1.3) forwards}
 @keyframes tsignpop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
 html.theme-night .tfxsign{background:#222A34;color:#E0E8F0;border-color:#10161E}
+/* HOENN ferry: the S.S. Tidal leaves a sea wake; arrival sign wears Emerald green */
+html.theme-day #travelfx.hoenn .tfxsign{border-color:#2E8B48}
+#travelfx.hoenn .tfxdot::before,#travelfx.hoenn .tfxdot::after{content:'';position:absolute;
+  left:50%;top:62%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.85);z-index:-1;animation:tfxwake 1.2s ease-out infinite}
+#travelfx.hoenn .tfxdot::after{animation-delay:.6s}
+@keyframes tfxwake{0%{transform:scale(.3);opacity:.9}100%{transform:scale(2.6);opacity:0}}
 /* ---------- cosmetic weather ---------- */
 .wxchip{display:inline-flex;align-items:center;gap:4px;font-family:'Press Start 2P';font-size:8px;
   border:2px solid var(--bord);border-radius:4px;background:var(--boxw);padding:3px 6px;margin-left:8px;
@@ -775,6 +810,10 @@ function render(keepScroll){
     lastRenderedTab=tab;
   }
   if(state.session)alignBack();
+  if(pendingEntrance){
+    var pe0=pendingEntrance;pendingEntrance=null;
+    if(state.session)playEntranceFx(pe0);
+  }
   if(!keepScroll)window.scrollTo(0,0);
 }
 
@@ -2842,7 +2881,7 @@ function runThrow(bk){
       }
       checkGameEvents();
       updateBattlePanel();
-      sprFx('.bt-espr','slidein-r');
+      sendOutFx('enemy','wild');
     },endT+1600));
   }else{
     T.push(setTimeout(function(){
@@ -2855,7 +2894,7 @@ function runThrow(bk){
       throwBusy=false;
       updateBattlePanel();
       if(fled||safariOver){
-        sprFx('.bt-espr','slidein-r');
+        sendOutFx('enemy','wild');
         cry(state.session&&state.session.wild?state.session.wild.sp:null);
         typeMsg(state.session?state.session.bmsg:'');
         if(safariOver){
@@ -3708,7 +3747,7 @@ function badgeCount(){
   return Math.min(g.boss?g.boss.idx:0,8);
 }
 function hpColor(pct){return pct>50?'#58C868':(pct>20?'#F8D020':'#F85838');}
-var btPrevPct=null,btPrevMember=null,btPrevPhp=null,introCameo=false;
+var btPrevPct=null,btPrevMember=null,btPrevPhp=null,introCameo=false,pendingEntrance=null;
 function spawnWild(){
   // an active SAFARI GAME takes over spawning entirely (catch-only wilds)
   if(safariOn())return safariSpawn();
@@ -3991,9 +4030,46 @@ function dmgFloat(side,val){
 }
 function sprFx(sel,cls){
   var el=bq(sel);if(!el)return;
-  el.classList.remove('lunge-l','lunge-r','blink','faintdrop');
+  el.classList.remove('lunge-l','lunge-r','blink','faintdrop','matz','wildin');
+  el.style.animationDelay='';
   void el.offsetWidth;
   el.classList.add(cls);
+}
+/* GBA send-out theatre: trainer-owned mons burst out of a ball; wilds pounce in.
+   delay (ms) lets entrances wait for the VS splash or stagger enemy-then-player. */
+function sendOutFx(side,kind,delay){
+  delay=delay||0;
+  var spr=bq(side==='player'?'.bt-pspr':'.bt-espr');if(!spr)return;
+  spr.classList.remove('slidein-r','slidein-l','matz','wildin','faintdrop');
+  spr.style.animationDelay='';
+  void spr.offsetWidth;
+  if(kind==='wild'){
+    if(delay)spr.style.animationDelay=delay+'ms';
+    spr.classList.add('wildin');
+    return;
+  }
+  var sc=bq(side==='player'?'.bt-pscene':'.bt-scene');
+  if(sc){
+    var b=document.createElement('img');
+    b.src=itemIcon('pokeball');b.alt='';b.className='sendball '+(side==='player'?'sb-p':'sb-e');
+    var r=document.createElement('span');
+    r.className='sendburst '+(side==='player'?'sb-p':'sb-e');
+    if(delay){b.style.animationDelay=delay+'ms';r.style.animationDelay=(delay+300)+'ms';}
+    sc.appendChild(b);sc.appendChild(r);
+    setTimeout(function(){
+      if(b.parentNode)b.parentNode.removeChild(b);
+      if(r.parentNode)r.parentNode.removeChild(r);
+    },1150+delay);
+  }
+  spr.style.animationDelay=(280+delay)+'ms';
+  spr.classList.add('matz');
+  setTimeout(function(){sfx('ballopen');},300+delay);
+}
+/* battle-start entrances, queued by the render that draws the fresh panel */
+function playEntranceFx(pe){
+  var dly=pe.dly||0;
+  if(pe.enemy)sendOutFx('enemy',pe.enemy,dly);
+  if(pe.player)sendOutFx('player','ball',dly+(pe.enemy?520:0));
 }
 function syncPrevBars(){
   btPrevPct=curBattlePct();
@@ -4008,11 +4084,11 @@ function runBattleStep(st){
     if(w){
       w.innerHTML=battlePanelHTML(false);
       if(st.slide==='enemy'){
-        sprFx('.bt-espr','slidein-r');
         var shw=state.session&&state.session.wild;
-        if(shw&&shw.shiny&&!shw.tr)animTimers.push(setTimeout(shinyBurst,460));
+        sendOutFx('enemy',(shw&&!shw.tr)?'wild':'ball');
+        if(shw&&shw.shiny&&!shw.tr)animTimers.push(setTimeout(shinyBurst,660));
       }
-      if(st.slide==='player')sprFx('.bt-pspr','slidein-l');
+      if(st.slide==='player')sendOutFx('player','ball');
       syncPrevBars();
       alignBack();
     }
@@ -5693,6 +5769,7 @@ function poiStartFight(kind,f){
     state.session.wild=w;
     state.session.bmsg=w.tr?(w.tr.clsN+' '+w.tr.name+' sent out '+DEX[w.sp].n+'! Log a set to attack!'):poiWildMsg(w);
     save();sfx('battlestart');
+    pendingEntrance=w.tr?{enemy:'ball',dly:1450}:{enemy:'wild'};
     tab='workout';render();
     if(w.tr)playVsFx(w.tr.cls,w.tr.clsN+' '+w.tr.name);
     else if(w.shiny)setTimeout(shinyBurst,700);
@@ -7031,9 +7108,10 @@ function playTravelFx(from,to,firstTime,done){
   if(old&&old.parentNode)old.parentNode.removeChild(old);
   var x0=TOWN_MAP_XY[from],x1=TOWN_MAP_XY[to];
   var ov=document.createElement('div');ov.id='travelfx';
+  if(inHoenn())ov.className='hoenn';
   ov.innerHTML='<div class="tfxcard">'+
       '<div class="tfxtitle">'+TOWNS[from].n+' ▶ '+TOWNS[to].n+'</div>'+
-      '<div class="tfxmap"><img src="map/kanto.png" alt="Kanto">'+
+      '<div class="tfxmap"><img src="'+regionMapImg()+'" alt="'+regionName()+'">'+
         '<svg class="tfxsvg" viewBox="0 0 100 100" preserveAspectRatio="none">'+
         '<line x1="'+x0[0]+'" y1="'+x0[1]+'" x2="'+x1[0]+'" y2="'+x1[1]+'" stroke="#D03028" stroke-width="1.4" stroke-dasharray="2.6 2.2" vector-effect="non-scaling-stroke"/></svg>'+
         '<span class="tfxdot" style="left:'+x0[0]+'%;top:'+x0[1]+'%">'+ferryIcon(20)+'</span>'+
@@ -7310,6 +7388,14 @@ function workoutHTML(){
   if(state.session&&!editMode){
     var anim0=justStarted;justStarted=false;
     var cam0=anim0&&introCameo;introCameo=false;
+    if(anim0&&state.game&&(state.session.wild||state.session.mode==='boss')){
+      var ew0=state.session.wild;
+      /* trainer/boss starts hide behind the VS splash — entrances wait for it to clear;
+         the boss cameo keeps its own enemy choreography (leader walks on first) */
+      pendingEntrance=ew0
+        ?(ew0.tr?{player:1,enemy:'ball',dly:1450}:{player:1,enemy:'wild'})
+        :(cam0?{player:1,dly:1450}:{player:1,enemy:'ball',dly:1450});
+    }
     var modeCls=battleModeCls();
     h+='<div class="livebar'+modeCls+'"><span class="pulse"></span><span class="elapsed">'+fmtElapsed(Date.now()-state.session.start)+'</span>'+
       '<span class="lb-sets">'+sessionSets()+' sets</span>'+
@@ -7371,7 +7457,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v6.1 “Magma & Aqua” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.1.1 “Battle Theatre” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -8214,6 +8300,7 @@ document.addEventListener('click',function(e){
       state.session.lead=swm.uid;state.game.active=swm.uid;
       state.session.bmsg=playerName()+' sent out '+DEX[swm.sp].n+'!';
       save();closeModal();updateBattlePanel();render(true);
+      sendOutFx('player','ball');
     }
   }
   else if(a==='stadium-go'){

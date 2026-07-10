@@ -1,4 +1,4 @@
-Gym Tracker — Handover Document (current as of app v6.1 / sw v44 / schema v14, 2026-07-11)
+Gym Tracker — Handover Document (current as of app v6.1.1 / sw v45 / schema v14, 2026-07-11)
 
 ============================================================
 1. WHAT THIS IS
@@ -21,7 +21,7 @@ installed home-screen app isolated storage — a separate app couldn't read the 
 
 Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
 Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
-Current:   app v6.1 “Magma & Aqua”, service-worker cache v44, data schema v14.
+Current:   app v6.1.1 “Battle Theatre”, service-worker cache v45, data schema v14.
 
 ============================================================
 2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
@@ -41,6 +41,8 @@ and do NOT travel.
 Per-machine things to CHECK before working (they differ and silently break):
   • .claude/serve.ps1 `$root` must equal THIS machine's repo path (D:\gym app vs
     E:\gym app). It's gitignored, so each machine keeps its own copy — fix it once.
+    (Machine B's copy carried machine A's path until 2026-07-11 — fixed; symptom is
+    the preview serving HTTP 500 for everything.)
   • The Claude memory directory path differs (see above) — stale facts about "this
     machine" in memory may belong to the OTHER laptop. Trust the handover.
   • Network blocks differ per machine/network: on machine B, Bulbagarden direct AND
@@ -81,8 +83,12 @@ the only syntax check anywhere.
     - sounds/moves/{slug}.mp3  : 139 authentic FRLG attack-move SFX
 • SVG — inline for charts, medals, the egg, ferry/rod/gem/weather icons, athlon cups.
 • CSS animations — battle choreography, ball throws, travel ferry, VS splash, evolution
-  morph, shiny sparkle, weather overlays, slot reels, and (v6.1) the Sootopolis crisis
-  (#crisisfx) + Rayquaza descent (#rayfx) overlays.
+  morph, shiny sparkle, weather overlays, slot reels, the Sootopolis crisis (#crisisfx) +
+  Rayquaza descent (#rayfx) overlays, and (v6.1.1) the battle send-out theatre
+  (sendOutFx: ball-pop + white materialize for owned mons / pounce-in for wilds, .matz +
+  .wildin + .sendball/.sendburst), the full GBA faint sink (faintdrop now drops 190px
+  through the arena floor), and the region-aware ferry transition (Hoenn gets wake
+  ripples on the S.S. Tidal dot + an Emerald-green arrival sign, day theme only).
 Rendering model: a single render() swaps #view.innerHTML by `tab`. State in the `state`
 object; every mutation calls save() then re-renders. No virtual DOM — template-string HTML
 + event delegation (one global click listener + one input listener for the BOX search).
@@ -359,7 +365,30 @@ Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanl
 ============================================================
 13. IMMEDIATE STATE
 ============================================================
-v6.1 “Magma & Aqua” SHIPPED 2026-07-11 from machine A (D:\gym app).
+v6.1.1 “Battle Theatre” SHIPPED 2026-07-11 from machine B (E:\gym app) — pure
+presentation, no state/schema change (schema stays v14, nothing for sanitizeGame):
+• FERRY FIX: playTravelFx was hardcoded to map/kanto.png — Hoenn travel drew its route
+  over the KANTO map. Now regionMapImg()/regionName(), plus #travelfx.hoenn flavor:
+  wake ripples behind the S.S. Tidal dot (::before/::after, both themes) and an
+  Emerald-green arrival sign (html.theme-day scoped — night untouched).
+• SEND-OUT THEATRE (both regions): sendOutFx(side,kind,delay) — trainer/boss/player
+  mons get a Pokéball pop + white-flash materialize (.sendball/.sendburst/.matz,
+  backwards fill hides the sprite through the delay); wild mons pounce in (.wildin).
+  Wired into: battle start (pendingEntrance global, consumed by a render() hook —
+  trainer/boss starts pass dly:1450 so entrances clear the VS splash; the boss cameo
+  keeps its own enemy choreography), runBattleStep st.slide (post-KO sends, next boss
+  member decides ball-vs-wild off session.wild.tr), poiStartFight live-session swaps,
+  post-catch/flee next wild in runThrow, and do-switch. sprFx now also strips
+  matz/wildin and clears inline animationDelay (it's reused for stagger — MUST be
+  cleared or later lunge/blink/faint start late).
+• FAINT: faintdrop now sinks 190px through the arena floor (arenabg overflow clips
+  it) instead of the old 36px dip. Same class/step engine, no call-site changes.
+Tested end-to-end in the 8377 preview: full choreography timeline via MutationObserver
+(lunge→blink→faintdrop→wildin), switch, catch + break-free ball theatre regression,
+boss VS-splash/cameo interplay, Kanto ferry regression, Hoenn ferry + night probe,
+Hoenn wild spawn, fresh-boot wipe, zero console errors.
+
+Previous release: v6.1 “Magma & Aqua” SHIPPED 2026-07-11 from machine A (D:\gym app).
 THE FULL HOENN CAMPAIGN IS LIVE: 12 special places (§7), the 8-chapter Magma/Aqua
 arc (flags.arc1..arc8 + arcStage()/arcHint()), all 202 Hoenn dex obtainable
 (fossils/feebas/milotic/chimecho/stone families/titans/Latios/Jirachi/Deoxys),
