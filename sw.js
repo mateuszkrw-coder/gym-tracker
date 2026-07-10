@@ -1,6 +1,6 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v43';
+const CACHE = 'gym-tracker-v44';
 const TOWN_MAPS = ['viridian','pewter','cerulean','vermilion','celadon','fuchsia','saffron','cinnabar','indigo'];
 const HOENN_TOWN_MAPS = ['littleroot','rustboro','dewford','mauville','lavaridge','petalburg','fortree','mossdeep','sootopolis','evergrande'];
 const ARENAS = ['gym','grass','water','cave','pond','ice','sand','poison','teal','psychic'];
@@ -13,7 +13,8 @@ const WILD_IDS = [];
 const TRAINERS = ['red','leaf','oak','brock','misty','ltsurge','erika','koga','sabrina','blaine','giovanni','lorelei','bruno','agatha','lance','blue',
   'bugcatcher','youngster','lass','hiker','fisherman','picnicker'];
 const HOENN_TRAINERS = ['brendan','may','birch','steven','roxanne','brawly','wattson','flannery','norman','winona','tateliza','juan',
-  'sidney','phoebe','glacia','drakeh','wallace','aromalady','camper','bugmaniac','blackbelt','birdkeeper','battlegirl','hexmaniac','dragontamer','hfisher','kindler'];
+  'sidney','phoebe','glacia','drakeh','wallace','aromalady','camper','bugmaniac','blackbelt','birdkeeper','battlegirl','hexmaniac','dragontamer','hfisher','kindler',
+  'archie','maxie','tabitha','shelly','matt','aquagrunt','magmagrunt'];
 const HOENN_BADGES = ['stone','knuckle','dynamo','heat','balance','feather','mind','rain'];
 const ITEM_KEYS = ['potion','superpotion','hyperpotion','fullrestore','revive','pokeball','greatball','ultraball','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy',
   'charcoal','mysticwater','magnet','blackbelt','twistedspoon','sharpbeak','hardstone','scopelens','leftovers','expshare'];
@@ -23,7 +24,8 @@ const GYM_ROOMS = ['pewter','cerulean','vermilion','celadon','fuchsia','saffron'
   'rustboro','dewford','mauville','lavaridge','petalburg','fortree','mossdeep','sootopolis','sidney','phoebe','glacia','drakeh','wallace'];
 const ROAD_MAPS = ['forest','mtmoon','bridge','route8','hideout','silph','cycling','seafoam','victory',
   'h-woods','h-granite','h-coast','h-jagged','h-desert','h-jungle','h-sea','h-deep','h-victory'];
-const POI_MAPS = ['tower','dept','corner','hideout','safari','silph','tower2','lab'];
+const POI_MAPS = ['tower','dept','corner','hideout','safari','silph','tower2','lab',
+  'h-devon','h-corner','h-trick','h-dept','h-wx','h-pyre','h-magma','h-aqua','h-space','h-origin','h-sky','h-seafloor'];
 /* Cries (sounds/cries/*.mp3) are NOT precached — the fetch handler caches them the first time they play. */
 const ASSETS = [
   './',

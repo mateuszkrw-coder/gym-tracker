@@ -1,0 +1,382 @@
+Gym Tracker — Handover Document (current as of app v6.1 / sw v44 / schema v14, 2026-07-11)
+
+============================================================
+1. WHAT THIS IS
+============================================================
+A single-file Progressive Web App that is two things fused together:
+
+• A gym workout tracker — logs weight × reps × sets per exercise per day. This is the
+  real, load-bearing purpose (the user, Mateusz, is a gym-goer who tracks his lifts).
+• A Pokémon RPG built on top of it — every set you log powers a full Pokémon game
+  (battle catching, leveling, boss battles, special buildings, an economy with two
+  currencies, a Pokédex with official artwork, medals, quests, fishing, a decathlon,
+  a battle tower). The workout IS the game engine. It is TWO campaigns: a FireRed
+  KANTO campaign and an Emerald HOENN campaign, chosen with a region switcher
+  (S.S. Tidal in OPTION, unlocks after the Kanto Champion). Each region is its own
+  self-contained save; workout data is shared. As of v6.1 the Hoenn campaign carries
+  the FULL Team Magma/Aqua story arc (8 chapters) + twelve special places.
+
+Design conceit: it had to be ONE PWA, not a separate game app, because iOS gives each
+installed home-screen app isolated storage — a separate app couldn't read the workout logs.
+
+Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
+Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
+Current:   app v6.1 “Magma & Aqua”, service-worker cache v44, data schema v14.
+
+============================================================
+2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
+============================================================
+Mateusz works from (at least) TWO Windows laptops. Known so far:
+  • Machine A: D:\gym app  — Windows user "dctek"  (memory dir:
+    C:\Users\dctek\.claude\projects\D--gym-app\memory\)
+  • Machine B: E:\gym app  — Windows user "Satsuki" (memory dir:
+    C:\Users\Satsuki\.claude\projects\E--gym-app\memory\)
+
+THIS FILE IS NOW TRACKED IN GIT (since v6.1) precisely so it can never be lost when
+hopping machines — `git pull` brings the latest handover along with the code.
+KEEP IT THAT WAY: update it with every release and PUSH it. It is the single
+cross-machine source of truth; the per-machine memory dirs are only quick recall
+and do NOT travel.
+
+Per-machine things to CHECK before working (they differ and silently break):
+  • .claude/serve.ps1 `$root` must equal THIS machine's repo path (D:\gym app vs
+    E:\gym app). It's gitignored, so each machine keeps its own copy — fix it once.
+  • The Claude memory directory path differs (see above) — stale facts about "this
+    machine" in memory may belong to the OTHER laptop. Trust the handover.
+  • Network blocks differ per machine/network: on machine B, Bulbagarden direct AND
+    play.pokemonshowdown were BLOCKED (use PokeAPI mirror → pret decomp → Serebii →
+    Fandom API → Wayback). On machine A, bulbapedia.bulbagarden.net Special:FilePath
+    + a browser UA works fine (v5.19 interiors and v6.1 interiors were fetched that
+    way). Probe before assuming.
+  • Git identity/credentials are per-machine; deploy verify (GitHub API token via
+    `git credential fill`) works on both.
+Neither machine has Node/npm or real Python — the preview_eval syntax gate (§9) is
+the only syntax check anywhere.
+
+============================================================
+3. THE USER (Mateusz)
+============================================================
+• A gym-goer, not a professional developer. Give click-by-click instructions, explain
+  consequences plainly, prefer web-UI over terminal.
+• Daily device is an iPhone (Safari, installed as a PWA); dev/build PCs are Windows (two of them, §2).
+• Hates on-screen emoji clutter and hates crowded pages — every feature gets its OWN
+  page/panel; don't pile content onto existing screens.
+• Wants OFFICIAL Pokémon art wherever possible (interiors, artwork, icons).
+• Design liberties welcome ("do it as you want") as long as the core need — tracking
+  weight per exercise per day — is met.
+• Workflow: he requests features conversationally → build → test in the port-8377 preview →
+  commit → push → verify the GitHub Pages deploy went green + live → tell him to reopen
+  the app on his phone (close fully, open twice, confirm the version string in OPTION).
+
+============================================================
+4. CORE TECHNOLOGIES
+============================================================
+• Vanilla JavaScript (ES5-style, one big IIFE) — NO framework, NO build step, NO deps.
+• Single HTML file: index.html (~8300 lines) — all HTML + CSS (one <style>) + JS (one <script>).
+• localStorage for all persistence (key `gymtracker.v1`). No backend, no accounts, by design.
+• Service worker (sw.js) for offline PWA behavior — precaches the app shell + sprites/maps.
+  sprites/art/ (Sugimori artwork) and sounds/ are NOT precached — runtime-cached on first use.
+• Web Audio API — GBA-style synth SFX in code AND official audio files:
+    - sounds/cries/{key}.mp3   : 122 Pokémon cries (Kanto only; Hoenn needs none, locked)
+    - sounds/moves/{slug}.mp3  : 139 authentic FRLG attack-move SFX
+• SVG — inline for charts, medals, the egg, ferry/rod/gem/weather icons, athlon cups.
+• CSS animations — battle choreography, ball throws, travel ferry, VS splash, evolution
+  morph, shiny sparkle, weather overlays, slot reels, and (v6.1) the Sootopolis crisis
+  (#crisisfx) + Rayquaza descent (#rayfx) overlays.
+Rendering model: a single render() swaps #view.innerHTML by `tab`. State in the `state`
+object; every mutation calls save() then re-renders. No virtual DOM — template-string HTML
++ event delegation (one global click listener + one input listener for the BOX search).
+
+============================================================
+5. FILE STRUCTURE
+============================================================
+index.html            — the entire app
+sw.js                 — service worker (BUMP `CACHE` on EVERY change!)
+manifest.webmanifest  — PWA manifest
+handover.md.txt       — THIS file (tracked in git since v6.1 — see §2)
+icons/, fonts/        — app icons; Press Start 2P + VT323 (OFL, self-hosted woff2)
+map/                  — KANTO: 9 FRLG town maps, center.png, mart.png, kanto.png
+  hoenn.png               — HOENN region map (RSE) for the Hoenn TRAVEL page
+  hoenn/{...}.png         — 10 official Emerald town maps (littleroot…evergrande)
+  gym/{...}.png           — KANTO 13 interiors + HOENN 13 (rustboro…wallace)
+  road/{...}.png          — KANTO 9 + HOENN 9 (h-woods…h-victory)
+  poi/{...}.png           — KANTO 8 official FRLG interiors (tower, dept, corner,
+                            hideout, safari, silph, tower2, lab) + HOENN 12 (v6.1):
+                            h-devon, h-corner, h-trick, h-dept, h-wx, h-pyre, h-magma,
+                            h-aqua, h-space, h-origin, h-sky, h-seafloor — official
+                            Emerald screenshots via Bulbapedia Special:FilePath
+sprites/                  — front sprites {dexId}.png; shiny/, back/, back/shiny/ — 306 each
+  art/{dexId}.png         — 306 official Sugimori artworks, lazy-loaded, NOT precached
+  trainers/               — KANTO cast + HOENN cast + (v6.1) archie, maxie, tabitha,
+                            shelly, matt, aquagrunt, magmagrunt (pret/pokeemerald decomp
+                            front_pics, corner-pixel MakeTransparent, 64×64)
+  items/, arenas/, badges/, npc/ — as before (arenas are shared by both regions)
+sounds/cries/, sounds/moves/  — audio (see §4)
+.claude/serve.ps1, .claude/launch.json — local preview server (gitignored; $root is
+                            PER-MACHINE — see §2!)
+.claude/hoenn-gen/     — v6.0 build scratch (PokeAPI CSVs + gen.ps1). GITIGNORED.
+docs/poi-blueprints.md — older design notes
+
+============================================================
+6. DATA MODEL  (state, localStorage key `gymtracker.v1`, schema version 14)
+============================================================
+{
+  version:14, unit, theme:'night'|'day', sound, gamePlayed, dev,
+  region:'kanto'|'hoenn',          // which campaign is ACTIVE right now
+  altGame: null | {game},          // the PARKED region's save (same shape as game)
+  groups, logs, sessions,          // workout data — SHARED across both regions
+  session: null | {...},           // live workout + battle (wild carries markers, see below)
+  game: null | {
+    region, startTs, starter, mons:[{uid,sp,xp,shiny,ts, vits?,held?,tm?[]}], active,
+    enc{}, flags{}, seen{}, dex{}, round, boss:{idx,hp}, player:{name,spr},
+    money, bp, bestStreak, bag{}, hof[], partyIds, egg, medals{}, hurt{}, rest{}, raid,
+    road{}, roadLog{}, daily{}, npcq{}, qSeen, visit, beenTo{},
+    poi:{ // per-building state, lazily created via poiOf(k)
+      KANTO: tower{floor,clears,weekKey}, corner{coins,date,spins}, hideout{floor,scope},
+             silph{floor,card,master,lapras}, tower2{floor,flute,cubone},
+             safari{active,balls}, lab{expWeek}, athlon{date,cups}, front{streak,best}
+      HOENN (v6.1): devon{f,expWeek}, corner{...same shape}, trick{week,d0..d2,paid0..2,candy},
+             wx{f}, pyre{floor}, magma{f}, aqua{f,mb}, space{f}, origin{f}, sky{floor} }
+  }
+}
+v6.1 STORY FLAGS (game.flags, Hoenn save only): arc1..arc8 (chapters), arc8ts (finale
+timestamp — drives the Space Program launch count), castformgift, jirachi, v61note.
+Wild battle markers on session.wild: tr{...arc:[ch,step]} for story trainers;
+pyre:f / sky:f (fight-OR-catch floors); legend:1 (titans/mythics); bg:'arena' overrides
+the battle backdrop for dungeon/legend wilds.
+Key derived fns: monLevel, statsFor, bossInfo, battleParty, townIdx, curTown, rodTier,
+shinyOdds, expShareHolder, poiOf(k), wxFor(town[,dayKey]) (v6.1: optional day for the
+forecast board), inHoenn, arcStage() (=first unfinished chapter 1..8, 9=done),
+arcHint(), spaceLaunches() (retroactive: weeks since arc8ts with 3+ training days),
+feebasTown() (the day's lucky pier), trickOf(). migrateState() runs at INIT.
+
+============================================================
+7. GAME SYSTEMS (all live)
+============================================================
+• TWO CAMPAIGNS: FireRed KANTO + Emerald HOENN (S.S. TIDAL switcher in OPTION after
+  the Kanto Champion; each region a full separate save; workout logs shared).
+• Pokédex: KANTO = the 151, all catchable. HOENN = the official Emerald regional dex,
+  and as of v6.1 ALL 202 ARE OBTAINABLE (fossils via Devon, feebas/milotic via the
+  pier, chimecho via Mt. Pyre, stone families via the Dept. Store, titans + Latios +
+  Jirachi + Deoxys via the story/post-story, Latias via raid).
+• CATCHING: in-battle ball throws, Gen 3/4 capture math, strict per-town AREA_SPAWNS.
+• EXP: lifting XP (vol/10 ×mults) + classic wild/trainer EXP + EXP SHARE holder.
+• Boss battles: 13 per region on the same hp/lv curve; VS splash; endless rounds.
+• THE ROAD / QUESTS / dailies / collectors / raids / eggs / medals — as before, both regions.
+• TRAVEL: free-roam ferry between visited towns; DEV MODE opens all towns for preview.
+• WEATHER: deterministic per-town-per-day, PURE ART (locked). v6.1 adds the WEATHER
+  INSTITUTE's forecast board (today → tomorrow per town) — still display-only.
+• TEAM tab (v6.1): shows ONLY the fighting six (battleParty) + an "N more in BILL'S PC"
+  row that jumps to the BOX. Full collection lives in the BOX (search/filter/sort).
+• ELEVEN KANTO SPECIAL PLACES (unchanged from v5.19): Trainer Tower, Dept. Store,
+  Game Corner, Rocket Hideout, Safari Zone, Silph Co., Pokemon Tower, Cinnabar Lab,
+  Fishing Pier (3 towns), Pokéathlon Dome, Battle Tower + BP shop.
+• TWELVE HOENN SPECIAL PLACES (v6.1) — each with official Emerald art + day palette:
+  - DEVON CORP. (Rustboro): story ch.1 + FOSSIL WING (Root→Lileep / Claw→Anorith :L30,
+    ₽6,000) + weekly FIELD CONTRACT (same engine as the Cinnabar experiment).
+  - GAME CORNER (Mauville): the slots engine reskinned; Hoenn prize shelf
+    (Plusle/Minun/Skitty/Trapinch/Bagon/Beldum at :L18) + candy.
+  - TRICK HOUSE (Mauville): ORIGINAL v6.1 mechanic — the Trick Master's weekly
+    3-puzzle gauntlet: WHO'S THAT POKEMON (dex silhouettes), TYPE MASTER (type-matchup
+    quiz), IRON BRAIN (questions about YOUR real training week). ₽400 per pass,
+    all three → RARE CANDY. Deterministic per week (strHash(wkKey)); resets Monday.
+  - FISHING PIER (Dewford/Mossdeep/Sootopolis): rods from the Mart; Hoenn fish tables;
+    FEEBAS only bites at ONE pier town per day (feebasTown(), canon nod to the
+    wandering tiles) — the fisherman drops a hint; Milotic by level 30.
+  - LILYCOVE DEPT. STORE (Fortree): Hoenn TM corner (14 moves), STONES floor
+    (Water/Leaf/Thunder/Moon/SUN — fixes every stone family that had no Hoenn route:
+    Ludicolo, Shiftry, Delcatty, Starmie, Vileplume, Bellossom, Wigglytuff, Raichu),
+    vitamins floor.
+  - WEATHER INSTITUTE (Fortree): story ch.2 (Shelly) + CASTFORM gift + forecast board.
+  - MT. PYRE (Fortree): 6 fight-OR-catch ghost floors (Shuppet/Duskull/Banette,
+    CHIMECHO on 6F) + story ch.3 summit scene; post-story "linger" encounter
+    (chimecho/shuppet/duskull pool) keeps Chimecho farmable.
+  - MAGMA HIDEOUT (Lavaridge): story ch.4 (2 grunts + TABITHA + MAXIE);
+    post-story TERRA CAVE → battle-catch GROUDON :L70.
+  - AQUA HIDEOUT (Mossdeep): story ch.5 (2 grunts + MATT); the second fight's locker
+    holds Hoenn's one MASTER BALL (canon).
+  - SPACE CENTER (Mossdeep): story ch.6 (grunt + TABITHA + MAXIE, Steven flavor);
+    post-story SPACE PROGRAM: 1 launch per calendar week with 3+ training days
+    (computed retroactively from logs — no page-open required), 3 launches →
+    battle-catch DEOXYS :L30.
+  - CAVE OF ORIGIN (Sootopolis, gated until ch.7): SEAFLOOR CAVERN fights
+    (2 grunts + ARCHIE) → Kyogre wakes → the CRISIS overlay (Groudon vs Kyogre);
+    post-story MARINE CAVE → battle-catch KYOGRE :L70.
+  - SKY PILLAR (Ever Grande, gated until ch.8): 5 fight-OR-catch guardian floors
+    (Golbat/Claydol/Banette/Altaria/Shelgon) → WAKE RAYQUAZA (the #rayfx descent) →
+    finale; post-story: battle-catch RAYQUAZA :L70 at the summit + SOUTHERN ISLAND
+    → battle-catch LATIOS :L40 (Eon Ticket).
+• THE MAGMA/AQUA ARC (v6.1): 8 chapters in game.flags.arc1..arc8, one per building
+  (Devon → Weather Inst → Mt. Pyre → Magma Hideout → Aqua Hideout → Space Center →
+  Seafloor Cavern → Sky Pillar). arcStage() gates everything; arcHint() prints the
+  next step on every story page; chapter rewards: ₽800+3 Great Balls / ₽2,000 /
+  ₽3,000 / ₽5,000 at the finale. JIRACHI: post-story, a 7-day daily streak triggers
+  the Millennium Comet gift (:L30) via checkGameEvents.
+• Legend fights are ordinary wilds with legend:1 — if they FAINT they pay huge EXP
+  and "return to the same spot" (button stays until caught). Master Ball advised.
+• Nav: 6 docked tabs — TRAINER · MAP · TEAM · LAB · QUEST · OPTION. Routed pages:
+  TRAVEL, MART, CENTER, GYMHALL, WORKOUT, TROPHY, CARD, poi-* (all 23 buildings).
+
+============================================================
+8. CRITICAL GOTCHAS (read before editing)
+============================================================
+• BUMP `CACHE` in sw.js on EVERY change (v44 → v45…), or installed phones keep the stale
+  version. Then commit AND push — Pages auto-deploys.
+• BUMP the app version string in settingsHTML() ("Gym Tracker vX.X") so you can confirm live.
+• NO NODE/NPM/PYTHON on either machine. Syntax check = load the preview and probe:
+  fetch index.html, extract the <script>, `new Function(src)` in preview_eval —
+  parse errors surface there; then execute-probe for runtime errors (see §9).
+• ES5 top-to-bottom eval order bites: `var` data tables are assigned at eval time —
+  a `X.push(...)` placed ABOVE `var X=[...]` kills the whole IIFE with a blank screen
+  and NO console error. Function declarations hoist; data statements cannot.
+• REGION TABLES: the content-table globals — TOWNS, TOWN_MAP_XY, WILD_BANDS,
+  AREA_SPAWNS, BOSSES, ROAD_LOC, GYMS, RAIDS, RAID_SPECIES, POIS, RIVAL_ROADS,
+  TRAINER_CLASSES, NPCQ, DAILY_POOL, DEX_ORDER, FEATURES, and (v6.1) PRIZE_MONS,
+  TM_LIST, STONES, STONE_EVOS, FISH_TABLES, FISH_BANDS — are REASSIGNED by
+  setRegionTables() based on state.region. KANTO_* captures for the v6.1 shop/fishing
+  tables sit NEXT TO their Kanto originals (lines ~5760/6120/6220), NOT next to
+  setRegionTables — because `var KANTO_X=X` must run AFTER `var X=[...]` in eval
+  order. setRegionTables() only READS them at call time, so its position is safe.
+  If you add a per-region table, capture it beside the original and swap it there.
+• DEX / MOVESETS / MOVE_TYPES are SHARED SUPERSETS, not swapped. CR_EXT / XP_EXT
+  cover ids >151.
+• applyImport() sanitizes EACH game object through sanitizeGame(dgame,region).
+  Add new game fields inside sanitizeGame — v6.1's poi keys are whitelisted there
+  (devon/wx/pyre/magma/aqua/space/origin/sky/trick). game.flags passes through
+  WHOLESALE, so story flags need no sanitizer work.
+• THE ARC ENGINE: story fights are kind 'arc' with f = chapter*10+step; the wild's
+  tr.arc=[ch,step] is validated TWICE (poiStartFight before, poiTrainerWin after)
+  against arcStage() AND poiOf(key).f, so stale/replayed fights can't double-advance.
+  Chapter completion sets flags.arcN + queues arcScene(N). Chapters 3 and 8 complete
+  via page buttons (pyre-summit / sky-wake), not fights. If you add a chapter, keep
+  both validations in sync.
+• Fight-or-catch floors (pyre/sky) advance in BOTH paths: the wild-faint hook in
+  saveLogEntry AND the catch hook in runThrow. Touch both or floors desync.
+• State-first, theatre-after: every animated flow (ball throw, slots, travel, athlon,
+  fishing, arc scenes, legend catches) decides and SAVES the outcome before the
+  animation plays.
+• File is BOM-less UTF-8. PowerShell reads need -Encoding UTF8. Use ₽ (not ₱).
+  Curly apostrophes (’) inside JS strings are normal here.
+• PowerShell here-strings break git commits with embedded quotes — use the Bash tool.
+• gh CLI is NOT installed. GitHub API via token from `git credential fill` (Bash):
+    TOKEN=$(printf "protocol=https\nhost=github.com\n" | git credential fill | grep '^password=' | cut -d= -f2)
+  Deploy verify: poll actions/runs for conclusion=success AND head_sha == your commit,
+  then curl the live site for the version string.
+• Battle engine is class-based + topmost-scoped: bw()/bq(sel) target the LAST .btwrap
+  in the DOM. Don't reintroduce #id lookups. alignBack() sinks the back sprite.
+• Building fights are injections into the roadblock engine: poiStartFight → poiWildFor
+  builds a wild with a marker; victories resolve in poiTrainerWin (trainers) or inline
+  hooks (ghost/pyre/sky/legend wilds). Markers are validated against the building's
+  CURRENT floor/streak/stage.
+• Night theme skips ALL skins by design (applySkin returns early) — building palettes,
+  quest biomes, the Emerald skin AND the v6.1 Hoenn building palettes are DAY-only.
+  Do not restyle night. (Verified again in v6.1.)
+• Modal queue pops with ~180ms delay — drive modal chains step-by-step when testing.
+• Weather is PURE ART (locked). The v6.1 forecast board is display-only too.
+• Editing index.html via an external script invalidates the Edit tool's read-state —
+  re-Read before the next Edit. Grep for call sites after removing/renaming anything.
+• ART SOURCING: probe per machine (§2). Working routes by preference:
+    1. PokeAPI mirror on raw.githubusercontent.com/PokeAPI/… (sprites + data CSVs)
+    2. pret/pokeemerald decomp (trainers: front_pics 64×64, MakeTransparent corner px;
+       tile-based graphics there are palette-stripped — skip)
+    3. bulbapedia.bulbagarden.net/wiki/Special:FilePath/<File>.png with browser UA
+       (works on machine A; machine B must use Wayback: web.archive.org/web/2023id_/…)
+    4. Serebii pokearth (serebii.net/pokearth/maps/hoenn-em/{id}.png)
+    5. pokemon.fandom.com API — MUST append &format=png or you get WebP
+  Emerald interior/location screenshots are named "<Location> E.png" (or "1F E",
+  "entrance E", "SE" for Sapphire/Emerald shares) on Bulbapedia — probe with the
+  MediaWiki API (action=query&prop=images) when unsure.
+  Resize/crop locally with .NET System.Drawing (PS 5.1). $pid is RESERVED in PowerShell.
+
+============================================================
+9. TESTING & DEPLOYMENT WORKFLOW
+============================================================
+• Preview: .claude/launch.json config "gym-app" runs .claude/serve.ps1 — a PowerShell
+  HttpListener static server on port 8377 (both files gitignored, $root per machine §2).
+• Resize to mobile (375×812). Plant a full test state into localStorage via preview_eval,
+  location.reload(), drive the UI with dispatched clicks
+  (el.dispatchEvent(new MouseEvent('click',{bubbles:true}))), read back state/DOM.
+• IMPORTANT: changing localStorage does NOT update the RUNNING app (state is already
+  in memory) — location.reload() after every planted mutation.
+• Syntax gate (no node): in preview_eval —
+    sync XHR index.html → match(/<script>([\s\S]*)<\/script>/) → try{new Function(src)}
+  catches SyntaxError; if parse-clean but the view is empty, EXECUTE the source in a
+  try/catch — the error message + stack line lands you at the bad statement.
+• preview_screenshot right after a reload or during a <2s animation often misses it —
+  verify via DOM reads instead (this is the reliable path).
+• `state` is IIFE-scoped — inspect via JSON.parse(localStorage.getItem('gymtracker.v1'))
+  and the DOM.
+• Story testing (v6.1): plant flags.arc1..arcN + the matching poi steps
+  (wx{f:2}, pyre{floor:6}, magma{f:4}, aqua{f:3}, space{f:3}, origin{f:3}, sky{floor:5})
+  and game.visit, then reload. A planted save dumps its whole event-modal backlog at
+  once — pop modals in a loop until quiet. Verify region + parked altGame survive a
+  switch AND an export/import roundtrip; verify a full wipe boots fresh to Oak.
+• CLEAR the test state when done (localStorage.clear() in the preview).
+• Commit trailer: Co-Authored-By: Claude <model> <noreply@anthropic.com>.
+
+============================================================
+10. MEMORY FILES (persistent per machine — read FIRST in any new session)
+============================================================
+Machine A (D:\gym app, dctek): C:\Users\dctek\.claude\projects\D--gym-app\memory\
+Machine B (E:\gym app, Satsuki): C:\Users\Satsuki\.claude\projects\E--gym-app\memory\
+• MEMORY.md — the index. gym-tracker-project.md — versions + deploy rules.
+  user-mateusz.md — who Mateusz is. (Machine B also had emerald-campaign-decisions.md
+  and asset-pipeline-2026.md — their content is folded into §8/§12 here.)
+Memory does NOT travel between machines — THIS handover does (§2). When they disagree,
+the handover wins; update the local memory to match.
+
+============================================================
+11. LOCKED DESIGN DECISIONS
+============================================================
+• Muscle group → move type: Pecs=Fighting, Back=Flying, Biceps=Electric, Triceps=Fire,
+  Forearms=Rock, Shoulders=Psychic, Legs=Water.
+• Real Pokémon with FRLG/Emerald sprites; official GBA look (white boxes, warm frames).
+• Official art wherever possible. Big pixel TRAINER SPRITES on the VS screen.
+• ANIMATED battle sprites: assessed and DECLINED (2026-07-10). Don't revisit unless
+  he asks knowing the tradeoffs (Gen-5 style only, ~25 MB, clashes with FRLG look).
+• No harsh punishment — rest days cost nothing. Approved exceptions: boss blackout
+  +25%, Battle Tower streak reset, 10h Center heals, safari flee-on-fail.
+• Night theme is DONE — do NOT restyle it. All skins/palettes are day-only.
+• One points-currency: BATTLE POINTS (Battle Tower + Pokéathlon; BP shop at the Tower).
+• Weather is art-only, BOTH regions, forecast board included (locked, he said no
+  weather-gated mechanics).
+• EMERALD/HOENN: core shipped v6.0; buildings + FULL Magma/Aqua arc shipped v6.1
+  (2026-07-11) — fresh start, separate economy, same difficulty curve, official
+  Emerald Hoenn dex (all 202 now obtainable).
+• v6.2 = THE BATTLE FRONTIER: ALL 7 facilities (Tower/Palace/Arena/Factory/Dome/
+  Pike/Pyramid), Frontier Symbols as medals, Frontier Brains as bosses. Locked scope,
+  DO NOT START until Mateusz says go.
+
+============================================================
+12. BACKLOG / IDEAS DISCUSSED (not built)
+============================================================
+NEXT UP (locked, awaiting Mateusz's go): v6.2 — the Battle Frontier (see §11).
+Other ideas (not greenlit): painted Sugimori gym-leader art for the VS screen (manual
+asset hunt); time-of-day spawn slices; breeding/natures in the daycare; Bill's PC
+favorites; weather MECHANICS (explicitly deferred); dex-completion rewards (diploma);
+Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanly).
+
+============================================================
+13. IMMEDIATE STATE
+============================================================
+v6.1 “Magma & Aqua” SHIPPED 2026-07-11 from machine A (D:\gym app).
+THE FULL HOENN CAMPAIGN IS LIVE: 12 special places (§7), the 8-chapter Magma/Aqua
+arc (flags.arc1..arc8 + arcStage()/arcHint()), all 202 Hoenn dex obtainable
+(fossils/feebas/milotic/chimecho/stone families/titans/Latios/Jirachi/Deoxys),
+post-story legend battle-catches (Rayquaza/Kyogre/Groudon :L70, Latios :L40,
+Deoxys :L30 via the Space Program, Jirachi via 7-day streak), TEAM tab shows only
+the fighting six (+BOX row), Trick House weekly quiz gauntlet, Weather Institute
+forecast board (art-only), Hoenn Dept./Corner/Pier region tables, crisis + Rayquaza
+CSS overlays. Schema v14 (no data migration needed — flags/poi are freeform),
+sanitizeGame whitelists the 9 new poi keys, sw v44 precaches the 12 interiors +
+7 Magma/Aqua trainer sprites.
+Tested end-to-end in the 8377 preview (chapter fights, wake sequence, legend
+catch via Master Ball, launch math, trick quizzes, stone evolutions, feebas hint,
+import roundtrip, region switch both ways, night theme untouched, Kanto regression).
+KANTO IS UNTOUCHED except: TEAM tab party-only view (both regions) and the shared
+poiPlacesHTML/poiPageHTML gate-text parameterization.
+
+One-line orientation: it's ONE vanilla-JS file with localStorage state — read §2
+(two laptops!), honor §8's gotchas (sw bump + version bump every change, no node,
+data-statement ordering, region-table captures), test on port 8377, and never ship
+without seeing the deploy green and the new version string live.

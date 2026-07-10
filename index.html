@@ -489,6 +489,32 @@ html.theme-night .tfxsign{background:#222A34;color:#E0E8F0;border-color:#10161E}
   animation:vspop .3s cubic-bezier(.2,.8,.3,1.45) .42s forwards}
 @keyframes vspop{to{transform:translate(-50%,-50%) scale(1)}}
 #vsfx.out{animation:tfxout .32s steps(4) forwards}
+/* ---------- v6.1: the Sootopolis crisis + the sky answers ---------- */
+#crisisfx{position:fixed;inset:0;z-index:212;overflow:hidden;pointer-events:none;animation:cfquake .5s linear 3 .9s}
+#crisisfx::before{content:'';position:absolute;inset:0;background:#10141A;opacity:.9}
+#crisisfx .cfp{position:absolute;width:118%;height:46%;display:flex;align-items:center;gap:14px;padding:0 12%;box-sizing:border-box}
+#crisisfx .cfl{top:2%;left:-4%;background:linear-gradient(105deg,#C03028 72%,transparent 72%);transform:translateX(-105%);animation:vsin .4s ease-out forwards}
+#crisisfx .cfr{bottom:2%;right:-4%;background:linear-gradient(-75deg,#3878C8 72%,transparent 72%);justify-content:flex-end;transform:translateX(105%);animation:vsin .4s ease-out .14s forwards}
+#crisisfx .cfp img{width:124px;height:124px;image-rendering:pixelated;filter:drop-shadow(0 0 10px rgba(255,255,255,.35))}
+#crisisfx .cfp span{font-family:'Press Start 2P';font-size:12px;color:#FFF8F0;text-shadow:2px 2px 0 rgba(0,0,0,.55)}
+#crisisfx .cftxt{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(0);text-align:center;
+  font-family:'Press Start 2P';font-size:17px;line-height:1.7;color:#F8D030;
+  text-shadow:2px 2px 0 #B8500F,-2px -2px 0 #B8500F;animation:vspop .3s cubic-bezier(.2,.8,.3,1.45) .5s forwards}
+#crisisfx.out{animation:tfxout .32s steps(4) forwards}
+@keyframes cfquake{0%,100%{transform:none}20%{transform:translate(3px,-3px)}45%{transform:translate(-3px,2px)}70%{transform:translate(2px,3px)}}
+#rayfx{position:fixed;inset:0;z-index:212;overflow:hidden;pointer-events:none}
+#rayfx::before{content:'';position:absolute;inset:0;background:#0A1410;opacity:.92}
+#rayfx .rfbeam{position:absolute;left:50%;top:-10%;width:30%;height:120%;transform:translateX(-50%) scaleX(0);
+  background:linear-gradient(90deg,transparent,rgba(88,200,120,.55),rgba(200,255,220,.9),rgba(88,200,120,.55),transparent);
+  animation:rfbeam .5s ease-out forwards}
+@keyframes rfbeam{to{transform:translateX(-50%) scaleX(1)}}
+#rayfx .rfspr{position:absolute;left:50%;top:-30%;width:150px;height:150px;image-rendering:pixelated;
+  transform:translateX(-50%);filter:drop-shadow(0 0 14px rgba(120,255,170,.8));animation:rfdrop .9s cubic-bezier(.3,.9,.4,1.1) .3s forwards}
+@keyframes rfdrop{to{top:32%}}
+#rayfx .rftxt{position:absolute;left:50%;top:68%;transform:translate(-50%,0) scale(0);
+  font-family:'Press Start 2P';font-size:20px;color:#98E8B8;text-shadow:2px 2px 0 #1A5A38,-2px -2px 0 #1A5A38;
+  animation:vspop .3s cubic-bezier(.2,.8,.3,1.45) 1s forwards}
+#rayfx.out{animation:tfxout .32s steps(4) forwards}
 /* ---------- classic evolution morph ---------- */
 .evomorph{position:relative;width:104px;height:104px;margin:10px auto}
 .evomorph img{position:absolute;inset:0;width:104px;height:104px;image-rendering:pixelated}
@@ -1027,6 +1053,9 @@ function migrateState(){
   if(state.altGame&&!state.altGame.region){state.altGame.region=(state.region==='kanto'?'hoenn':'kanto');changed=true;}
   // a mismatched pair (same region twice after a bad import) parks the duplicate as lost — never happened organically
   if(!(state.version>=13)){state.version=13;changed=true;}
+  // v14: Magma & Aqua (v6.1) — story lives in flags.arc1..arc8, building steps in poi.*;
+  // both are freeform containers that older saves already carry, so nothing to backfill
+  if(!(state.version>=14)){state.version=14;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -2507,6 +2536,33 @@ function checkGameEvents(){
       })(rd.k,rsh,rd.lv);
     }
   }
+  // v6.1: the Magma/Aqua arc announces itself once, at the first badge
+  if(ho&&!g.flags.v61note&&badgeCount()>=1){
+    g.flags.v61note=1;changed=true;
+    queueModal(function(){
+      sfx('battlestart');
+      showModal('<div style="text-align:center;padding-bottom:2px"><img src="sprites/trainers/aquagrunt.png" alt="" style="width:52px;height:52px;image-rendering:pixelated"></div>'+
+        '<h3 style="text-align:center">Trouble in HOENN…</h3>'+
+        '<p>Strange crews in RED and BLUE are moving through the region. New PLACES have opened on your town maps — and a story begins at <b>DEVON CORP.</b> in RUSTBORO.</p>'+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+      modalOk=function(){closeModal();render(true);};
+    });
+  }
+  // v6.1: JIRACHI wakes for a 7-day streak once the story is done — the wish is you
+  if(ho&&g.flags.arc8&&!g.flags.jirachi&&g.daily&&(g.daily.streak||0)>=7){
+    g.flags.jirachi=1;changed=true;
+    var jshiny=Math.random()<0.1;
+    var jm=addMon('jirachi',jshiny);jm.xp=xpFloor(30);
+    queueModal(function(){
+      sfx('catch');cry('jirachi');
+      if(jshiny)setTimeout(function(){sfx('shiny');},600);
+      showModal('<h3 style="text-align:center">A wish come true…</h3>'+
+        '<p>Seven straight days of training — the Millennium Comet heard you. <b>JIRACHI</b> descends in a streak of starlight and joins you at :L30!'+(jshiny?' ✨ It’s SHINY!':'')+'</p>'+
+        '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(jshiny?' shinyglow':'')+'" src="'+sprPath('jirachi',jshiny)+'" alt=""></div>'+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">AMAZING</button></div>');
+      modalOk=function(){closeModal();render(true);};
+    });
+  }
   // Oak's eggs at badges 1, 4 and 7
   var bc2=badgeCount();
   [['egg1',1],['egg2',4],['egg3',7]].forEach(function(eg){
@@ -2708,6 +2764,14 @@ function runThrow(bk){
       var pgc=poiOf('tower2');
       if((pgc.floor||0)===w.ghost)pgc.floor=(pgc.floor||0)+1;
     }
+    if(w.pyre!==undefined){ // MT. PYRE: catching also lays the spirit to rest
+      var ppc=poiOf('pyre');
+      if((ppc.floor||0)===w.pyre)ppc.floor=(ppc.floor||0)+1;
+    }
+    if(w.sky!==undefined){ // SKY PILLAR: a caught guardian clears its floor
+      var psc=poiOf('sky');
+      if((psc.floor||0)===w.sky)psc.floor=(psc.floor||0)+1;
+    }
     if(safariOver)poiOf('safari').active=0;
     s.wild=spawnWild();
     s.bmsg='A wild '+DEX[s.wild.sp].n+' appeared!'+(s.wild.safari?' THROW BALL when ready!':' Log a set to attack — it fights back!');
@@ -2834,7 +2898,9 @@ function teamHTML(){
         '<div class="plv" style="margin:3px 0 5px">Hatches in '+eleft+' set'+(eleft===1?'':'s')+' — keep logging!</div>'+
         '<div class="gbar exp"><div style="width:'+Math.max(0,Math.round((30-eleft)/30*100))+'%"></div></div></div></div>';
     }
-    state.game.mons.forEach(function(m){
+    /* v6.1: TEAM shows only your fighting six — everyone else lives in the BOX */
+    var tvParty=battleParty();
+    tvParty.forEach(function(m){
       var l=monLevel(m.xp),st=statsFor(m);
       var into=m.xp-xpFloor(l),span=Math.max(1,xpFloor(l+1)-xpFloor(l));
       var mxT=st.hp,curT=Math.max(0,Math.min(mxT,curHpOf(m)));
@@ -2849,7 +2915,15 @@ function teamHTML(){
         '<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div style="width:'+Math.min(100,Math.round(into/span*100))+'%"></div></div></div>'+
         '</div></button>';
     });
-    h+='<div class="about">XP goes to the POKEMON you pick at workout start.<br>Catch new ones in battle: weaken a wild, then THROW BALL!</div>';
+    var tvRest=state.game.mons.length-tvParty.length;
+    if(tvRest>0){
+      h+='<button class="prow" data-action="team-view" data-v="box" style="padding:9px 12px">'+
+        itemImg('pokeball',26)+
+        '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+tvRest+' more in BILL’S PC</div>'+
+        '<div class="plv" style="margin-top:2px">Tap to open the BOX — search, sort, and pick new teammates.</div></div>'+
+        '<span class="plv" style="flex:none">▶</span></button>';
+    }
+    h+='<div class="about">These six fight for you — set the order with EDIT PARTY.<br>XP goes to the POKEMON you pick at workout start.</div>';
   }else if(teamView==='box'){
     h+=boxHTML();
   }else{
@@ -3198,8 +3272,8 @@ function travelFare(to){if(state.dev)return 0;return beenTo()[to]?120*Math.abs(t
 var WILD_BANDS=[[2,6],[6,10],[10,16],[16,22],[20,28],[26,34],[30,38],[34,44],[42,52]];
 /* ===== cosmetic weather (v5.19): pure art — mood only, never touches spawns ===== */
 var WX_NAMES={rain:'RAIN',sun:'HARSH SUN',fog:'FOG',sand:'SANDSTORM'};
-function wxFor(t){
-  var h=strHash(todayKey()+'-wx-'+t)%100;
+function wxFor(t,dayKey){ // optional dayKey: the WEATHER INSTITUTE reads tomorrow (v6.1, still pure art)
+  var h=strHash((dayKey||todayKey())+'-wx-'+t)%100;
   if(inHoenn()){ // Hoenn is the weather region — still pure art, never gameplay
     if(t===4)return h<38?'sun':(h<52?'sand':'clear');       // Lavaridge under the volcano
     if(t===6)return h<44?'rain':(h<56?'fog':'clear');       // Fortree's endless showers
@@ -3703,13 +3777,13 @@ function wildPanelHTML(anim,ov){
       '<button class="btn" data-action="battle-bag" style="flex:1">BAG</button></div>';
   }
   return '<div class="panel" style="padding:11px 12px">'+
-    '<div class="arenabg" style="background-image:url('+(w.tr&&w.tr.arena?'sprites/arenas/'+w.tr.arena+'.png':(w.ghost!==undefined?'sprites/arenas/poison.png':arenaFile('Grass')))+')">'+
-    (w.tr||w.ghost!==undefined?'':wxOverlayHTML(curTown()))+
+    '<div class="arenabg" style="background-image:url('+(w.tr&&w.tr.arena?'sprites/arenas/'+w.tr.arena+'.png':(w.bg?'sprites/arenas/'+w.bg+'.png':(w.ghost!==undefined?'sprites/arenas/poison.png':arenaFile('Grass'))))+')">'+
+    (w.tr||w.ghost!==undefined||w.bg?'':wxOverlayHTML(curTown()))+
     '<div class="bt-scene bt-layer">'+
       '<div class="databox" style="position:absolute;left:5px;top:5px;width:57%">'+
         '<div class="pname">'+
         (w.tr?'<img src="sprites/trainers/'+w.tr.cls+'.png" alt="" style="width:16px;height:16px;image-rendering:pixelated;vertical-align:-3px"> '+w.tr.name+"'S "+d.n
-             :(w.ghost!==undefined?'GHOST ':(w.safari?'SAFARI ':'WILD '))+d.n+(w.shiny?' <span class="shinystar">★</span>':''))+
+             :(w.ghost!==undefined||w.pyre!==undefined?'GHOST ':(w.safari?'SAFARI ':'WILD '))+d.n+(w.shiny?' <span class="shinystar">★</span>':''))+
         ' <span class="plv">:L'+w.lv+'</span></div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab">HP</span><div class="gbar"><div class="bt-ehp" style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
         '<div class="plv" style="margin-top:2px">'+Math.max(0,w.hp).toLocaleString()+' / '+w.max.toLocaleString()+' kg</div></div>'+
@@ -5242,8 +5316,50 @@ var HOENN_DAILY_POOL=[
   {t:'ex',target:4,ask:'Log sets in 4 different exercises today',reward:200,sp:'plusle'},
   {t:'session',target:1,ask:'Finish a workout today',reward:150,sp:'slaking'}
 ];
-/* the special places of Hoenn open with the Magma/Aqua story pack (v6.1) */
-var HOENN_POIS=[];
+/* the special places of Hoenn — the Magma/Aqua story pack (v6.1).
+   Each entry mirrors the Kanto registry: official Emerald art + a day-theme palette. */
+var HOENN_POIS=[
+  {k:'devon',town:1,n:'DEVON CORP.',sub:'Fossils, field research — and a robbery in progress',icon:'sprites/345.png',
+    img:'map/poi/h-devon.png',pal:{c:'#5878A8',bg:'#D6DFEE',pb:'#EAF0F8',bx:'#F3F7FB'},
+    st:function(){return state.game.flags.arc1?'':'HELP!';}},
+  {k:'corner',town:3,n:'GAME CORNER',sub:'Slots, coins and rare prize POKEMON',icon:'sprites/items/rarecandy.png',
+    img:'map/poi/h-corner.png',pal:{c:'#C08018',bg:'#F2DFA8',pb:'#FAF0CE',bx:'#FCF6E0'},
+    st:function(){var p=poiOf('corner');return (p.coins||0)+'c';}},
+  {k:'trick',town:3,n:'TRICK HOUSE',sub:'The TRICK MASTER’s weekly puzzle gauntlet',icon:'sprites/npc/man.png',
+    img:'map/poi/h-trick.png',pal:{c:'#9858B8',bg:'#E6D8F0',pb:'#F3EAF9',bx:'#F9F4FC'},
+    st:function(){var p=trickOf(),n=0;for(var i=0;i<3;i++)if(p['paid'+i])n++;return n>=3?'DONE ★':n+'/3';}},
+  {k:'magma',town:4,n:'MAGMA HIDEOUT',sub:'A volcanic vent hides TEAM MAGMA’s base',icon:'sprites/trainers/magmagrunt.png',
+    img:'map/poi/h-magma.png',pal:{c:'#C04828',bg:'#EED5CC',pb:'#F7EAE4',bx:'#FBF2EE'},
+    st:function(){var g=state.game.flags;return g.arc4?(g.arc8&&!(state.game.dex.groudon&&state.game.dex.groudon.c)?'TERRA CAVE':'CLEARED ✓'):(arcStage()===4?((poiOf('magma').f||0)+'/4'):'');}},
+  {k:'fish',town:2,towns:[2,7,8],n:'FISHING PIER',sub:'Cast a rod — FEEBAS hides where the charts say nothing',icon:'sprites/349.png',
+    img:'sprites/arenas/water.png',pal:{c:'#4890D8',bg:'#CDE1F6',pb:'#EAF3FC',bx:'#F4F9FE'},
+    st:function(){var r=rodTier();return r?['OLD ROD','GOOD ROD','SUPER ROD'][r-1]:'NEED A ROD';}},
+  {k:'dept',town:6,n:'LILYCOVE DEPT. STORE',sub:'TMs, evolution stones and vitamins on five floors',icon:'sprites/items/calcium.png',
+    img:'map/poi/h-dept.png',pal:{c:'#C87838',bg:'#F0DFC8',pb:'#F8EEDD',bx:'#FBF5EA'},
+    st:function(){return '';}},
+  {k:'wx',town:6,n:'WEATHER INSTITUTE',sub:'Science under siege — and tomorrow’s forecast',icon:'sprites/351.png',
+    img:'map/poi/h-wx.png',pal:{c:'#48A0C8',bg:'#D2E8F2',pb:'#E9F4F9',bx:'#F2F9FC'},
+    st:function(){return state.game.flags.arc2?'':(arcStage()===2?'AQUA!':'');}},
+  {k:'pyre',town:6,n:'MT. PYRE',sub:'The mountain where POKEMON spirits rest',icon:'sprites/353.png',
+    img:'map/poi/h-pyre.png',pal:{c:'#7A6E98',bg:'#DCD8E8',pb:'#EEECF5',bx:'#F5F4FA'},
+    st:function(){var p=poiOf('pyre');return state.game.flags.arc3?'AT PEACE ✓':((p.floor||0)+'/6');}},
+  {k:'aqua',town:7,n:'AQUA HIDEOUT',sub:'TEAM AQUA’s sea cave — something shiny inside',icon:'sprites/trainers/aquagrunt.png',
+    img:'map/poi/h-aqua.png',pal:{c:'#2878B8',bg:'#CCE0F0',pb:'#E6F0F8',bx:'#F0F7FC'},
+    st:function(){var g=state.game.flags;return g.arc5?'CLEARED ✓':(arcStage()===5?((poiOf('aqua').f||0)+'/3'):'');}},
+  {k:'space',town:7,n:'SPACE CENTER',sub:'Mossdeep’s rockets reach for the stars',icon:'sprites/trainers/steven.png',
+    img:'map/poi/h-space.png',pal:{c:'#5060A8',bg:'#D8DCEE',pb:'#EBEDF8',bx:'#F4F5FB'},
+    st:function(){var g=state.game.flags;if(g.arc8)return (state.game.dex.deoxys&&state.game.dex.deoxys.c)?'DONE ★':('LAUNCH '+Math.min(3,spaceLaunches())+'/3');return g.arc6?'SAVED ✓':(arcStage()===6?'MAGMA!':'');}},
+  {k:'origin',town:8,n:'CAVE OF ORIGIN',sub:'The hollow where history slumbers',icon:'sprites/382.png',
+    img:'map/poi/h-origin.png',pal:{c:'#3898A0',bg:'#D0E9EB',pb:'#E8F5F6',bx:'#F1FAFA'},
+    gateTxt:'The cave elder bars the entrance: “History sleeps below. Follow TEAM AQUA’s trail first…”',
+    gate:function(){return arcStage()>=7;},
+    st:function(){var g=state.game.flags;return g.arc8&&!(state.game.dex.kyogre&&state.game.dex.kyogre.c)?'MARINE CAVE':(g.arc7?'':((poiOf('origin').f||0)+'/3'));}},
+  {k:'sky',town:9,n:'SKY PILLAR',sub:'An ancient tower only the worthy may climb',icon:'sprites/384.png',
+    img:'map/poi/h-sky.png',pal:{c:'#38A068',bg:'#D0EADB',pb:'#E9F6EE',bx:'#F2FAF5'},
+    gateTxt:'An ancient door refuses to move. Whatever sleeps up there is not ready to be woken…',
+    gate:function(){return arcStage()>=8;},
+    st:function(){var g=state.game.flags;return g.arc8?((state.game.dex.rayquaza&&state.game.dex.rayquaza.c)?'CALM ✓':'SUMMIT'):((poiOf('sky').floor||0)+'/5');}}
+];
 var HOENN_FEATURES=[
   {k:'mart',n:'POKE MART',icon:'sprites/items/pokeball.png',
    d:'The SHOP is open! Stock up on potions, balls and more in every town from now on.',
@@ -5285,6 +5401,14 @@ function setRegionTables(){
   DAILY_POOL=ho?HOENN_DAILY_POOL:KANTO_DAILY_POOL;
   DEX_ORDER=ho?HOENN_DEX_ORDER:KANTO_DEX_ORDER;
   FEATURES=ho?HOENN_FEATURES:KANTO_FEATURES;
+  /* v6.1: the shop/fishing tables wear regional stock too (captured beside their
+     Kanto originals further down — this function only RUNS after full eval) */
+  PRIZE_MONS=ho?HOENN_PRIZE_MONS:KANTO_PRIZE_MONS;
+  TM_LIST=ho?HOENN_TM_LIST:KANTO_TM_LIST;
+  STONES=ho?HOENN_STONES:KANTO_STONES;
+  STONE_EVOS=ho?HOENN_STONE_EVOS:KANTO_STONE_EVOS;
+  FISH_TABLES=ho?HOENN_FISH_TABLES:KANTO_FISH_TABLES;
+  FISH_BANDS=ho?HOENN_FISH_BANDS:KANTO_FISH_BANDS;
 }
 function regionName(){return inHoenn()?'HOENN':'KANTO';}
 function regionMapImg(){return inHoenn()?'map/hoenn.png':'map/kanto.png';}
@@ -5345,7 +5469,7 @@ function poiPlacesHTML(){
       rows+='<div class="prow" style="padding:8px 10px;opacity:.6">'+
         '<img src="'+p.icon+'" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none;filter:brightness(0);opacity:.5">'+
         '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px;color:var(--mut)">?????</div>'+
-        '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">A tower looms to the east… the ghosts there are unidentifiable. Rumor says TEAM ROCKET hides a special SCOPE in CELADON.</div></div></div>';
+        '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">'+(p.gateTxt||'A tower looms to the east… the ghosts there are unidentifiable. Rumor says TEAM ROCKET hides a special SCOPE in CELADON.')+'</div></div></div>';
       return;
     }
     var chip=p.st?p.st():'';
@@ -5369,7 +5493,7 @@ function poiPageHTML(k){
   }
   if(def.gate&&!def.gate()){
     return '<div class="titlebar"><h1>?????</h1><button class="textbtn" data-action="tab" data-tab="map">← BACK</button></div>'+
-      '<div class="panel"><div class="memo">The ghosts here are unidentifiable! Something in the ROCKET HIDEOUT might reveal them…</div></div>'+poiBackBtn();
+      '<div class="panel"><div class="memo">'+(def.gateTxt||'The ghosts here are unidentifiable! Something in the ROCKET HIDEOUT might reveal them…')+'</div></div>'+poiBackBtn();
   }
   var out=null;
   if(k==='tower')out=towerHTML();
@@ -5383,6 +5507,15 @@ function poiPageHTML(k){
   else if(k==='silph')out=silphHTML();
   else if(k==='tower2')out=tower2HTML();
   else if(k==='lab')out=labPoiHTML();
+  else if(k==='devon')out=devonHTML();
+  else if(k==='trick')out=trickHTML();
+  else if(k==='wx')out=wxInstHTML();
+  else if(k==='pyre')out=pyreHTML();
+  else if(k==='magma')out=magmaHTML();
+  else if(k==='aqua')out=aquaHTML();
+  else if(k==='space')out=spaceHTML();
+  else if(k==='origin')out=originHTML();
+  else if(k==='sky')out=skyHTML();
   if(out===null)return mapHTML();
   // a quick exit lives top-right of every building page (the bottom one stays too)
   return out.replace('</h1></div>','</h1><button class="textbtn" data-action="tab" data-tab="map">← BACK</button></div>');
@@ -5455,6 +5588,43 @@ function poiWildFor(kind,f){
       tr:{cls:tycoon?'lance':(fh%2?'picnicker':'youngster'),clsN:tycoon?'TOWER TYCOON':'FRONTIER ACE',
         name:tycoon?'DRAGO':TRAINER_NAMES[fh%TRAINER_NAMES.length],purse:flv*20,arena:'pond',front:fs}};
   }
+  /* ===== v6.1 HOENN: the Magma/Aqua arc + dungeons + legends ===== */
+  if(kind==='arc'){ // story fights: f = chapter*10 + step
+    var ac=ARC_CH[Math.floor(f/10)-1];if(!ac||!ac.fights)return null;
+    var af=ac.fights[f%10];if(!af)return null;
+    var boss2=(af.pm>=100),admin=(af.pm>=70);
+    var alv=af.b+bc*2;
+    var ahp=Math.round((600+alv*60)*(boss2?2.2:(admin?1.8:1.4)));
+    return {sp:af.sp,lv:alv,hp:ahp,max:ahp,shiny:false,parts:{},
+      tr:{cls:af.cls,clsN:af.clsN,name:af.name,purse:alv*af.pm,arena:af.arena,arc:[Math.floor(f/10),f%10]}};
+  }
+  if(kind==='pyre'){ // fight OR catch, like the POKEMON TOWER ghosts
+    var pd=PYRE_FLOORS[f];if(!pd)return null;
+    var php2=Math.round((500+pd[1]*45)*(f===5?1.6:1.15));
+    if(state.game)state.game.seen[pd[0]]=1;
+    return {sp:pd[0],lv:pd[1],hp:php2,max:php2,shiny:Math.random()<shinyOdds(),parts:{},pyre:f,bg:'poison'};
+  }
+  if(kind==='pyrewild'){ // linger at the summit — CHIMECHO's home
+    var pwPool=[['chimecho',4],['shuppet',6],['duskull',6]],pwTot=16;
+    var pwRoll=Math.random()*pwTot,pwSp=pwPool[0][0];
+    for(var pw=0;pw<pwPool.length;pw++){pwRoll-=pwPool[pw][1];if(pwRoll<=0){pwSp=pwPool[pw][0];break;}}
+    var pwLv=30+Math.floor(Math.random()*5);
+    var pwHp=Math.round((500+pwLv*45)*(0.8+Math.random()*0.4));
+    if(state.game)state.game.seen[pwSp]=1;
+    return {sp:pwSp,lv:pwLv,hp:pwHp,max:pwHp,shiny:Math.random()<shinyOdds(),parts:{},bg:'poison'};
+  }
+  if(kind==='sky'){ // the pillar climb — fight OR catch to advance
+    var sd=SKY_FLOORS[f];if(!sd)return null;
+    var shp3=Math.round((500+sd[1]*45)*1.25);
+    if(state.game)state.game.seen[sd[0]]=1;
+    return {sp:sd[0],lv:sd[1],hp:shp3,max:shp3,shiny:Math.random()<shinyOdds(),parts:{},sky:f,bg:'teal'};
+  }
+  if(kind==='legend'){ // the titans and mythicals — weaken, then THROW BALL
+    var lg=HOENN_LEGENDS[f];if(!lg)return null;
+    var lhp=Math.round((500+lg[1]*45)*2.2);
+    if(state.game)state.game.seen[lg[0]]=1;
+    return {sp:lg[0],lv:lg[1],hp:lhp,max:lhp,shiny:Math.random()<shinyOdds(),parts:{},legend:1,bg:lg[2]};
+  }
   return null;
 }
 /* held/charm helpers (BATTLE TOWER exclusives) */
@@ -5476,6 +5646,9 @@ function expShareHolder(excludeUid){
 function poiWildMsg(w){
   if(w.ghost!==undefined)return 'POKEMON TOWER '+(w.ghost+1)+'F — a restless '+DEX[w.sp].n+' bars the way! Log a set to attack!';
   if(w.snor)return 'SNORLAX woke up angry! Weaken it with sets, then THROW BALL!';
+  if(w.pyre!==undefined)return 'MT. PYRE '+(w.pyre+1)+'F — a mournful '+DEX[w.sp].n+' drifts near! Fight it or catch it — both bring peace.';
+  if(w.sky!==undefined)return 'SKY PILLAR '+(w.sky+1)+'F — '+DEX[w.sp].n+' guards the stair! Fight it or catch it to climb.';
+  if(w.legend)return DEX[w.sp].n+' descends in fury! Weaken it with sets, then THROW BALL!';
   return 'A wild '+DEX[w.sp].n+' appeared! Log a set to attack — it fights back!';
 }
 function poiStartFight(kind,f){
@@ -5492,6 +5665,28 @@ function poiStartFight(kind,f){
   if(kind==='snorlax'){var pf=poiOf('tower2');if(!pf.flute)return;
     if(state.game.dex.snorlax&&state.game.dex.snorlax.c){toast('SNORLAX is already on your team!');return;}}
   if(kind==='front'){var pfr=poiOf('front');if(f!==(pfr.streak||0))return;}
+  /* v6.1 Hoenn kinds — every request is validated against the LIVE story state */
+  if(kind==='arc'){
+    var vch=Math.floor(f/10),vst=f%10,vcd=ARC_CH[vch-1];
+    if(!inHoenn()||!vcd||arcStage()!==vch)return;
+    if((poiOf(vcd.key).f||0)!==vst)return;
+  }
+  if(kind==='pyre'){
+    if(!inHoenn()||arcStage()<3||state.game.flags.arc3)return;
+    var vpy=poiOf('pyre');if(f!==(vpy.floor||0)||f>=6)return;
+  }
+  if(kind==='pyrewild'){if(!inHoenn()||!state.game.flags.arc3)return;}
+  if(kind==='sky'){
+    if(!inHoenn()||arcStage()!==8)return;
+    var vsk=poiOf('sky');if(f!==(vsk.floor||0)||f>=5)return;
+  }
+  if(kind==='legend'){
+    if(!inHoenn())return;
+    var vlg=HOENN_LEGENDS[f];if(!vlg)return;
+    if(!state.game.flags.arc8)return;
+    if(state.game.dex[vlg[0]]&&state.game.dex[vlg[0]].c){toast(DEX[vlg[0]].n+' is already with you!');return;}
+    if(vlg[0]==='deoxys'&&spaceLaunches()<3)return;
+  }
   var w=poiWildFor(kind,f);
   if(!w)return;
   if(state.session){
@@ -5576,6 +5771,29 @@ function poiTrainerWin(tr){
       return ' SILPH '+(tr.silph+1)+'F LIBERATED!'+extra;
     }
     return '';
+  }
+  /* v6.1: the Magma/Aqua story fights advance their chapter here */
+  if(tr.arc){
+    var ach=tr.arc[0],ast=tr.arc[1],acd=ARC_CH[ach-1];
+    if(!acd||arcStage()!==ach)return '';
+    var pac=poiOf(acd.key);
+    if((pac.f||0)!==ast)return '';
+    pac.f=(pac.f||0)+1;
+    var aExtra='';
+    // canon nod: the AQUA HIDEOUT hides Hoenn's one MASTER BALL
+    if(acd.key==='aqua'&&ast===1&&!pac.mb){
+      pac.mb=1;bagOf().masterball=(bagOf().masterball||0)+1;
+      aExtra=' You found the MASTER BALL in an open locker!';
+    }
+    if(pac.f>=acd.fights.length){
+      state.game.flags['arc'+ach]=1;
+      if(ach===1){addMoney(800);bagOf().greatball=(bagOf().greatball||0)+3;}
+      if(ach===4)addMoney(2000);
+      if(ach===6)addMoney(3000);
+      arcScene(ach);
+      return ' '+acd.n+' — CLEAR!'+aExtra;
+    }
+    return aExtra;
   }
   return '';
 }
@@ -5752,6 +5970,17 @@ var FISH_TABLES=[
   [['staryu',6],['horsea',6],['shellder',5],['krabby',5],['slowpoke',5],['goldeen',4],['gyarados',2],['dratini',2],['lapras',1]]
 ];
 var FISH_BANDS=[[5,15],[15,30],[25,40]];
+/* v6.1: Hoenn waters — FEEBAS only bites at one pier town per day, like its
+   famous wandering tiles. The fisherman drops a hint on the pier page. */
+var KANTO_FISH_TABLES=FISH_TABLES,KANTO_FISH_BANDS=FISH_BANDS;
+var HOENN_FISH_TABLES=[
+  [['magikarp',10],['tentacool',6],['goldeen',4]],
+  [['magikarp',5],['goldeen',6],['carvanha',6],['wailmer',5],['barboach',5],['corphish',5],['feebas',2]],
+  [['carvanha',5],['sharpedo',4],['wailmer',4],['horsea',5],['staryu',4],['corsola',3],['luvdisc',3],['relicanth',1],['gyarados',2],['feebas',2]]
+];
+var HOENN_FISH_BANDS=[[5,15],[15,30],[25,40]];
+var HOENN_PIER_TOWNS=[2,7,8];
+function feebasTown(){return HOENN_PIER_TOWNS[strHash(todayKey()+'-feebas')%HOENN_PIER_TOWNS.length];}
 var fishSeq=0,fishCast=null;
 function fishingHTML(){
   var rt=rodTier();
@@ -5766,6 +5995,7 @@ function fishingHTML(){
   }
   h+='<div class="panel"><h3>CAST A LINE<span class="bestchip">'+['OLD ROD','GOOD ROD','SUPER ROD'][rt-1]+'</span></h3>'+
     '<div class="plv" style="margin-bottom:8px;line-height:1.35">Cast, wait for the “!”, and HOOK it fast. Hook one mid-workout and it becomes your battle — weaken it, then THROW BALL. Outside a workout you get one quick shot with your balls.</div>'+
+    (inHoenn()&&rt>=2?'<div class="plv" style="margin-bottom:8px;color:'+(curTown()===feebasTown()?'#2E8B48':'var(--mut)')+'">“Psst — they say FEEBAS shoals near '+TOWNS[feebasTown()].n+' today'+(curTown()===feebasTown()?' — that’s HERE!':'…')+'”</div>':'')+
     '<button class="btn acc" data-action="fish-cast" style="width:100%">'+itemImg(['oldrod','goodrod','superrod'][rt-1],18)+' CAST</button></div>';
   var cells='';
   FISH_TABLES[rt-1].forEach(function(e){
@@ -5809,7 +6039,9 @@ function fishStartCast(){
 }
 function fishHook(){
   fishSeq++;
-  var rt=rodTier(),tbl=FISH_TABLES[rt-1],band=FISH_BANDS[rt-1];
+  var rt=rodTier(),band=FISH_BANDS[rt-1];
+  // FEEBAS only shoals at the day's lucky pier town (Hoenn's wandering tiles)
+  var tbl=FISH_TABLES[rt-1].filter(function(e){return e[0]!=='feebas'||(inHoenn()&&curTown()===feebasTown());});
   var tot=0;tbl.forEach(function(e){tot+=e[1];});
   var roll=Math.random()*tot,sp=tbl[0][0];
   for(var i=0;i<tbl.length;i++){roll-=tbl[i][1];if(roll<0){sp=tbl[i][0];break;}}
@@ -6018,6 +6250,21 @@ var STONE_EVOS={
   leafstone:{gloom:'vileplume',weepinbell:'victreebel',exeggcute:'exeggutor'},
   moonstone:{clefairy:'clefable',jigglypuff:'wigglytuff',nidorina:'nidoqueen',nidorino:'nidoking'}
 };
+/* v6.1: LILYCOVE stocks Hoenn — a SUN STONE appears, and every stone family that
+   had NO route in Hoenn (Ludicolo, Shiftry, Delcatty, Starmie, Bellossom…) gets one. */
+var KANTO_TM_LIST=TM_LIST,KANTO_STONES=STONES,KANTO_STONE_EVOS=STONE_EVOS;
+var HOENN_TM_LIST=[['THUNDERBOLT',3000],['FLAMETHROWER',3000],['ICE BEAM',3000],['PSYCHIC',3500],
+  ['EARTHQUAKE',4000],['SHADOW BALL',3000],['SLUDGE BOMB',2500],['DRAGON CLAW',3000],['AERIAL ACE',2000],
+  ['GIGA DRAIN',2500],['CRUNCH',2500],['ROCK SLIDE',2500],['SKY UPPERCUT',2500],['HYPER BEAM',5000]];
+var HOENN_STONES=[['waterstone','WATER STONE','#6890F0'],['leafstone','LEAF STONE','#78C850'],
+  ['thunderstone','THUNDER STONE','#F8D030'],['moonstone','MOON STONE','#A890F0'],['sunstone','SUN STONE','#F8B838']];
+var HOENN_STONE_EVOS={
+  waterstone:{lombre:'ludicolo',staryu:'starmie'},
+  leafstone:{nuzleaf:'shiftry',gloom:'vileplume'},
+  thunderstone:{pikachu:'raichu'},
+  moonstone:{skitty:'delcatty',jigglypuff:'wigglytuff'},
+  sunstone:{gloom:'bellossom'}
+};
 function gemSVG(color,size){
   return '<svg viewBox="0 0 20 20" width="'+size+'" height="'+size+'" style="flex:none">'+
     '<path d="M10 1 L18 8 L10 19 L2 8 Z" fill="'+color+'" stroke="#585048" stroke-width="1.6"/>'+
@@ -6025,7 +6272,7 @@ function gemSVG(color,size){
 }
 function deptHTML(){
   var h='<div class="titlebar"><h1>DEPT. STORE</h1></div>'+
-    '<div class="subtitle">CELADON — five floors of everything</div>'+
+    '<div class="subtitle">'+(inHoenn()?'LILYCOVE':'CELADON')+' — five floors of everything</div>'+
     poiBanner('dept')+
     '<div class="panel"><h3>2F — TRAINER GOODS<span class="bestchip">₽'+money().toLocaleString()+'</span></h3>'+
     '<div class="plv" style="margin-bottom:6px">The usual potions and balls are downstairs at the POKE MART counter.</div>'+
@@ -6106,6 +6353,9 @@ function showStoneModal(st){
 var slotBusy=false;
 var SLOT_ICONS=['pokeball','greatball','ultraball','luckyegg','rarecandy','potion'];
 var PRIZE_MONS=[['abra',180],['clefairy',500],['dratini',2800],['scyther',5500],['pinsir',5500]];
+/* v6.1: MAUVILLE's prize shelf */
+var KANTO_PRIZE_MONS=PRIZE_MONS;
+var HOENN_PRIZE_MONS=[['plusle',500],['minun',500],['skitty',800],['trapinch',2800],['bagon',5500],['beldum',5500]];
 function cornerOf(){
   var p=poiOf('corner');
   if(p.date!==todayKey()){p.date=todayKey();p.spins=0;}
@@ -6121,8 +6371,8 @@ function cornerHTML(){
   var p=cornerOf();
   var free=cornerFreeLeft(p);
   var h='<div class="titlebar"><h1>GAME CORNER</h1></div>'+
-    '<div class="subtitle">“The playground for good grown-ups!”</div>'+
-    poiBanner('corner','ROCKET GAME CORNER');
+    '<div class="subtitle">'+(inHoenn()?'MAUVILLE — ':'')+'“The playground for good grown-ups!”</div>'+
+    poiBanner('corner',inHoenn()?'MAUVILLE GAME CORNER':'ROCKET GAME CORNER');
   h+='<div class="panel"><h3>SLOTS<span class="bestchip">'+(p.coins||0)+' COINS</span></h3>'+
     '<div style="display:flex;gap:8px;justify-content:center;margin:6px 0 10px">'+
     ['A','B','C'].map(function(r){return '<div class="reelbox" id="reel'+r+'"><div class="reelstrip">'+
@@ -6262,6 +6512,514 @@ function labPoiHTML(){
   h+='<div class="panel"><h3>TRADE-IN TERMINAL</h3>'+
     (tRows?'<div class="plv" style="margin-bottom:4px">Send duplicate species to research — they’re released for good, so choose carefully.</div>'+tRows
       :'<div class="plv">No duplicate species on your team. Catch spares to trade them in here.</div>')+'</div>';
+  return h+poiBackBtn();
+}
+/* ============================================================
+   v6.1 MAGMA & AQUA PACK — the Hoenn buildings + the full story arc.
+   Story progress lives in game.flags.arc1..arc8; per-building steps in game.poi.
+   ============================================================ */
+/* the eight chapters — fights are roadblock-engine injections (kind 'arc') */
+var ARC_CH=[
+  {key:'devon',town:1,n:'THE DEVON HEIST',
+   fights:[{cls:'aquagrunt',clsN:'AQUA GRUNT',name:'RUNO',sp:'poochyena',b:6,arena:'gym',pm:35}]},
+  {key:'wx',town:6,n:'THE WEATHER INSTITUTE',
+   fights:[{cls:'aquagrunt',clsN:'AQUA GRUNT',name:'DILE',sp:'carvanha',b:8,arena:'gym',pm:40},
+           {cls:'shelly',clsN:'AQUA ADMIN',name:'SHELLY',sp:'sharpedo',b:12,arena:'gym',pm:70}]},
+  {key:'pyre',town:6,n:'MT. PYRE'},
+  {key:'magma',town:4,n:'THE MAGMA HIDEOUT',
+   fights:[{cls:'magmagrunt',clsN:'MAGMA GRUNT',name:'BRAND',sp:'numel',b:14,arena:'cave',pm:40},
+           {cls:'magmagrunt',clsN:'MAGMA GRUNT',name:'COLE',sp:'mightyena',b:16,arena:'cave',pm:40},
+           {cls:'tabitha',clsN:'MAGMA ADMIN',name:'TABITHA',sp:'camerupt',b:18,arena:'cave',pm:70},
+           {cls:'maxie',clsN:'MAGMA LEADER',name:'MAXIE',sp:'camerupt',b:20,arena:'cave',pm:100}]},
+  {key:'aqua',town:7,n:'THE AQUA HIDEOUT',
+   fights:[{cls:'aquagrunt',clsN:'AQUA GRUNT',name:'WADE',sp:'carvanha',b:18,arena:'water',pm:40},
+           {cls:'aquagrunt',clsN:'AQUA GRUNT',name:'REEF',sp:'golbat',b:20,arena:'water',pm:40},
+           {cls:'matt',clsN:'AQUA ADMIN',name:'MATT',sp:'crawdaunt',b:22,arena:'water',pm:70}]},
+  {key:'space',town:7,n:'THE SPACE CENTER',
+   fights:[{cls:'magmagrunt',clsN:'MAGMA GRUNT',name:'ASH',sp:'mightyena',b:20,arena:'psychic',pm:40},
+           {cls:'tabitha',clsN:'MAGMA ADMIN',name:'TABITHA',sp:'camerupt',b:24,arena:'psychic',pm:70},
+           {cls:'maxie',clsN:'MAGMA LEADER',name:'MAXIE',sp:'camerupt',b:26,arena:'psychic',pm:110}]},
+  {key:'origin',town:8,n:'THE SEAFLOOR CAVERN',
+   fights:[{cls:'aquagrunt',clsN:'AQUA GRUNT',name:'GILL',sp:'sharpedo',b:24,arena:'cave',pm:40},
+           {cls:'shelly',clsN:'AQUA ADMIN',name:'SHELLY',sp:'sharpedo',b:26,arena:'cave',pm:80},
+           {cls:'archie',clsN:'AQUA LEADER',name:'ARCHIE',sp:'sharpedo',b:30,arena:'cave',pm:120}]},
+  {key:'sky',town:9,n:'THE SKY PILLAR'}
+];
+/* fight-or-catch dungeon floors */
+var PYRE_FLOORS=[['shuppet',24],['duskull',26],['shuppet',28],['banette',30],['duskull',32],['chimecho',34]];
+var SKY_FLOORS=[['golbat',38],['claydol',41],['banette',43],['altaria',46],['shelgon',48]];
+/* the post-story battle-catches: [species, level, arena] — KO them and they return */
+var HOENN_LEGENDS=[['rayquaza',70,'teal'],['kyogre',70,'water'],['groudon',70,'cave'],['latios',40,'grass'],['deoxys',30,'psychic']];
+var DEVON_FOSSILS=[['lileep',6000,'ROOT FOSSIL'],['anorith',6000,'CLAW FOSSIL']];
+/* the next unfinished chapter: 1..8, or 9 once the story is done */
+function arcStage(){
+  var g=state.game;if(!g||!g.flags)return 1;
+  var n=1;while(n<=8&&g.flags['arc'+n])n++;
+  return n;
+}
+/* a one-line trail hint for whichever chapter is next */
+function arcHint(){
+  var st=arcStage();
+  var hints=['','Recover the stolen DEVON GOODS in RUSTBORO.','Defend the WEATHER INSTITUTE in FORTREE.',
+    'Climb MT. PYRE near FORTREE.','Storm the MAGMA HIDEOUT at LAVARIDGE.','Raid the AQUA HIDEOUT off MOSSDEEP.',
+    'Defend the MOSSDEEP SPACE CENTER.','Chase ARCHIE into the SEAFLOOR CAVERN under SOOTOPOLIS.',
+    'Climb the SKY PILLAR near EVER GRANDE.'];
+  return st>8?'':hints[st];
+}
+/* rocket launches since the story ended: one per calendar week with 3+ training days */
+function spaceLaunches(){
+  var g=state.game;if(!g||!g.flags||!g.flags.arc8ts)return 0;
+  var m=daySetsMap(),n=0,ws=weekStartTs(+g.flags.arc8ts),now=Date.now(),guard=0;
+  while(ws<=now&&guard<220){
+    var days=0;
+    for(var d=0;d<7;d++){if(m[dateKey(ws+d*DAY)])days++;}
+    if(days>=3)n++;
+    ws+=7*DAY;guard++;
+  }
+  return n;
+}
+/* ----- shared page chrome for the arc ----- */
+function arcFightRowsHTML(ch){
+  var acd=ARC_CH[ch-1],p=poiOf(acd.key),cur=p.f||0,stage=arcStage(),cleared=!!state.game.flags['arc'+ch];
+  var h='';
+  acd.fights.forEach(function(af,i){
+    var done=cleared||i<cur;
+    var now=!cleared&&stage===ch&&i===cur;
+    var tw=poiWildFor('arc',ch*10+i);
+    h+='<div class="prow" style="padding:7px 10px'+(done?';opacity:.7':(now?'':';opacity:.5'))+'">'+
+      '<img src="sprites/trainers/'+af.cls+'.png" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1)':'')+'">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px'+(af.pm>=100?';color:#D03028':'')+'">'+af.clsN+' '+af.name+(done?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+      '<div class="plv" style="margin-top:2px">'+DEX[af.sp].n+' :L'+tw.lv+(done?'':' · ₽'+tw.tr.purse.toLocaleString())+'</div></div>'+
+      '<img src="'+sprPath(af.sp,false)+'" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1);opacity:.6':'')+'">'+
+      (now?'<button class="btn acc" data-action="poi-fight" data-kind="arc" data-f="'+(ch*10+i)+'">FIGHT</button>':'')+
+      '</div>';
+  });
+  return h;
+}
+function legendPanelHTML(idx,title,desc,ac){
+  var lg=HOENN_LEGENDS[idx],sp=lg[0];
+  var d=state.game.dex[sp],caught=!!(d&&d.c);
+  if(caught)return '<div class="panel" style="border-color:#2E8B48"><h3>'+title+'</h3>'+
+    '<div class="prow" style="padding:7px 10px;opacity:.85"><img src="'+sprPath(sp,!!(d&&d.s))+'" alt="" style="width:40px;height:40px;image-rendering:pixelated;flex:none">'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+DEX[sp].n+' <span style="color:#2E8B48">CAUGHT ✓</span></div>'+
+    '<div class="plv" style="margin-top:2px">It battles at your side now.</div></div></div></div>';
+  return '<div class="panel" style="border-color:'+ac+'"><h3>'+title+'</h3>'+
+    '<div class="plv" style="margin-bottom:6px;white-space:normal;line-height:1.3">'+desc+'</div>'+
+    '<div class="prow" style="padding:7px 10px">'+
+    '<img src="'+sprPath(sp,false)+'" alt="" style="width:40px;height:40px;image-rendering:pixelated;flex:none">'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+DEX[sp].n+'</div>'+
+    '<div class="plv" style="margin-top:2px">:L'+lg[1]+' · weaken it, then THROW BALL — if it faints, it returns</div></div>'+
+    '<button class="btn acc" data-action="poi-fight" data-kind="legend" data-f="'+idx+'">FACE IT</button></div></div>';
+}
+/* ----- chapter-end theatre ----- */
+function arcScene(ch){
+  var scenes={
+    1:{t:'The goods are safe!',img:'sprites/trainers/archie.png',
+       p:'The grunt drops the DEVON GOODS and bolts. MR. STONE beams: “Splendid! Take ₽800 and these GREAT BALLS. …TEAM AQUA, was it? I fear we’ll hear that name again.” The research wing upstairs is now open to you.'},
+    2:{t:'The institute is safe!',img:'sprites/trainers/shelly.png',
+       p:'SHELLY clicks her tongue — “Tch. We got the data we came for anyway.” The scientists exhale: “They asked about RAIN… about waking something under the sea. Take good care of CASTFORM, will you?”'},
+    3:{t:'The orbs are gone!',img:'sprites/trainers/maxie.png',
+       p:'At the summit shrine, two silhouettes vanish into the mist — MAXIE with the BLUE ORB, ARCHIE with the RED. The old keeper trembles: “Those orbs must NEVER leave this mountain… find them, child. Hurry.”'},
+    4:{t:'The ground trembles…',img:'sprites/trainers/maxie.png',
+       p:'MAXIE raises the BLUE ORB over a sleeping shape of stone — “With GROUDON, the land itself will grow!” A roar splits the vent… and the beast SINKS into the magma, gone. Maxie stares at the empty crater. “…Where is it going?”'},
+    5:{t:'The submarine is gone!',img:'sprites/trainers/matt.png',
+       p:'MATT laughs as the dock empties — “Too slow! The boss is already diving for the SEAFLOOR CAVERN!” Deep beneath Route 128, something ancient begins to stir.'},
+    6:{t:'The Space Center is safe!',img:'sprites/trainers/steven.png',
+       p:'STEVEN lowers his hands. MAXIE stares at the rocket fuel he almost took: “…To evaporate the sea. What was I thinking. TRAINER — stop ARCHIE. The SEAFLOOR CAVERN, beneath SOOTOPOLIS. Before the sea swallows everything.”'},
+    7:{t:'KYOGRE awakens!',img:'sprites/382.png',
+       p:'ARCHIE holds the RED ORB high — and the cavern EXPLODES with water. “The sea… the sea is everything!” But KYOGRE ignores him and surges upward… and above, GROUDON answers. Sootopolis is caught between them. WALLACE shouts over the storm: “Only one being can calm them — the SKY PILLAR, east of here. CLIMB IT!”'},
+    8:{t:'The sky answers.',img:'sprites/384.png',
+       p:'RAYQUAZA descends over Sootopolis. One roar — and the rain stops, the sun softens, the titans sink back into the deep. Hoenn is saved. The EON TICKET, the MARINE and TERRA caves, and the summit above now wait for you… and the SPACE CENTER has restarted its launch program.'}
+  };
+  var sc=scenes[ch];if(!sc)return;
+  if(ch===7)setTimeout(playCrisisFx,900); // the titans clash the moment ARCHIE falls
+  queueModal(function(){
+    sfx(ch>=7?'battlestart':'badge');
+    showModal('<div style="text-align:center;padding-bottom:2px"><img src="'+sc.img+'" alt="" style="width:'+(ch===7||ch===8?72:56)+'px;height:'+(ch===7||ch===8?72:56)+'px;image-rendering:pixelated'+(ch===7?';filter:drop-shadow(0 0 6px #3878C8)':'')+'"></div>'+
+      '<h3 style="text-align:center">'+sc.t+'</h3><p>'+sc.p+'</p>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+    modalOk=function(){closeModal();render(true);};
+  });
+}
+/* the Sootopolis standoff: GROUDON vs KYOGRE, a full-screen flash of red and blue */
+function playCrisisFx(){
+  var old=document.getElementById('crisisfx');
+  if(old)old.parentNode.removeChild(old);
+  var ov=document.createElement('div');ov.id='crisisfx';
+  ov.innerHTML='<div class="cfp cfl"><img src="sprites/383.png" alt=""><span>GROUDON</span></div>'+
+    '<div class="cfp cfr"><img src="sprites/382.png" alt=""><span>KYOGRE</span></div>'+
+    '<div class="cftxt">THE LAND<br>VS<br>THE SEA</div>';
+  document.body.appendChild(ov);
+  sfx('battlestart');
+  setTimeout(function(){cry('groudon');},350);
+  setTimeout(function(){cry('kyogre');},1100);
+  setTimeout(function(){ov.classList.add('out');},3400);
+  setTimeout(function(){if(ov.parentNode)ov.parentNode.removeChild(ov);},3800);
+}
+/* the finale: a green streak splits the storm */
+function playRayFx(){
+  var old=document.getElementById('rayfx');
+  if(old)old.parentNode.removeChild(old);
+  var ov=document.createElement('div');ov.id='rayfx';
+  ov.innerHTML='<div class="rfbeam"></div><img class="rfspr" src="sprites/384.png" alt=""><div class="rftxt">RAYQUAZA</div>';
+  document.body.appendChild(ov);
+  sfx('battlestart');
+  setTimeout(function(){cry('rayquaza');},500);
+  setTimeout(function(){ov.classList.add('out');},2600);
+  setTimeout(function(){if(ov.parentNode)ov.parentNode.removeChild(ov);},3000);
+}
+/* ----- DEVON CORP. (Rustboro) ----- */
+function devonHTML(){
+  var g=state.game,st=arcStage();
+  var h='<div class="titlebar"><h1>DEVON CORP.</h1></div>'+
+    '<div class="subtitle">RUSTBORO — “For everyone’s dreams”</div>'+
+    poiBanner('devon');
+  if(!g.flags.arc1){
+    h+='<div class="panel" style="border-color:#D03028"><h3>CHAPTER 1 · '+ARC_CH[0].n+'</h3>'+
+      '<div class="plv" style="margin-bottom:4px;white-space:normal;line-height:1.3">A grunt in BLUE shoved past the clerk with a parts crate — the DEVON GOODS! MR. STONE wrings his hands: “Please, trainer — stop that ruffian!”</div>'+
+      arcFightRowsHTML(1)+'</div>';
+  }else{
+    h+='<div class="panel" style="border-color:#2E8B48"><h3>CHAPTER 1 ✓</h3><div class="plv">The DEVON GOODS are back in the vault. '+(arcHint()?'The trail continues: '+arcHint():'The story is complete.')+'</div></div>';
+    /* fossil wing */
+    var fRows='',fAny=false;
+    DEVON_FOSSILS.forEach(function(fx){
+      var sp=fx[0],price=fx[1],label=fx[2];
+      var caught=!!(g.dex[sp]&&g.dex[sp].c);
+      if(caught)return;
+      fAny=true;
+      var can=money()>=price;
+      fRows+='<div class="prow" style="padding:6px 10px">'+
+        '<img src="'+sprPath(sp,false)+'" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none;filter:brightness(0);opacity:.45">'+
+        '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+label+'</div>'+
+        '<div class="plv" style="margin-top:2px">Revives '+DEX[sp].n+' at :L30</div></div>'+
+        '<button class="btn'+(can?' acc':'')+'" data-action="devon-fossil" data-sp="'+sp+'"'+(can?'':' disabled style="opacity:.5"')+'>₽'+price.toLocaleString()+'</button></div>';
+    });
+    h+='<div class="panel"><h3>FOSSIL WING</h3>'+
+      (fAny?'<div class="plv" style="margin-bottom:4px">Rustboro’s pride: the regeneration machine. Fossils dug from Hoenn’s deserts come back to life here.</div>'+fRows
+           :'<div class="plv">Every ancient POKEMON is already alive and lifting. Marvelous!</div>')+'</div>';
+    /* weekly field contract — same engine as the Cinnabar experiment */
+    var p=poiOf('devon');
+    var q=labExpFor(),prog=labExpProg(q),done=prog>=q.target,claimed=p.expWeek===wkKey();
+    h+='<div class="panel"><h3>FIELD CONTRACT</h3>'+
+      '<div class="prow" style="padding:7px 10px'+(claimed?';opacity:.7':'')+'">'+
+      '<img src="sprites/trainers/birch.png" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">“'+q.ask+'”'+(claimed?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+      (claimed?'<div class="plv" style="color:#2E8B48">Contract fulfilled — a new one posts on Monday!</div>'
+        :(done?'<button class="btn acc" data-action="devon-exp" style="margin-top:4px">COLLECT ₽1,000 + RARE CANDY</button>'
+          :'<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><div class="gbar"><div style="width:'+Math.round(prog/q.target*100)+'%;background:#5878A8"></div></div><span class="barnum">'+prog.toLocaleString()+'/'+q.target.toLocaleString()+'</span></div>'))+
+      '</div></div>';
+  }
+  return h+poiBackBtn();
+}
+/* ----- TRICK HOUSE (Mauville) — the weekly puzzle gauntlet ----- */
+var TRICKS=[
+  {n:'WHO’S THAT POKEMON?',rounds:5,pass:4,d:'Name five silhouettes from the HOENN dex.'},
+  {n:'TYPE MASTER',rounds:5,pass:4,d:'Pick the move type that hits hardest.'},
+  {n:'IRON BRAIN',rounds:3,pass:2,d:'Three questions about YOUR OWN training.'}
+];
+var trickState=null;
+function trickOf(){
+  var p=poiOf('trick');
+  if(p.week!==wkKey()){
+    state.game.poi.trick={week:wkKey()};
+    p=state.game.poi.trick;
+  }
+  return p;
+}
+function trickHTML(){
+  var p=trickOf();
+  var h='<div class="titlebar"><h1>TRICK HOUSE</h1></div>'+
+    '<div class="subtitle">“Fwahahaha! I am the TRICK MASTER!”</div>'+
+    poiBanner('trick');
+  var doneAll=p.paid0&&p.paid1&&p.paid2;
+  h+='<div class="panel"><h3>THIS WEEK’S TRICKS<span class="bestchip">'+((p.paid0?1:0)+(p.paid1?1:0)+(p.paid2?1:0))+' / 3</span></h3>'+
+    '<div class="plv" style="margin-bottom:4px;white-space:normal;line-height:1.3">Three puzzles, fresh every Monday. Pass one for ₽400 — sweep all three and the TRICK MASTER coughs up a RARE CANDY.</div>';
+  TRICKS.forEach(function(t,i){
+    var sc=p['d'+i],paid=p['paid'+i];
+    h+='<div class="prow" style="padding:7px 10px'+(paid?';opacity:.75':'')+'">'+
+      '<img src="sprites/npc/man.png" alt="" style="width:30px;image-rendering:pixelated;flex:none">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+t.n+(paid?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+      '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">'+t.d+' Pass: '+t.pass+'/'+t.rounds+(sc!==undefined?' · best '+sc+'/'+t.rounds:'')+'</div></div>'+
+      (paid?'':'<button class="btn acc" data-action="trick-start" data-i="'+i+'">TRY</button>')+
+      '</div>';
+  });
+  h+=(doneAll?'<div class="plv" style="color:#2E8B48;margin-top:4px">“IMPOSSIBLE! Swept clean! Take the candy and GET OUT!” — new tricks on Monday.</div>':'')+'</div>';
+  return h+poiBackBtn();
+}
+function buildTrickQ(i,r){
+  var h=strHash(wkKey()+'-t'+i+'-r'+r),L=DEX_ORDER.length;
+  function pick(n){return DEX_ORDER[n%L];}
+  if(i===0){
+    var c=pick(h),o1=pick(h*7+13),o2=pick(h*13+29),n2=1;
+    while(o1===c){o1=pick(h*7+13+n2);n2++;}
+    while(o2===c||o2===o1){o2=pick(h*13+29+n2);n2++;}
+    var opts=[DEX[c].n,DEX[o1].n,DEX[o2].n].sort(function(a,b){return strHash(a+h)-strHash(b+h);});
+    return {img:'<img src="'+sprPath(c,false)+'" alt="" class="bigspr" style="filter:brightness(0);opacity:.55">',
+      text:'Who’s that POKEMON?',opts:opts,correct:DEX[c].n};
+  }
+  if(i===1){
+    var ALLT=['Fire','Water','Electric','Grass','Ice','Fighting','Rock','Ground','Flying','Psychic','Ghost','Dark','Bug','Poison','Dragon','Steel','Normal'];
+    var sp=pick(h*3+5),tries=0;
+    var sup=[],weak=[];
+    while(tries<40){
+      sup=[];weak=[];
+      var dt=DEX[sp].t||['Normal'];
+      ALLT.forEach(function(at){
+        var e=typeEffAgainst(at,dt);
+        if(e>=2)sup.push(at);else if(e<2)weak.push(at);
+      });
+      if(sup.length)break;
+      tries++;sp=pick(h*3+5+tries);
+    }
+    if(!sup.length)sup=['Fighting'];
+    var cT=sup[h%sup.length];
+    var w1=weak[(h*3)%weak.length],w2=weak[(h*7+2)%weak.length],n3=1;
+    while(w2===w1){w2=weak[(h*7+2+n3)%weak.length];n3++;}
+    var opts2=[cT,w1,w2].sort(function(a,b){return strHash(a+h)-strHash(b+h);});
+    return {img:'<img src="'+sprPath(sp,false)+'" alt="" class="bigspr">',
+      text:'Which move type hits '+DEX[sp].n+' ('+(DEX[sp].t||[]).join('/')+') the hardest?',opts:opts2,correct:cT};
+  }
+  var v,txt;
+  if(r===0){v=setsSince(weekStartTs(Date.now()));txt='How many SETS have you logged this week (since Monday)?';}
+  else if(r===1){v=Math.round(topLiftSince(Date.now()-30*DAY));txt='Your heaviest single lift of the last 30 days, in '+state.unit+'?';}
+  else{v=daysSinceTs(Date.now()-14*DAY);txt='How many days did you train in the last 14 days?';}
+  var a1=v+2+(h%5),a2=(v>=3?v-1-(h%2):v+6+(h%3));
+  if(a1===v)a1=v+3;
+  if(a2===v||a2===a1)a2=v+9;
+  var opts3=[String(v),String(a1),String(a2)].sort(function(a,b){return strHash(a+h)-strHash(b+h);});
+  return {text:txt,opts:opts3,correct:String(v)};
+}
+function showTrickQ(){
+  var ts=trickState;if(!ts)return;
+  var t=TRICKS[ts.i];
+  var q=buildTrickQ(ts.i,ts.r);
+  ts.q=q;
+  var btns='';
+  q.opts.forEach(function(o){
+    btns+='<button class="btn" data-action="trick-ans" data-v="'+esc(o)+'" style="width:100%;margin-top:6px">'+esc(o)+'</button>';
+  });
+  showModal('<h3>'+t.n+' <span class="bestchip" style="float:right">'+(ts.r+1)+' / '+t.rounds+'</span></h3>'+
+    (q.img?'<div style="text-align:center;padding:4px 0">'+q.img+'</div>':'')+
+    '<p style="text-align:center">'+q.text+'</p>'+btns+
+    '<div class="plv" style="text-align:center;margin-top:8px">Score: '+ts.score+' · need '+t.pass+' to pass</div>',true);
+  modalOk=null;
+}
+function finishTrick(){
+  var ts=trickState;trickState=null;
+  var t=TRICKS[ts.i],p=trickOf();
+  var passed=ts.score>=t.pass;
+  if(p['d'+ts.i]===undefined||ts.score>p['d'+ts.i])p['d'+ts.i]=ts.score;
+  var paidNow=false,candyNow=false;
+  if(passed&&!p['paid'+ts.i]){
+    p['paid'+ts.i]=1;addMoney(400);paidNow=true;
+    if(p.paid0&&p.paid1&&p.paid2&&!p.candy){p.candy=1;bagOf().rarecandy=(bagOf().rarecandy||0)+1;candyNow=true;}
+  }
+  save();
+  closeModal();
+  queueModal(function(){
+    sfx(passed?'badge':'weakhit');
+    showModal('<h3 style="text-align:center">'+(passed?'TRICK CLEARED!':'So close…')+'</h3>'+
+      '<p style="text-align:center">'+ts.score+' / '+t.rounds+' correct.'+
+      (paidNow?' The TRICK MASTER grudgingly pays <b>₽400</b>!':'')+
+      (candyNow?'<br>ALL THREE SWEPT — he hurls a <b>RARE CANDY</b> at you!':'')+
+      (!passed?'<br>“Fwahaha! Come back when your brain matches your biceps!” (retry any time)':'')+'</p>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+    modalOk=function(){closeModal();render(true);};
+  });
+}
+/* ----- WEATHER INSTITUTE (Fortree) ----- */
+function wxInstHTML(){
+  var g=state.game,st=arcStage();
+  var h='<div class="titlebar"><h1>WEATHER INSTITUTE</h1></div>'+
+    '<div class="subtitle">Route 119 — where Hoenn reads the sky</div>'+
+    poiBanner('wx');
+  if(!g.flags.arc2){
+    if(st===2){
+      h+='<div class="panel" style="border-color:#D03028"><h3>CHAPTER 2 · '+ARC_CH[1].n+'</h3>'+
+        '<div class="plv" style="margin-bottom:4px;white-space:normal;line-height:1.3">TEAM AQUA has seized the lab! A scientist whispers from under a desk: “They want our rain data… please, drive them out!”</div>'+
+        arcFightRowsHTML(2)+'</div>';
+    }else{
+      h+='<div class="panel"><h3>SOMETHING BREWING…</h3><div class="plv">Suspicious sailors circle the institute. (Story: '+arcHint()+')</div></div>';
+    }
+  }else{
+    h+='<div class="panel" style="border-color:#2E8B48"><h3>CHAPTER 2 ✓</h3><div class="plv">The institute is safe. '+(arcHint()?'The trail continues: '+arcHint():'The story is complete.')+'</div></div>';
+    if(!g.flags.castformgift){
+      h+='<div class="panel"><h3>A THANK-YOU</h3>'+
+        '<div class="prow" style="padding:7px 10px">'+
+        '<img src="'+sprPath('castform',false)+'" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none">'+
+        '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">CASTFORM</div>'+
+        '<div class="plv" style="margin-top:2px">“Our own creation — it changes with the weather. Take it!”</div></div>'+
+        '<button class="btn acc" data-action="castform-claim">TAKE IT</button></div></div>';
+    }
+  }
+  /* tomorrow's forecast — pure art, exactly like the weather itself */
+  var tmKey=dateKey(Date.now()+DAY),rows='';
+  for(var t=0;t<TOWNS.length;t++){
+    if(!beenTo()[t]&&!state.dev)continue;
+    var wToday=wxFor(t),wTom=wxFor(t,tmKey);
+    rows+='<div class="prow" style="padding:6px 10px">'+
+      '<span class="pname" style="flex:1;min-width:0;font-size:15px">'+TOWNS[t].n+'</span>'+
+      '<span class="plv" style="flex:none">'+(wToday==='clear'?'CLEAR':wxIcon(wToday,13)+' '+WX_NAMES[wToday])+'</span>'+
+      '<span class="plv" style="flex:none;opacity:.6">→</span>'+
+      '<span class="plv" style="flex:none;color:var(--text)">'+(wTom==='clear'?'CLEAR':wxIcon(wTom,13)+' '+WX_NAMES[wTom])+'</span></div>';
+  }
+  h+='<div class="panel"><h3>TOMORROW’S FORECAST</h3>'+
+    '<div class="plv" style="margin-bottom:4px">Today → tomorrow, town by town. Mood only — the weather never touches the wilds.</div>'+rows+'</div>';
+  return h+poiBackBtn();
+}
+/* ----- MT. PYRE (Fortree) ----- */
+function pyreHTML(){
+  var g=state.game,st=arcStage(),p=poiOf('pyre'),cur=p.floor||0;
+  var h='<div class="titlebar"><h1>MT. PYRE</h1></div>'+
+    '<div class="subtitle">Where POKEMON spirits are laid to rest</div>'+
+    poiBanner('pyre',g.flags.arc3?'AT PEACE':(Math.min(6,cur+1)+'F'));
+  if(st<3&&!g.flags.arc3){
+    h+='<div class="panel"><h3>THE MISTS REFUSE YOU</h3><div class="plv">The keeper bars the stair: “The mountain is restless… you have unfinished business below.” (Story: '+arcHint()+')</div></div>';
+    return h+poiBackBtn();
+  }
+  h+='<div class="panel"><h3>THE CLIMB<span class="bestchip">'+Math.min(6,cur)+' / 6</span></h3>'+
+    '<div class="plv" style="margin-bottom:4px">Six floors of mourners. Fight each spirit like a wild, or catch it with a ball — both bring peace. CHIMECHO chimes near the top.</div>';
+  for(var f=0;f<6;f++){
+    var gd=PYRE_FLOORS[f],done=g.flags.arc3||f<cur,now=!g.flags.arc3&&f===cur;
+    h+='<div class="prow" style="padding:7px 10px'+(done?';opacity:.7':(now?'':';opacity:.5'))+'">'+
+      '<img src="'+sprPath(gd[0],false)+'" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1)':';filter:brightness(.55) saturate(.6)')+'">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+(f+1)+'F · MOURNFUL '+DEX[gd[0]].n+(done?' <span style="color:#2E8B48">✓ AT REST</span>':'')+'</div>'+
+      '<div class="plv" style="margin-top:2px">:L'+gd[1]+'</div></div>'+
+      (now?'<button class="btn acc" data-action="poi-fight" data-kind="pyre" data-f="'+f+'">FACE IT</button>':'')+
+      '</div>';
+  }
+  h+='</div>';
+  if(!g.flags.arc3&&cur>=6){
+    h+='<div class="panel" style="border-color:#D03028"><h3>THE SUMMIT SHRINE</h3>'+
+      '<div class="plv" style="margin-bottom:6px">Voices above — one hooded in RED, one in BLUE…</div>'+
+      '<button class="btn acc" data-action="pyre-summit" style="width:100%">REACH THE SUMMIT</button></div>';
+  }
+  if(g.flags.arc3){
+    h+='<div class="panel"><h3>LINGER AT THE SUMMIT</h3>'+
+      '<div class="plv" style="margin-bottom:6px">The mists drift on. Wild spirits — and sometimes a CHIMECHO — still visit the shrine.</div>'+
+      '<button class="btn" data-action="poi-fight" data-kind="pyrewild" data-f="0" style="width:100%">WAIT BY THE SHRINE</button></div>';
+  }
+  return h+poiBackBtn();
+}
+/* ----- MAGMA HIDEOUT (Lavaridge) ----- */
+function magmaHTML(){
+  var g=state.game,st=arcStage();
+  var h='<div class="titlebar"><h1>MAGMA HIDEOUT</h1></div>'+
+    '<div class="subtitle">A vent in JAGGED PASS breathes smoke</div>'+
+    poiBanner('magma');
+  if(!g.flags.arc4){
+    if(st===4){
+      h+='<div class="panel" style="border-color:#D03028"><h3>CHAPTER 4 · '+ARC_CH[3].n+'</h3>'+
+        '<div class="plv" style="margin-bottom:4px;white-space:normal;line-height:1.3">The BLUE ORB is here — and so is all of TEAM MAGMA. Four fights between you and MAXIE.</div>'+
+        arcFightRowsHTML(4)+'</div>';
+    }else{
+      h+='<div class="panel"><h3>SEALED VENT</h3><div class="plv">A red-hooded lookout waves you off: “Nothing to see here, kid.” (Story: '+arcHint()+')</div></div>';
+    }
+  }else{
+    h+='<div class="panel" style="border-color:#2E8B48"><h3>CHAPTER 4 ✓</h3><div class="plv">MAXIE fled and the hideout stands empty. GROUDON sank into the magma… somewhere. '+(arcHint()?'The trail continues: '+arcHint():'')+'</div></div>';
+    if(g.flags.arc8)h+=legendPanelHTML(2,'TERRA CAVE','The vent now opens into a scorching hollow — and the CONTINENT POKEMON sleeps at the bottom.','#C04828');
+  }
+  return h+poiBackBtn();
+}
+/* ----- AQUA HIDEOUT (Mossdeep) ----- */
+function aquaHTML(){
+  var g=state.game,st=arcStage();
+  var h='<div class="titlebar"><h1>AQUA HIDEOUT</h1></div>'+
+    '<div class="subtitle">A sea cave full of blue bandanas</div>'+
+    poiBanner('aqua');
+  if(!g.flags.arc5){
+    if(st===5){
+      h+='<div class="panel" style="border-color:#D03028"><h3>CHAPTER 5 · '+ARC_CH[4].n+'</h3>'+
+        '<div class="plv" style="margin-bottom:4px;white-space:normal;line-height:1.3">ARCHIE is loading a stolen submarine. Grunts everywhere — and rumor says a MASTER BALL sits in an open locker…</div>'+
+        arcFightRowsHTML(5)+'</div>';
+    }else{
+      h+='<div class="panel"><h3>GUARDED COVE</h3><div class="plv">Blue bandanas watch the waves. You can’t slip in yet. (Story: '+arcHint()+')</div></div>';
+    }
+  }else{
+    h+='<div class="panel" style="border-color:#2E8B48"><h3>CHAPTER 5 ✓</h3><div class="plv">The dock is empty — ARCHIE’s submarine is gone, diving for the SEAFLOOR CAVERN. '+(arcHint()?'The trail continues: '+arcHint():'')+'</div></div>';
+  }
+  return h+poiBackBtn();
+}
+/* ----- MOSSDEEP SPACE CENTER ----- */
+function spaceHTML(){
+  var g=state.game,st=arcStage();
+  var h='<div class="titlebar"><h1>SPACE CENTER</h1></div>'+
+    '<div class="subtitle">MOSSDEEP — reaching for the stars</div>'+
+    poiBanner('space');
+  if(!g.flags.arc6){
+    if(st===6){
+      h+='<div class="panel" style="border-color:#D03028"><h3>CHAPTER 6 · '+ARC_CH[5].n+'</h3>'+
+        '<div class="plv" style="margin-bottom:4px;white-space:normal;line-height:1.3">TEAM MAGMA storms the center — they want the rocket fuel to evaporate the sea! STEVEN fights beside you: “I’ll hold the stairs. The leaders are yours.”</div>'+
+        arcFightRowsHTML(6)+'</div>';
+    }else{
+      h+='<div class="panel"><h3>LAUNCH PREP</h3><div class="plv">White coats hurry between consoles. All quiet — for now. (Story: '+arcHint()+')</div></div>';
+    }
+  }else{
+    h+='<div class="panel" style="border-color:#2E8B48"><h3>CHAPTER 6 ✓</h3><div class="plv">STEVEN nods: “Hoenn owes you one.” '+(arcHint()?'The trail continues: '+arcHint():'')+'</div></div>';
+  }
+  if(g.flags.arc8){
+    var ln=Math.min(3,spaceLaunches());
+    var dxCaught=!!(g.dex.deoxys&&g.dex.deoxys.c);
+    if(!dxCaught){
+      h+='<div class="panel"><h3>THE SPACE PROGRAM<span class="bestchip">LAUNCH '+ln+' / 3</span></h3>'+
+        '<div class="plv" style="margin-bottom:6px;white-space:normal;line-height:1.3">One rocket lifts off for every week you train 3+ days. The third launch brushes something strange in orbit…</div>'+
+        '<div style="display:flex;align-items:center;gap:5px"><div class="gbar"><div style="width:'+Math.round(ln/3*100)+'%;background:#5060A8"></div></div><span class="barnum">'+ln+'/3</span></div>'+
+        (ln>=3?'<div class="plv" style="color:#D03028;margin:8px 0 4px">A DNA POKEMON fell from the returning capsule!</div>':'')+
+        '</div>';
+      if(ln>=3)h+=legendPanelHTML(4,'THE VISITOR','It shifts and reforms behind the quarantine glass — then phases straight through it.','#5060A8');
+    }else{
+      h+=legendPanelHTML(4,'THE VISITOR','','#5060A8');
+    }
+  }
+  return h+poiBackBtn();
+}
+/* ----- CAVE OF ORIGIN (Sootopolis) ----- */
+function originHTML(){
+  var g=state.game,st=arcStage();
+  var h='<div class="titlebar"><h1>CAVE OF ORIGIN</h1></div>'+
+    '<div class="subtitle">SOOTOPOLIS — where history slumbers</div>'+
+    poiBanner('origin');
+  if(!g.flags.arc7){
+    h+='<div class="mapwrap" style="border-color:#3898A0"><img class="mapimg" src="map/poi/h-seafloor.png" alt="Seafloor Cavern" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/112;object-fit:cover">'+
+      '<span class="maptag" style="position:absolute;left:8px;bottom:8px;border-color:#3898A0">SEAFLOOR CAVERN</span></div>'+
+      '<div class="panel" style="border-color:#D03028"><h3>CHAPTER 7 · '+ARC_CH[6].n+'</h3>'+
+      '<div class="plv" style="margin-bottom:4px;white-space:normal;line-height:1.3">The stolen submarine idles in the dark. ARCHIE stands before a wall that breathes like the tide. Stop him — NOW.</div>'+
+      arcFightRowsHTML(7)+'</div>';
+  }else{
+    h+='<div class="panel" style="border-color:#2E8B48"><h3>CHAPTER 7 ✓</h3><div class="plv">'+(g.flags.arc8?'The cave is quiet again — the sea remembers.':'KYOGRE and GROUDON rage over Sootopolis! WALLACE: “The SKY PILLAR, east of here — CLIMB IT!”')+'</div></div>';
+    if(g.flags.arc8)h+=legendPanelHTML(1,'MARINE CAVE','Deep below the cave, the tide pulls toward a sleeping vastness — the SEA BASIN POKEMON.','#2878B8');
+  }
+  return h+poiBackBtn();
+}
+/* ----- SKY PILLAR (Ever Grande) ----- */
+function skyHTML(){
+  var g=state.game,st=arcStage(),p=poiOf('sky'),cur=p.floor||0;
+  var h='<div class="titlebar"><h1>SKY PILLAR</h1></div>'+
+    '<div class="subtitle">An ancient tower above the waves</div>'+
+    poiBanner('sky',g.flags.arc8?'THE SUMMIT':(Math.min(5,cur+1)+'F'));
+  if(!g.flags.arc8){
+    h+='<div class="panel" style="border-color:#D03028"><h3>CHAPTER 8 · '+ARC_CH[7].n+'</h3>'+
+      '<div class="plv" style="margin-bottom:4px">Sootopolis drowns in the titans’ storm. Five guarded floors stand between you and the only being they fear. Fight or catch each guardian to climb.</div>';
+    for(var f=0;f<5;f++){
+      var sd=SKY_FLOORS[f],done=f<cur,now=f===cur;
+      h+='<div class="prow" style="padding:7px 10px'+(done?';opacity:.7':(now?'':';opacity:.5'))+'">'+
+        '<img src="'+sprPath(sd[0],false)+'" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none'+(done?';filter:grayscale(1)':'')+'">'+
+        '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+(f+1)+'F · '+DEX[sd[0]].n+(done?' <span style="color:#2E8B48">✓</span>':'')+'</div>'+
+        '<div class="plv" style="margin-top:2px">:L'+sd[1]+'</div></div>'+
+        (now?'<button class="btn acc" data-action="poi-fight" data-kind="sky" data-f="'+f+'">FACE IT</button>':'')+
+        '</div>';
+    }
+    h+='</div>';
+    if(cur>=5){
+      h+='<div class="panel" style="border-color:#38A068"><h3>THE APEX</h3>'+
+        '<div class="plv" style="margin-bottom:6px">A coiled shadow sleeps in the thin air. The storm howls below…</div>'+
+        '<button class="btn acc" data-action="sky-wake" style="width:100%">WAKE RAYQUAZA</button></div>';
+    }
+  }else{
+    h+='<div class="panel" style="border-color:#2E8B48"><h3>CHAPTER 8 ✓ · HOENN IS SAVED</h3><div class="plv">RAYQUAZA calmed the titans and returned to its tower. The summit — and an odd ferry detour — remain open to you.</div></div>';
+    h+=legendPanelHTML(0,'THE SUMMIT','The SKY HIGH POKEMON coils in the jet stream, watching you climb. It remembers you.','#38A068');
+    h+=legendPanelHTML(3,'SOUTHERN ISLAND','Your EON TICKET stirs — the ferry knows a hidden isle where a red shadow’s BLUE twin patrols the shore.','#4890D8');
+  }
   return h+poiBackBtn();
 }
 /* ===== the ferry ride: a GBA-style map transition between villages ===== */
@@ -6613,7 +7371,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v6.0 “Emerald” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.1 “Magma & Aqua” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -6884,6 +7642,21 @@ function saveLogEntry(){
             if(state.game.road)state.game.road.kills=(state.game.road.kills||0)+1;
             dailyBumpKill();
             var ghostWin='';
+            if(wd.pyre!==undefined){
+              var pp2=poiOf('pyre');
+              if((pp2.floor||0)===wd.pyre){
+                pp2.floor=(pp2.floor||0)+1;
+                ghostWin=' The spirit rests — MT. PYRE '+(wd.pyre+1)+'F cleared!';
+              }
+            }
+            if(wd.sky!==undefined){
+              var ps2=poiOf('sky');
+              if((ps2.floor||0)===wd.sky){
+                ps2.floor=(ps2.floor||0)+1;
+                ghostWin=' The stair opens — SKY PILLAR '+(wd.sky+1)+'F cleared!';
+              }
+            }
+            if(wd.legend)ghostWin=' It vanished into the horizon… it will return to the same spot.';
             if(wd.ghost!==undefined){
               var pg2=poiOf('tower2');
               if((pg2.floor||0)===wd.ghost){
@@ -7248,6 +8021,21 @@ function applyImport(txt){
         if(psrc.athlon.cups)['g','s','b'].forEach(function(ck){gm.poi.athlon.cups[ck]=pin(psrc.athlon.cups[ck],9999);});
       }
       if(psrc.front)gm.poi.front={streak:pin(psrc.front.streak,999),best:pin(psrc.front.best,999)};
+      /* v6.1 Hoenn buildings (harmless extras on a Kanto save) */
+      if(psrc.devon)gm.poi.devon={f:pin(psrc.devon.f,1),expWeek:typeof psrc.devon.expWeek==='string'?psrc.devon.expWeek:''};
+      if(psrc.wx)gm.poi.wx={f:pin(psrc.wx.f,2)};
+      if(psrc.pyre)gm.poi.pyre={floor:pin(psrc.pyre.floor,6)};
+      if(psrc.magma)gm.poi.magma={f:pin(psrc.magma.f,4)};
+      if(psrc.aqua)gm.poi.aqua={f:pin(psrc.aqua.f,3),mb:psrc.aqua.mb?1:0};
+      if(psrc.space)gm.poi.space={f:pin(psrc.space.f,3)};
+      if(psrc.origin)gm.poi.origin={f:pin(psrc.origin.f,3)};
+      if(psrc.sky)gm.poi.sky={floor:pin(psrc.sky.floor,5)};
+      if(psrc.trick){
+        gm.poi.trick={week:typeof psrc.trick.week==='string'?psrc.trick.week:''};
+        ['d0','d1','d2','paid0','paid1','paid2','candy'].forEach(function(tk){
+          if(psrc.trick[tk]!==undefined)gm.poi.trick[tk]=pin(psrc.trick[tk],99);
+        });
+      }
     }
     gm.bp=Math.max(0,Math.round(+dgame.bp)||0);
     gm.bestStreak=Math.max(0,parseInt(dgame.bestStreak,10)||0);
@@ -7550,6 +8338,79 @@ document.addEventListener('click',function(e){
         '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
       modalOk=function(){closeModal();render(true);};
     }
+  }
+  /* ===== v6.1 Magma & Aqua actions ===== */
+  else if(a==='pyre-summit'){
+    if(state.game&&inHoenn()&&arcStage()===3&&(poiOf('pyre').floor||0)>=6&&!state.game.flags.arc3){
+      state.game.flags.arc3=1;save();
+      arcScene(3);render(true);
+    }
+  }
+  else if(a==='sky-wake'){
+    if(state.game&&inHoenn()&&arcStage()===8&&(poiOf('sky').floor||0)>=5&&!state.game.flags.arc8){
+      state.game.flags.arc8=1;
+      state.game.flags.arc8ts=Date.now();
+      addMoney(5000);
+      save();
+      playRayFx();
+      setTimeout(function(){arcScene(8);render(true);},2900);
+    }
+  }
+  else if(a==='devon-fossil'){
+    var dvsp=b.dataset.sp,dvdef=null;
+    DEVON_FOSSILS.forEach(function(x){if(x[0]===dvsp)dvdef=x;});
+    if(!dvdef||!state.game||!state.game.flags.arc1)return;
+    if(state.game.dex[dvsp]&&state.game.dex[dvsp].c)return;
+    if(money()<dvdef[1]){toast('Not enough ₽!');return;}
+    state.game.money-=dvdef[1];
+    var dvshiny=Math.random()<0.05;
+    var dvm=addMon(dvsp,dvshiny);dvm.xp=xpFloor(30);
+    save();sfx('evolve');cry(dvsp);
+    showModal('<h3>It’s alive!</h3><p>The DEVON machine hums… '+DEX[dvsp].n+' :L30 was revived!'+(dvshiny?' ✨ It’s SHINY!':'')+'</p>'+
+      '<div style="text-align:center;padding:6px 0"><img class="bigspr'+(dvshiny?' shinyglow':'')+'" src="'+sprPath(dvsp,dvshiny)+'" alt=""></div>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+    modalOk=function(){closeModal();render(true);};
+  }
+  else if(a==='devon-exp'){
+    if(!state.game||!state.game.flags.arc1)return;
+    var dvp=poiOf('devon'),dvq=labExpFor();
+    if(dvp.expWeek===wkKey()||labExpProg(dvq)<dvq.target)return;
+    dvp.expWeek=wkKey();
+    addMoney(1000);
+    bagOf().rarecandy=(bagOf().rarecandy||0)+1;
+    save();sfx('badge');render(true);
+    toast('+₽1,000 + RARE CANDY — DEVON thanks you!');
+  }
+  else if(a==='castform-claim'){
+    if(!state.game||!inHoenn()||!state.game.flags.arc2||state.game.flags.castformgift)return;
+    state.game.flags.castformgift=1;
+    var cfsh=Math.random()<shinyOdds();
+    var cfm=addMon('castform',cfsh);cfm.xp=xpFloor(25);
+    save();sfx('catch');cry('castform');
+    if(cfsh)setTimeout(function(){sfx('shiny');},600);
+    showModal('<h3>CASTFORM joined you!</h3><p>The scientists wave goodbye — “It always liked the field more than the lab.” :L25'+(cfsh?' ✨ It’s SHINY!':'')+'</p>'+
+      '<div style="text-align:center;padding:6px 0"><img class="bigspr'+(cfsh?' shinyglow':'')+'" src="'+sprPath('castform',cfsh)+'" alt=""></div>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+    modalOk=function(){closeModal();render(true);};
+  }
+  else if(a==='trick-start'){
+    if(!state.game||!inHoenn())return;
+    var tsi=parseInt(b.dataset.i,10);
+    if(!(tsi>=0&&tsi<3))return;
+    var tsp=trickOf();
+    if(tsp['paid'+tsi]){toast('Cleared this week — new tricks on Monday!');return;}
+    trickState={i:tsi,r:0,score:0};
+    showTrickQ();
+  }
+  else if(a==='trick-ans'){
+    if(!trickState||!trickState.q)return;
+    var tOK=b.dataset.v===trickState.q.correct;
+    if(tOK){trickState.score++;sfx('save');}
+    else sfx('weakhit');
+    toast(tOK?'Correct!':'Wrong — it was '+trickState.q.correct,{});
+    trickState.r++;
+    if(trickState.r<TRICKS[trickState.i].rounds)showTrickQ();
+    else finishTrick();
   }
   else if(a==='safari-enter'){
     if(!state.game)return;
