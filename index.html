@@ -271,9 +271,13 @@ button.prow{width:calc(100% - 24px);cursor:pointer}
   border:2px solid rgba(0,0,0,.3);color:#FFF8F0}
 .shinystar{color:#E8A010}
 .shinyglow{filter:drop-shadow(0 0 6px rgba(248,200,40,.8))}
-.dexgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 12px}
-.dexcell{background:var(--cream);border:3px solid var(--bord);border-radius:6px;padding:8px 2px 6px;text-align:center;color:var(--text);position:relative}
-.dexcell img{width:44px;height:44px;image-rendering:pixelated}
+.dexgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:8px 12px}
+.dexcell{background:var(--cream);border:3px solid var(--bord);border-radius:6px;padding:8px 2px 6px;text-align:center;color:var(--text);position:relative;min-width:0;overflow:hidden}
+button.dexcell{display:block;width:100%;font:inherit;white-space:normal}
+.dexcell img{width:44px;height:44px;max-width:100%;image-rendering:pixelated}
+.dexcell .dexname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#boxgrid .dexcell img{width:34px;height:34px}
+#boxgrid .dexcell{padding:6px 2px 5px}
 .dexcell.unk img{filter:brightness(0);opacity:.5}
 .dexcell .shinystar{position:absolute;top:3px;right:6px}
 .dexname{font-size:13px;text-transform:uppercase;line-height:1.05;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1076,7 +1080,7 @@ function heroHTML(){
     (state.game?'<div style="display:flex;gap:8px;margin-top:8px">'+
       '<button class="btn" data-action="show-bag" style="flex:1"><img src="'+itemIcon('pokeball')+'" alt="" style="width:15px;height:15px;image-rendering:pixelated;vertical-align:-2px"> BAG</button>'+
       '<button class="btn" data-action="tab" data-tab="card" style="flex:1">CARD</button>'+
-      '<button class="btn" data-action="tab" data-tab="trophy" style="flex:1">🏆 TROPHY</button></div>':'')+
+      '<button class="btn" data-action="tab" data-tab="trophy" style="flex:1">TROPHY</button></div>':'')+
     '</div>';
 }
 function showBagModal(){
@@ -4707,25 +4711,28 @@ function poiPageHTML(k){
   var def=null;POIS.forEach(function(p){if(p.k===k)def=p;});
   if(!def||!state.game)return mapHTML();
   if(def.town!==curTown()&&!(def.towns&&def.towns.indexOf(curTown())>=0)){
-    return '<div class="titlebar"><h1>'+def.n+'</h1></div>'+
+    return '<div class="titlebar"><h1>'+def.n+'</h1><button class="textbtn" data-action="tab" data-tab="map">← BACK</button></div>'+
       '<div class="panel"><div class="memo">This place is in '+TOWNS[def.town].n+' — hop the ferry there first!</div></div>'+poiBackBtn();
   }
   if(def.gate&&!def.gate()){
-    return '<div class="titlebar"><h1>?????</h1></div>'+
+    return '<div class="titlebar"><h1>?????</h1><button class="textbtn" data-action="tab" data-tab="map">← BACK</button></div>'+
       '<div class="panel"><div class="memo">The ghosts here are unidentifiable! Something in the ROCKET HIDEOUT might reveal them…</div></div>'+poiBackBtn();
   }
-  if(k==='tower')return towerHTML();
-  if(k==='dept')return deptHTML();
-  if(k==='corner')return cornerHTML();
-  if(k==='hideout')return hideoutHTML();
-  if(k==='safari')return safariPageHTML();
-  if(k==='fish')return fishingHTML();
-  if(k==='athlon')return athlonHTML();
-  if(k==='front')return frontHTML();
-  if(k==='silph')return silphHTML();
-  if(k==='tower2')return tower2HTML();
-  if(k==='lab')return labPoiHTML();
-  return mapHTML();
+  var out=null;
+  if(k==='tower')out=towerHTML();
+  else if(k==='dept')out=deptHTML();
+  else if(k==='corner')out=cornerHTML();
+  else if(k==='hideout')out=hideoutHTML();
+  else if(k==='safari')out=safariPageHTML();
+  else if(k==='fish')out=fishingHTML();
+  else if(k==='athlon')out=athlonHTML();
+  else if(k==='front')out=frontHTML();
+  else if(k==='silph')out=silphHTML();
+  else if(k==='tower2')out=tower2HTML();
+  else if(k==='lab')out=labPoiHTML();
+  if(out===null)return mapHTML();
+  // a quick exit lives top-right of every building page (the bottom one stays too)
+  return out.replace('</h1></div>','</h1><button class="textbtn" data-action="tab" data-tab="map">← BACK</button></div>');
 }
 /* ----- fight builders: every building fight is a wild/roadblock injection ----- */
 var TOWER_POOLS=[['rattata','pidgey','caterpie'],['nidoranm','ekans','sandshrew'],['machop','mankey','cubone'],
@@ -5943,7 +5950,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v5.19 “Athlete’s Pack” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v5.19.1 “Athlete’s Pack” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
