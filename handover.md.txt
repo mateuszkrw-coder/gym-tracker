@@ -1,4 +1,4 @@
-Gym Tracker — Handover Document (current as of app v6.1.1 / sw v45 / schema v14, 2026-07-11)
+Gym Tracker — Handover Document (current as of app v6.2 / sw v46 / schema v15, 2026-07-11)
 
 ============================================================
 1. WHAT THIS IS
@@ -21,7 +21,7 @@ installed home-screen app isolated storage — a separate app couldn't read the 
 
 Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
 Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
-Current:   app v6.1.1 “Battle Theatre”, service-worker cache v45, data schema v14.
+Current:   app v6.2 “Battle Frontier”, service-worker cache v46, data schema v15.
 
 ============================================================
 2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
@@ -111,11 +111,16 @@ map/                  — KANTO: 9 FRLG town maps, center.png, mart.png, kanto.p
                             h-devon, h-corner, h-trick, h-dept, h-wx, h-pyre, h-magma,
                             h-aqua, h-space, h-origin, h-sky, h-seafloor — official
                             Emerald screenshots via Bulbapedia Special:FilePath
+                            + (v6.2) h-frontier.png (full frontier map, Serebii
+                            pokearth hoenn-em/68) and bf-{tower,dome,palace,arena,
+                            factory,pike,pyramid}.png cropped from it locally
 sprites/                  — front sprites {dexId}.png; shiny/, back/, back/shiny/ — 306 each
   art/{dexId}.png         — 306 official Sugimori artworks, lazy-loaded, NOT precached
   trainers/               — KANTO cast + HOENN cast + (v6.1) archie, maxie, tabitha,
-                            shelly, matt, aquagrunt, magmagrunt (pret/pokeemerald decomp
-                            front_pics, corner-pixel MakeTransparent, 64×64)
+                            shelly, matt, aquagrunt, magmagrunt + (v6.2) the 7 BRAINS:
+                            anabel, tucker, spenser, greta, noland, lucy, brandon
+                            (all pret/pokeemerald decomp front_pics, corner-pixel
+                            MakeTransparent, 64×64)
   items/, arenas/, badges/, npc/ — as before (arenas are shared by both regions)
 sounds/cries/, sounds/moves/  — audio (see §4)
 .claude/serve.ps1, .claude/launch.json — local preview server (gitignored; $root is
@@ -212,6 +217,33 @@ feebasTown() (the day's lucky pier), trickOf(). migrateState() runs at INIT.
     (Golbat/Claydol/Banette/Altaria/Shelgon) → WAKE RAYQUAZA (the #rayfx descent) →
     finale; post-story: battle-catch RAYQUAZA :L70 at the summit + SOUTHERN ISLAND
     → battle-catch LATIOS :L40 (Eon Ticket).
+• THE BATTLE FRONTIER (v6.2, Ever Grande, gate = Hoenn CHAMPION): one POI ('bf') that
+  fans into SEVEN facility pages (module global frontierFac routes them; poi-open resets
+  it to the hub). All state in poi.bf {tw,dm,pl,ar,fa,pk,py,sym}. Facilities:
+  - BATTLE TOWER (bftw): pure streak; every 7th fight = SALON MAIDEN ANABEL.
+  - BATTLE DOME (bfdm): 4-round knockout bracket UI; TUCKER is the final of tourney 2
+    (silver) and 4 (gold); tourney win +4 BP, rd resets on loss.
+  - BATTLE PALACE (bfpl): each fight rolls a SPIRIT mood (×0.85/1/1.25 on YOUR set
+    damage — tr.mood consumed in the saveLogEntry dmgT chain); SPENSER every 7th.
+  - BATTLE ARENA (bfar): KO within 3 SETS or the judges rule (foe ≤50% HP = decision
+    win, else streak ends — wd.jd counter + judgeLoss branch); GRETA every 7th.
+  - BATTLE FACTORY (bffa): RENTALS — draft 3 (bf-draft), pick the lead, and a synthetic
+    mon (uid 'bfrent', session.bfRent) fights IN PLACE of yours: leadMon() override +
+    fm swap in the wild-fight block; rental faint = run over (applyWildCounter special
+    case), swap-a-rental-for-the-foe offer after each win; NOLAND every 7th.
+  - BATTLE PIKE (bfpk): 10 rooms/run, 3 doors — outcome rolled ON CHOICE (55% fight /
+    18% heal / 17% empty / 10% strong, pk.pend gates the fight); LUCY ends run 2 and 4.
+  - BATTLE PYRAMID (bfpy): 7 floors, torch-vignette banner lightens per floor, item
+    loot each win (BF_PY_LOOT); BRANDON (the Regis) tops climb 2 and 4.
+  BRAINS: every brain fight = tr.brain (tier 1 silver / 2 gold / 0 repeat); first two
+  wins award the facility's SYMBOL (poi.bf.sym, ceremony modal). 14 symbols total,
+  shown on the hub, the facility pages and the TRAINER page (bfTrophyHTML, Hoenn only).
+  Blackout in any facility resets that run (triggerBlackout hook). BP: +2 streaks,
+  +3 factory, +1 dome/pike/pyramid steps, +4/6/8 clears, +10/20 brains. The hub carries
+  a second EXCHANGE CORNER (bpShopRows shared with Kanto's tower). No catching (canon).
+  Brain sprites: pret decomp (anabel/tucker/spenser/greta/noland/lucy/brandon); hub +
+  7 facility banners cropped from the official Emerald frontier map (Serebii
+  pokearth hoenn-em/68.png → map/poi/h-frontier.png + bf-*.png).
 • THE MAGMA/AQUA ARC (v6.1): 8 chapters in game.flags.arc1..arc8, one per building
   (Devon → Weather Inst → Mt. Pyre → Magma Hideout → Aqua Hideout → Space Center →
   Seafloor Cavern → Sky Pillar). arcStage() gates everything; arcHint() prints the
@@ -349,15 +381,13 @@ the handover wins; update the local memory to match.
 • EMERALD/HOENN: core shipped v6.0; buildings + FULL Magma/Aqua arc shipped v6.1
   (2026-07-11) — fresh start, separate economy, same difficulty curve, official
   Emerald Hoenn dex (all 202 now obtainable).
-• v6.2 = THE BATTLE FRONTIER: ALL 7 facilities (Tower/Palace/Arena/Factory/Dome/
-  Pike/Pyramid), Frontier Symbols as medals, Frontier Brains as bosses. Locked scope,
-  DO NOT START until Mateusz says go.
+• THE BATTLE FRONTIER shipped v6.2 (2026-07-11, same day): ALL 7 facilities, Brains
+  as bosses, silver+gold Symbols. Scope was locked in advance and delivered as locked.
 
 ============================================================
 12. BACKLOG / IDEAS DISCUSSED (not built)
 ============================================================
-NEXT UP (locked, awaiting Mateusz's go): v6.2 — the Battle Frontier (see §11).
-Other ideas (not greenlit): painted Sugimori gym-leader art for the VS screen (manual
+Ideas (not greenlit): painted Sugimori gym-leader art for the VS screen (manual
 asset hunt); time-of-day spawn slices; breeding/natures in the daycare; Bill's PC
 favorites; weather MECHANICS (explicitly deferred); dex-completion rewards (diploma);
 Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanly).
@@ -365,8 +395,28 @@ Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanl
 ============================================================
 13. IMMEDIATE STATE
 ============================================================
-v6.1.1 “Battle Theatre” SHIPPED 2026-07-11 from machine B (E:\gym app) — pure
-presentation, no state/schema change (schema stays v14, nothing for sanitizeGame):
+v6.2 “Battle Frontier” SHIPPED 2026-07-11 from machine B (E:\gym app), right after
+v6.1.1 the same day. Full details in §7 — the short list:
+• All 7 facilities live behind ONE Ever Grande POI (champion-gated), each mechanically
+  distinct (streaks / bracket / mood / judge clock / rentals / doors / dark climb).
+• 7 Brains from the decomp, 14 SYMBOLS (enamel SVGs, silver→gold), ceremony modals,
+  symbols on hub + TRAINER page, second BP shop at the hub (bpShopRows shared).
+• Schema v15 (stamp only — poi.bf is whitelisted in sanitizeGame: streaks/best/dm/fa
+  incl rental team validation/pk/py/sym). sw v46 precaches h-frontier + 7 bf banners
+  + 7 brain sprites.
+• BUGFIX folded in: townIdx() capped Hoenn at town 8 (Sootopolis) FOREVER — badgeCount
+  maxes at 8, Ever Grande is town 9, so SKY PILLAR (ch.8!) and the frontier were
+  unreachable for legit players (dev-mode masked it in v6.1 testing). Now 8 badges
+  opens every town; Kanto behavior provably identical (league town IS index 8).
+• Tested end-to-end in the 8377 preview: every facility loop + its brain (Anabel/
+  Tucker/Lucy/Brandon fought and won, symbols awarded; palace mood + arena judge both
+  paths; factory rental verified ON the field, switch blocked, swap works), stale
+  frontierFac hub-reset, Kanto regression (tower/shop intact, no symbols/frontier),
+  import roundtrip of full bf state, region switch, night theme, fresh wipe, zero
+  console errors. NOT UI-tested (code-reviewed only): blackout facility resets, gold-
+  tier rematches (same path as silver, tier=2).
+
+Previous: v6.1.1 “Battle Theatre” (same day, machine B) — pure presentation:
 • FERRY FIX: playTravelFx was hardcoded to map/kanto.png — Hoenn travel drew its route
   over the KANTO map. Now regionMapImg()/regionName(), plus #travelfx.hoenn flavor:
   wake ripples behind the S.S. Tidal dot (::before/::after, both themes) and an

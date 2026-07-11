@@ -887,8 +887,9 @@ function startWorkout(mode){
       pendingPoi=null;
     }
     initBossSession();
+    if(state.session.wild.tr&&state.session.wild.tr.fa!==undefined)bfSetupRental();
     state.session.bmsg=state.session.wild.tr
-      ?state.session.wild.tr.clsN+' '+state.session.wild.tr.name+' sent out '+DEX[state.session.wild.sp].n+'! Log a set to attack!'
+      ?state.session.wild.tr.clsN+' '+state.session.wild.tr.name+' sent out '+DEX[state.session.wild.sp].n+'! Log a set to attack!'+(state.session.wild.tr.moodTxt||'')
       :poiWildMsg(state.session.wild);
   }
   if(state.game&&state.session.mode==='boss'&&state.game.boss){
@@ -929,7 +930,7 @@ function endWorkout(){
   // battle wounds walk home with you — the POKEMON CENTER heals them
   if(state.game&&ses.phps){
     state.game.hurt=state.game.hurt||{};
-    Object.keys(ses.phps).forEach(function(k){state.game.hurt[k]=ses.phps[k];});
+    Object.keys(ses.phps).forEach(function(k){if(k!=='bfrent')state.game.hurt[k]=ses.phps[k];});
   }
   state.session=null;ensureTicker();
   // back to town after every workout, like leaving the gym
@@ -1095,6 +1096,8 @@ function migrateState(){
   // v14: Magma & Aqua (v6.1) — story lives in flags.arc1..arc8, building steps in poi.*;
   // both are freeform containers that older saves already carry, so nothing to backfill
   if(!(state.version>=14)){state.version=14;changed=true;}
+  // v15: the Battle Frontier (v6.2) — all state lives in poi.bf, freeform; nothing to backfill
+  if(!(state.version>=15)){state.version=15;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -1345,6 +1348,7 @@ function summaryHTML(){
     bossLadderHTML()+
     hofCardHTML()+
     medalsHTML()+
+    bfTrophyHTML()+
     '<div class="grid2">'+
     '<div class="scard"><div class="t"><img src="'+itemIcon('greatball')+'" alt="" style="width:16px;height:16px;image-rendering:pixelated;vertical-align:-3px"> This month</div>'+
       '<div class="v" style="color:var(--accent)">'+monthDays+'<span class="u"> days</span></div>'+
@@ -2686,6 +2690,7 @@ function showBossPartyModal(){
 }
 function showSwitchModal(){
   if(!state.session)return;
+  if(bfFightActive()){toast('FACTORY rules — rentals only! Pick your lead at the counter.');return;}
   var party=partyMons();
   var h='<h3>Switch POKEMON</h3><p>Send out a fresh teammate. Fainted ones can’t battle.</p>';
   party.forEach(function(m){
@@ -3286,7 +3291,9 @@ var TOWNS=[
     hs:{boss:[21,6,55,32],mart:[3,34,18,26],train:[10,64,80,33],center:[59,34,18,26]},wp:[35,45],
     npc:[['man',30,49],['youngster',66,49]]}
 ];
-function townIdx(){return Math.min(badgeCount(),TOWNS.length-1);}
+/* all 8 badges = the league is open — every town unlocks (Hoenn's EVER GRANDE is
+   town 9, past the 8-badge cap; Kanto's Indigo at 8 behaves exactly as before) */
+function townIdx(){return badgeCount()>=8?TOWNS.length-1:Math.min(badgeCount(),TOWNS.length-1);}
 /* the town you're STANDING in — your story town, or one you've travelled to */
 function curTown(){
   var g=state.game;
@@ -3515,6 +3522,7 @@ function curHpOf(m){
   return maxHpOf(m);
 }
 function leadMon(){
+  if(bfFightActive())return state.session.bfRent; // FACTORY (v6.2): the rental is on the field
   if(state.session&&state.session.lead){var m=findMon(state.session.lead);if(m)return m;}
   return activeMon();
 }
@@ -3597,8 +3605,18 @@ function applyWildCounter(wd,lead){
   state.session.bmsg+=' '+res.msg;
   if(state.session.phps[lead.uid]<=0){
     res.fainted=true;
-    var f=handleLeadFaint(lead);
-    res.faintMsg=f.msg;res.goMsg=f.goMsg;
+    if(lead.uid==='bfrent'){
+      /* FACTORY (v6.2): a fallen rental ends the run — your own team never fainted */
+      res.faintMsg='The rental '+DEX[lead.sp].n+' is unable to battle! The FACTORY run is over.';
+      bfFactoryFail();
+      state.session.wild=spawnWild();
+      var rnew=DEX[state.session.wild.sp].n;
+      state.session.bmsg='The rental fell — the FACTORY run ends. Back to training: a wild '+rnew+' appeared!';
+      res.goMsg='Back to normal training! A wild '+rnew+' appeared!';
+    }else{
+      var f=handleLeadFaint(lead);
+      res.faintMsg=f.msg;res.goMsg=f.goMsg;
+    }
   }
   return res;
 }
@@ -3625,6 +3643,17 @@ function triggerBlackout(){
     var pfb=poiOf('front');
     if(pfb.streak)toast('Your BATTLE TOWER streak of '+pfb.streak+' ends…');
     pfb.streak=0;
+  }
+  /* v6.2: a blackout in a FRONTIER facility ends that run, canon-style */
+  if(bw2&&bw2.tr&&bw2.tr.bf){
+    var bfc3=bw2.tr.bf[0],bfp3=bfOf();
+    if(bfc3==='tw'){if(bfp3.tw.streak)toast('The TOWER streak of '+bfp3.tw.streak+' ends…');bfp3.tw.streak=0;}
+    else if(bfc3==='pl'){if(bfp3.pl.streak)toast('The PALACE streak of '+bfp3.pl.streak+' ends…');bfp3.pl.streak=0;}
+    else if(bfc3==='ar'){if(bfp3.ar.streak)toast('The ARENA streak of '+bfp3.ar.streak+' ends…');bfp3.ar.streak=0;}
+    else if(bfc3==='fa')bfFactoryFail();
+    else if(bfc3==='dm'){bfp3.dm.rd=0;toast('Knocked out of the DOME bracket…');}
+    else if(bfc3==='pk'){bfp3.pk.room=0;bfp3.pk.pend=0;toast('Carried out of the PIKE…');}
+    else if(bfc3==='py'){bfp3.py.floor=0;toast('You wake at the PYRAMID base — the climb resets…');}
   }
   var bz=bossInfo();
   if(bz)state.game.boss.hp=Math.min(bz.max,state.game.boss.hp+Math.round(bz.max*0.25));
@@ -5434,7 +5463,13 @@ var HOENN_POIS=[
     img:'map/poi/h-sky.png',pal:{c:'#38A068',bg:'#D0EADB',pb:'#E9F6EE',bx:'#F2FAF5'},
     gateTxt:'An ancient door refuses to move. Whatever sleeps up there is not ready to be woken…',
     gate:function(){return arcStage()>=8;},
-    st:function(){var g=state.game.flags;return g.arc8?((state.game.dex.rayquaza&&state.game.dex.rayquaza.c)?'CALM ✓':'SUMMIT'):((poiOf('sky').floor||0)+'/5');}}
+    st:function(){var g=state.game.flags;return g.arc8?((state.game.dex.rayquaza&&state.game.dex.rayquaza.c)?'CALM ✓':'SUMMIT'):((poiOf('sky').floor||0)+'/5');}},
+  /* v6.2: the BATTLE FRONTIER — seven facilities, seven BRAINS, fourteen SYMBOLS */
+  {k:'bf',town:9,n:'BATTLE FRONTIER',sub:'Seven facilities, seven BRAINS — the true endgame',icon:'sprites/trainers/anabel.png',
+    img:'map/poi/h-frontier.png',pal:{c:'#B06820',bg:'#F0E2C8',pb:'#F8F0DE',bx:'#FBF6EA'},
+    gateTxt:'The S.S. TIDAL crew shakes their heads: “The BATTLE FRONTIER ferry boards CHAMPIONS only. Come back with the crown.”',
+    gate:function(){return bfGate();},
+    st:function(){if(!bfGate())return 'CHAMPIONS';var n=0,s=bfOf().sym||{};['tw','dm','pl','ar','fa','pk','py'].forEach(function(k2){n+=s[k2]||0;});return n+'/14 SYM';}}
 ];
 var HOENN_FEATURES=[
   {k:'mart',n:'POKE MART',icon:'sprites/items/pokeball.png',
@@ -5451,6 +5486,323 @@ var HOENN_FEATURES=[
    d:'Collectors around Hoenn now post special requests on the QUEST page — rare POKEMON await!',
    cond:function(){return townIdx()>=2;}}
 ];
+/* ===== v6.2 THE BATTLE FRONTIER (Ever Grande, CHAMPIONS only) =====
+   Seven facilities, each a different game on the same fight engine; seven BRAINS
+   guard fourteen SYMBOLS (silver + gold). No catching here — canon rules. */
+var BF_FACS=[
+  {f:'tw',n:'BATTLE TOWER',img:'map/poi/bf-tower.png',c:'#3878C8',arena:'gym',sym:'ABILITY',letter:'A',
+   one:'The pure streak — no tricks, only strength',
+   rule:'Win to climb. Every 7th fight, SALON MAIDEN ANABEL herself. Black out and the streak resets.',
+   brain:{cls:'anabel',clsN:'SALON MAIDEN',name:'ANABEL',sp:['alakazam','snorlax']}},
+  {f:'dm',n:'BATTLE DOME',img:'map/poi/bf-dome.png',c:'#A048A8',arena:'teal',sym:'TACTICS',letter:'T',
+   one:'A 16-trainer knockout tournament',
+   rule:'Four rounds to the trophy. DOME ACE TUCKER waits in the finals of tourney 2 and 4. A loss knocks you out of the bracket.',
+   brain:{cls:'tucker',clsN:'DOME ACE',name:'TUCKER',sp:['salamence','charizard']}},
+  {f:'pl',n:'BATTLE PALACE',img:'map/poi/bf-palace.png',c:'#C89830',arena:'psychic',sym:'SPIRITS',letter:'S',
+   one:'Spirit decides — your POKEMON fights its own way',
+   rule:'Each match your POKEMON sets its own mood: damage swings from −15% to +25%. Every 7th fight, PALACE MAVEN SPENSER.',
+   brain:{cls:'spenser',clsN:'PALACE MAVEN',name:'SPENSER',sp:['slaking','lapras']}},
+  {f:'ar',n:'BATTLE ARENA',img:'map/poi/bf-arena.png',c:'#C05030',arena:'sand',sym:'GUTS',letter:'G',
+   one:'Three sets on the clock, then the judges rule',
+   rule:'KO the foe within 3 SETS. If it survives, the judges rule: foe under half HP = your win; otherwise the streak ends. Every 7th fight, ARENA TYCOON GRETA.',
+   brain:{cls:'greta',clsN:'ARENA TYCOON',name:'GRETA',sp:['heracross','shedinja']}},
+  {f:'fa',n:'BATTLE FACTORY',img:'map/poi/bf-factory.png',c:'#5888A0',arena:'ice',sym:'KNOWLEDGE',letter:'K',
+   one:'Rental POKEMON only — knowledge over muscle memory',
+   rule:'Draft 3 rentals and fight with THEM, not your team. After each win you may swap a rental for the foe you beat. Every 7th fight, FACTORY HEAD NOLAND.',
+   brain:{cls:'noland',clsN:'FACTORY HEAD',name:'NOLAND',sp:['aggron','metagross']}},
+  {f:'pk',n:'BATTLE PIKE',img:'map/poi/bf-pike.png',c:'#B858A0',arena:'poison',sym:'LUCK',letter:'L',
+   one:'Pick a door — luck walks the corridor',
+   rule:'Ten rooms per run: fights, free heals, empty halls… and worse. PIKE QUEEN LUCY guards the last room of run 2 and 4.',
+   brain:{cls:'lucy',clsN:'PIKE QUEEN',name:'LUCY',sp:['seviper','milotic']}},
+  {f:'py',n:'BATTLE PYRAMID',img:'map/poi/bf-pyramid.png',c:'#B07828',arena:'cave',sym:'BRAVE',letter:'B',
+   one:'Seven dark floors of the ancient climb',
+   rule:'Climb 7 floors of explorers in the dark — each win lights the torch and turns up an item. PYRAMID KING BRANDON tops climb 2 and 4. Black out and you restart at the base.',
+   brain:{cls:'brandon',clsN:'PYRAMID KING',name:'BRANDON',sp:['regirock','registeel']}}
+];
+var BF_POOL=['salamence','metagross','aggron','walrein','gardevoir','slaking','flygon','breloom',
+  'absol','altaria','manectric','sceptile','blaziken','swampert','ludicolo','shiftry','crawdaunt',
+  'cacturne','seviper','zangoose','hariyama','sharpedo','camerupt','dusclops'];
+var BF_PY_POOL=['golbat','sableye','mawile','lairon','claydol','dusclops','banette','crobat'];
+var BF_RENT_POOL=['sceptile','blaziken','swampert','gardevoir','breloom','aggron','manectric','flygon',
+  'walrein','salamence','metagross','ludicolo','shiftry','slaking','absol','crawdaunt','altaria','claydol','sharpedo','camerupt'];
+var BF_PY_LOOT=[['potion',30],['greatball',25],['hyperpotion',18],['rarecandy',10],['fullrestore',9],['ultraball',8]];
+var BF_PIKE_HINTS=['“I heard humming from behind that one…”','“A sweet scent drifts through the cracks.”',
+  '“Something heavy paces in there. Or is it next door?”','“The maid smiled at the middle door. Suspicious.”',
+  '“Cold air seeps out… or is that the sea?”','“I heard nothing at all. That worries me more.”'];
+var frontierFac=null;
+function bfGate(){return !!(state.game&&(state.game.flags.champion||(state.game.hof&&state.game.hof.length)));}
+function bfFacDef(f){var d=null;BF_FACS.forEach(function(x){if(x.f===f)d=x;});return d;}
+function bfOf(){
+  var p=poiOf('bf');
+  if(!p.tw)p.tw={streak:0,best:0};
+  if(!p.dm)p.dm={rd:0,wins:0};
+  if(!p.pl)p.pl={streak:0,best:0};
+  if(!p.ar)p.ar={streak:0,best:0};
+  if(!p.fa)p.fa={streak:0,best:0,team:null,lead:0};
+  if(!p.pk)p.pk={room:0,clears:0,pend:0};
+  if(!p.py)p.py={floor:0,clears:0};
+  if(!p.sym)p.sym={};
+  return p;
+}
+function bfSymCount(){var n=0,s=bfOf().sym||{};['tw','dm','pl','ar','fa','pk','py'].forEach(function(k){n+=s[k]||0;});return n;}
+/* the seven FRONTIER SYMBOLS — enamel SVGs, silver and gold tiers */
+function symbolSVG(fac,tier,size){
+  var d=bfFacDef(fac);if(!d)return '';
+  var disc=tier===2?'#E8B838':(tier===1?'#C8D0DC':'#C4C4BC');
+  var glyph=tier===2?'#8A5A10':(tier===1?'#5A6878':'#98988E');
+  var g='';
+  if(fac==='tw')g='<circle cx="20" cy="20" r="8" fill="none" stroke="'+glyph+'" stroke-width="3"/><circle cx="20" cy="20" r="2.6" fill="'+glyph+'"/>';
+  else if(fac==='dm')g='<path d="M14 11 L26 11 L18 19 L26 19 L13 30 L17 21 L11 21 Z" fill="'+glyph+'"/>';
+  else if(fac==='pl')g='<path d="M20 10 C25 15 27 19 27 23 A7 7 0 0 1 13 23 C13 19 15 15 20 10 Z" fill="'+glyph+'"/>';
+  else if(fac==='ar')g='<path d="M20 9 L23 17 L31 20 L23 23 L20 31 L17 23 L9 20 L17 17 Z" fill="'+glyph+'"/>';
+  else if(fac==='fa')g='<circle cx="20" cy="18" r="7" fill="none" stroke="'+glyph+'" stroke-width="3"/><rect x="17" y="25" width="6" height="5" rx="1" fill="'+glyph+'"/>';
+  else if(fac==='pk')g='<path d="M20 29 C10 22 12 13 17 13 C19 13 20 15 20 16 C20 15 21 13 23 13 C28 13 30 22 20 29 Z" fill="'+glyph+'"/>';
+  else if(fac==='py')g='<path d="M20 10 L31 29 L9 29 Z" fill="'+glyph+'"/>';
+  return '<svg viewBox="0 0 40 40" width="'+size+'" height="'+size+'" aria-hidden="true">'+
+    '<circle cx="20" cy="20" r="18" fill="'+disc+'" stroke="#585048" stroke-width="2"/>'+
+    '<ellipse cx="14" cy="13" rx="5" ry="3" fill="rgba(255,255,255,'+(tier?'.6':'.3')+')" transform="rotate(-25 14 13)"/>'+g+'</svg>';
+}
+function bfBanner(d){
+  return '<div class="mapwrap" style="border-color:'+d.c+'">'+
+    '<img class="mapimg" src="'+d.img+'" alt="'+d.n+'" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/112;object-fit:cover">'+
+    '<span class="maptag" style="position:absolute;left:8px;bottom:8px;border-color:'+d.c+'">'+d.n+'</span></div>';
+}
+/* deterministic preview of a facility's next fight — NO side effects (pages call this) */
+function bfNext(fac){
+  var p=bfOf(),d=bfFacDef(fac),sym=p.sym[fac]||0;
+  var pos,salt='',brain=false,strong=false;
+  if(fac==='tw'){pos=p.tw.streak;brain=(pos%7===6);}
+  else if(fac==='pl'){pos=p.pl.streak;brain=(pos%7===6);}
+  else if(fac==='ar'){pos=p.ar.streak;brain=(pos%7===6);}
+  else if(fac==='fa'){pos=p.fa.streak;brain=(pos%7===6);}
+  else if(fac==='dm'){pos=p.dm.rd;salt='w'+p.dm.wins;brain=(pos===3&&(p.dm.wins===1||p.dm.wins===3));strong=(pos===3&&!brain);}
+  else if(fac==='pk'){pos=p.pk.room;salt='c'+p.pk.clears;brain=(pos===9&&(p.pk.clears===1||p.pk.clears===3));strong=(p.pk.pend===2);}
+  else {pos=p.py.floor;salt='c'+p.py.clears;brain=(pos===6&&(p.py.clears===1||p.py.clears===3));strong=(pos===6&&!brain);}
+  var lv;
+  if(fac==='dm')lv=Math.min(100,54+pos*3+p.dm.wins*2);
+  else if(fac==='pk')lv=Math.min(100,50+pos+p.pk.clears*4);
+  else if(fac==='py')lv=Math.min(100,50+pos*2+p.py.clears*4);
+  else lv=Math.min(100,52+pos*2);
+  if(brain)lv=Math.min(100,lv+3);
+  var h=strHash('bf'+fac+'-'+pos+'-'+salt);
+  var tier=brain?(sym<1?1:(sym<2?2:0)):0;
+  if(brain){
+    return {brain:true,tier:tier,cls:d.brain.cls,clsN:d.brain.clsN,name:d.brain.name,
+      sp:d.brain.sp[sym>=1?1:0],lv:lv,pos:pos,strong:false};
+  }
+  var pool=(fac==='py')?BF_PY_POOL:BF_POOL;
+  var tc=TRAINER_CLASSES[h%TRAINER_CLASSES.length];
+  var clsN=fac==='dm'?(pos===3?'DOME FINALIST':'DOME CHALLENGER')
+    :(fac==='py'?(pos===6?'PYRAMID VALET':'PYRAMID EXPLORER')
+    :(fac==='pk'?'PIKE WANDERER':(fac==='fa'?'FACTORY TESTER':'FRONTIER ACE')));
+  return {brain:false,tier:0,cls:tc[0],clsN:clsN,name:TRAINER_NAMES[h%TRAINER_NAMES.length],
+    sp:pool[h%pool.length],lv:lv,pos:pos,strong:strong};
+}
+/* the FACTORY rental on duty — synthetic mon, lives only inside factory fights */
+function bfSetupRental(){
+  if(!state.session)return;
+  var p=bfOf();
+  if(!p.fa.team||!p.fa.team.length)return;
+  var sp=p.fa.team[Math.min(p.fa.lead||0,p.fa.team.length-1)];
+  var pv=bfNext('fa');
+  state.session.bfRent={uid:'bfrent',sp:sp,xp:xpFloor(pv.lv),shiny:false,ts:Date.now()};
+  if(!state.session.phps)state.session.phps={};
+  state.session.phps.bfrent=maxHpOf(state.session.bfRent); // house property heals between fights
+}
+function bfFightActive(){
+  var w=state.session&&state.session.wild;
+  return !!(w&&w.tr&&w.tr.bf&&w.tr.bf[0]==='fa'&&state.session.bfRent);
+}
+/* run over — rental fainted or blackout mid-factory */
+function bfFactoryFail(msg){
+  var p=bfOf();
+  if(p.fa.streak)toast('The FACTORY run ends at '+p.fa.streak+'…');
+  p.fa.streak=0;p.fa.team=null;p.fa.lead=0;
+  if(state.session)state.session.bfRent=null;
+}
+/* the SYMBOL case on the TRAINER page — Hoenn Champions only */
+function bfTrophyHTML(){
+  if(!state.game||!inHoenn()||!bfGate())return '';
+  var syms='';
+  BF_FACS.forEach(function(d){
+    var t=bfOf().sym[d.f]||0;
+    syms+='<div style="text-align:center;width:44px">'+symbolSVG(d.f,t,32)+
+      '<div class="plv" style="font-size:10px;line-height:1.1;margin-top:1px">'+(t===2?'★★':(t===1?'★':'—'))+'</div></div>';
+  });
+  return '<div class="panel"><h3>FRONTIER SYMBOLS<span class="bestchip">'+bfSymCount()+' / 14</span></h3>'+
+    '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px">'+syms+'</div></div>';
+}
+/* PIKE room advance (heals and empty halls move you too) */
+function bfPikeStep(){
+  var p=bfOf();
+  p.pk.room=(p.pk.room||0)+1;
+  if(p.pk.room>=10){
+    p.pk.room=0;p.pk.clears=(p.pk.clears||0)+1;
+    addBp(6);
+    toast('THE PIKE IS CLEARED! +6 BP!');
+  }
+}
+/* ---------- the hub + facility pages (routed through frontierFac) ---------- */
+function bfFightRowHTML(kind,pv,note){
+  return '<div class="prow" style="padding:7px 10px">'+
+    '<img src="sprites/trainers/'+pv.cls+'.png" alt="" style="width:38px;height:38px;image-rendering:pixelated;flex:none">'+
+    '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px'+(pv.brain?';color:#B06AD0':'')+'">NEXT: '+pv.clsN+' '+pv.name+'</div>'+
+    '<div class="plv" style="margin-top:2px">'+DEX[pv.sp].n+' :L'+pv.lv+(note?' · '+note:'')+'</div></div>'+
+    '<img src="'+sprPath(pv.sp,false)+'" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none">'+
+    '<button class="btn acc" data-action="poi-fight" data-kind="'+kind+'" data-f="'+pv.pos+'">FIGHT</button></div>';
+}
+function bfSymPanelHTML(d){
+  var sym=bfOf().sym[d.f]||0;
+  return '<div class="panel"><h3>'+d.sym+' SYMBOL<span class="bestchip">'+(sym===2?'GOLD ★':(sym===1?'SILVER':'—'))+'</span></h3>'+
+    '<div style="display:flex;align-items:center;gap:12px;padding:2px 0">'+
+    symbolSVG(d.f,sym>=1?1:0,34)+symbolSVG(d.f,sym>=2?2:0,34)+
+    '<div class="plv" style="flex:1;line-height:1.35">Beat '+d.brain.clsN+' '+d.brain.name+' once for SILVER, again for GOLD.</div></div></div>';
+}
+function bfHeadHTML(d,sub){
+  return '<div class="titlebar"><h1>'+d.n+'</h1><button class="textbtn" data-action="bf-back">← FRONTIER</button></div>'+
+    '<div class="subtitle">'+sub+'</div>'+bfBanner(d);
+}
+function bfRulesHTML(d){return '<div class="panel"><h3>HOUSE RULES</h3><div class="memo">'+d.rule+'</div></div>';}
+function bfBackRow(){return '<div style="margin:10px 12px"><button class="btn" data-action="bf-back" style="width:100%">← BACK TO THE FRONTIER</button></div>';}
+function bfStreakFacHTML(d){ // TOWER / PALACE / ARENA share the streak skeleton
+  var p=bfOf(),st=p[d.f],pv=bfNext(d.f);
+  var note=pv.brain?(pv.tier===2?'the GOLD match!':(pv.tier===1?'the SILVER match!':'+10 BP'))
+    :('+2 BP'+(d.f==='pl'?' · mood roll':'')+(d.f==='ar'?' · 3-set clock':''));
+  var h=bfHeadHTML(d,d.one)+
+    '<div class="panel"><h3>THE STREAK<span class="bestchip">'+(st.streak||0)+' · BEST '+(st.best||0)+'</span></h3>'+
+    bfFightRowHTML('bf'+d.f,pv,note)+
+    '<div class="plv" style="margin-top:4px">'+(7-((st.streak||0)%7))+' more to the BRAIN’s chamber.</div></div>'+
+    bfSymPanelHTML(d)+bfRulesHTML(d);
+  return h+bfBackRow();
+}
+function bfDomeHTML(d){
+  var p=bfOf(),dm=p.dm,pv=bfNext('dm');
+  var rows='',labels=['ROUND 1','QUARTERFINAL','SEMIFINAL','THE FINAL'];
+  for(var r=0;r<4;r++){
+    var st2;
+    if(r<dm.rd)st2='<span class="plv" style="color:#2E8B48">WON ✓</span>';
+    else if(r===dm.rd)st2='<span class="plv" style="color:#D03028">NOW</span>';
+    else st2='<span class="plv">???</span>';
+    var who;
+    if(r<dm.rd)who='defeated';
+    else if(r===dm.rd)who=pv.clsN+' '+pv.name;
+    else if(r===3&&(dm.wins===1||dm.wins===3))who='a familiar silhouette…';
+    else who='winner of the other side';
+    rows+='<div class="prow" style="padding:6px 10px"><span class="pname" style="flex:none;font-size:14px;width:118px">'+labels[r]+'</span>'+
+      '<span class="plv" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+who+'</span>'+st2+'</div>';
+  }
+  var h=bfHeadHTML(d,d.one)+
+    '<div class="panel"><h3>TOURNAMENT '+(dm.wins+1)+'<span class="bestchip">'+dm.wins+' WON</span></h3>'+rows+'</div>'+
+    '<div class="panel"><h3>YOUR NEXT MATCH</h3>'+bfFightRowHTML('bfdm',pv,pv.brain?(pv.tier===2?'the GOLD final!':'the SILVER final!'):'+1 BP · win the final for +4')+'</div>'+
+    bfSymPanelHTML(d)+bfRulesHTML(d);
+  return h+bfBackRow();
+}
+function bfFactoryHTML(d){
+  var p=bfOf(),fa=p.fa,h=bfHeadHTML(d,d.one);
+  if(!fa.team||!fa.team.length){
+    h+='<div class="panel"><h3>RENTAL COUNTER</h3>'+
+      '<div class="memo" style="margin-bottom:8px">Leave your own POKEMON at the desk. Three rentals, one streak — how far does pure knowledge go?</div>'+
+      '<button class="btn acc" data-action="bf-draft" style="width:100%">DRAFT 3 RENTALS</button></div>';
+  }else{
+    var rows='';
+    fa.team.forEach(function(sp,i){
+      var isLead=(i===(fa.lead||0));
+      rows+='<button class="prow" data-action="bf-lead" data-i="'+i+'" style="padding:6px 10px'+(isLead?';border-color:'+d.c:'')+'">'+
+        '<img class="pspr" src="'+sprPath(sp,false)+'" alt="">'+
+        '<span class="pname" style="flex:1;min-width:0">'+DEX[sp].n+(isLead?' <span class="leadchip">OUT</span>':'')+'</span>'+
+        '<span class="plv">RENTAL</span></button>';
+    });
+    var pv=bfNext('fa');
+    h+='<div class="panel"><h3>YOUR RENTALS<span class="bestchip">STREAK '+(fa.streak||0)+' · BEST '+(fa.best||0)+'</span></h3>'+rows+
+      '<div class="plv" style="margin-top:4px">Tap a rental to send it out. Rentals are patched up between fights.</div></div>'+
+      '<div class="panel"><h3>NEXT CHALLENGE</h3>'+bfFightRowHTML('bffa',pv,pv.brain?(pv.tier===2?'the GOLD match!':(pv.tier===1?'the SILVER match!':'+10 BP')):'+3 BP · swap offer on win')+'</div>';
+  }
+  return h+bfSymPanelHTML(d)+bfRulesHTML(d)+bfBackRow();
+}
+function bfPikeHTML(d){
+  var p=bfOf(),pk=p.pk,h=bfHeadHTML(d,d.one);
+  var hint=BF_PIKE_HINTS[strHash('pk'+pk.room+'-'+pk.clears+'-'+todayKey())%BF_PIKE_HINTS.length];
+  h+='<div class="panel"><h3>THE CORRIDOR<span class="bestchip">ROOM '+(pk.room||0)+'/10 · '+(pk.clears||0)+' RUNS</span></h3>';
+  if(pk.pend){
+    var pv=bfNext('pk');
+    h+='<div class="memo" style="margin-bottom:6px">'+(pk.pend===2?'The door creaks open on something BIG…':'Someone was waiting behind the door!')+'</div>'+
+      bfFightRowHTML('bfpk',pv,(pk.pend===2?'a heavy one · ':'')+'+1 BP');
+  }else if(pk.room===9&&(pk.clears===1||pk.clears===3)){
+    var pvq=bfNext('pk');
+    h+='<div class="memo" style="margin-bottom:6px">The final door is marked with a serpent. The PIKE QUEEN awaits.</div>'+
+      bfFightRowHTML('bfpk',pvq,pvq.tier===2?'the GOLD match!':'the SILVER match!');
+  }else{
+    var doors='';
+    for(var di=0;di<3;di++){
+      doors+='<button class="btn" data-action="bf-door" data-d="'+di+'" style="flex:1;padding:12px 4px">'+
+        '<svg viewBox="0 0 24 32" width="30" height="40" aria-hidden="true"><rect x="3" y="2" width="18" height="28" rx="2" fill="#8A5A38" stroke="#585048" stroke-width="2"/><circle cx="17" cy="17" r="1.8" fill="#E8C878"/></svg></button>';
+    }
+    h+='<div class="memo" style="margin-bottom:8px">'+hint+'</div><div style="display:flex;gap:8px">'+doors+'</div>'+
+      '<div class="plv" style="margin-top:6px">Pick a door — room '+((pk.room||0)+1)+' of 10. Clear the corridor for +6 BP.</div>';
+  }
+  h+='</div>';
+  return h+bfSymPanelHTML(d)+bfRulesHTML(d)+bfBackRow();
+}
+function bfPyramidHTML(d){
+  var p=bfOf(),py=p.py,pv=bfNext('py');
+  var fl=py.floor||0,dark=Math.max(0,(6-fl)/6);
+  // the banner sits in the dark; your torch radius grows a floor at a time
+  var banner='<div class="mapwrap" style="border-color:'+d.c+'">'+
+    '<img class="mapimg" src="'+d.img+'" alt="'+d.n+'" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/112;object-fit:cover">'+
+    '<div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 55%, transparent '+(16+fl*12)+'%, rgba(8,6,4,'+(0.72*dark).toFixed(2)+') 72%)"></div>'+
+    '<span class="maptag" style="position:absolute;left:8px;bottom:8px;border-color:'+d.c+'">'+d.n+'</span></div>';
+  var h='<div class="titlebar"><h1>'+d.n+'</h1><button class="textbtn" data-action="bf-back">← FRONTIER</button></div>'+
+    '<div class="subtitle">'+d.one+'</div>'+banner;
+  h+='<div class="panel"><h3>THE CLIMB<span class="bestchip">FLOOR '+fl+'/7 · '+(py.clears||0)+' CLIMBS</span></h3>'+
+    bfFightRowHTML('bfpy',pv,pv.brain?(pv.tier===2?'the GOLD summit!':'the SILVER summit!'):'+1 BP · item on win')+
+    '<div class="plv" style="margin-top:4px">'+(fl>=6?'The summit torch burns above you.':'Your torch lights '+Math.round((1-dark)*100)+'% of the dark.')+'</div></div>';
+  return h+bfSymPanelHTML(d)+bfRulesHTML(d)+bfBackRow();
+}
+function bfHTML(){
+  if(frontierFac){
+    var fd=bfFacDef(frontierFac);
+    if(fd){
+      if(fd.f==='dm')return bfDomeHTML(fd);
+      if(fd.f==='fa')return bfFactoryHTML(fd);
+      if(fd.f==='pk')return bfPikeHTML(fd);
+      if(fd.f==='py')return bfPyramidHTML(fd);
+      return bfStreakFacHTML(fd);
+    }
+  }
+  var h='<div class="titlebar"><h1>BATTLE FRONTIER</h1></div>'+
+    '<div class="subtitle">EVER GRANDE — seven ways to prove a CHAMPION</div>'+
+    poiBanner('bf');
+  var syms='';
+  BF_FACS.forEach(function(d){
+    var t=bfOf().sym[d.f]||0;
+    syms+='<div style="text-align:center;width:46px">'+symbolSVG(d.f,t,36)+
+      '<div class="plv" style="font-size:11px;line-height:1.1;margin-top:1px'+(t===2?';color:#B8860B':(t===1?';color:#5A6878':''))+'">'+d.sym.slice(0,6)+(t===2?' ★★':(t===1?' ★':''))+'</div></div>';
+  });
+  h+='<div class="panel"><h3>FRONTIER SYMBOLS<span class="bestchip">'+bfSymCount()+' / 14</span></h3>'+
+    '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px">'+syms+'</div>'+
+    '<div class="plv" style="margin-top:4px">Silver, then gold — one BRAIN at a time.</div></div>';
+  var rows='';
+  BF_FACS.forEach(function(d){
+    var chip='';
+    var p=bfOf();
+    if(d.f==='tw')chip='STREAK '+(p.tw.streak||0);
+    else if(d.f==='dm')chip=(p.dm.wins||0)+' WON';
+    else if(d.f==='pl')chip='STREAK '+(p.pl.streak||0);
+    else if(d.f==='ar')chip='STREAK '+(p.ar.streak||0);
+    else if(d.f==='fa')chip=p.fa.team?('STREAK '+(p.fa.streak||0)):'DRAFT';
+    else if(d.f==='pk')chip='ROOM '+(p.pk.room||0)+'/10';
+    else chip='FLOOR '+(p.py.floor||0)+'/7';
+    rows+='<button class="prow" data-action="bf-open" data-f="'+d.f+'" style="padding:7px 10px">'+
+      '<img src="sprites/trainers/'+d.brain.cls+'.png" alt="" style="width:38px;height:38px;image-rendering:pixelated;flex:none">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px;color:'+d.c+'">'+d.n+'</div>'+
+      '<div class="plv" style="margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.one+'</div></div>'+
+      '<span class="plv" style="flex:none">'+chip+'</span><span style="flex:none;color:'+d.c+'">▶</span></button>';
+  });
+  h+='<div class="panel"><h3>THE SEVEN FACILITIES</h3>'+rows+'</div>';
+  h+='<div class="panel"><h3>EXCHANGE CORNER<span class="bestchip">'+(state.game.bp||0)+' BP</span></h3>'+
+    '<div class="plv" style="margin-bottom:4px">The same legendary counter as the BATTLE TOWER back home.</div>'+bpShopRows()+'</div>';
+  return h+poiBackBtn();
+}
 /* ---- the region switch: state.game is always the ACTIVE region's save ---- */
 var KANTO_TOWNS=TOWNS,KANTO_TOWN_MAP_XY=TOWN_MAP_XY,KANTO_WILD_BANDS=WILD_BANDS,
     KANTO_AREA_SPAWNS=AREA_SPAWNS,KANTO_BOSSES=BOSSES,KANTO_ROAD_LOC=ROAD_LOC,KANTO_GYMS=GYMS,
@@ -5592,6 +5944,7 @@ function poiPageHTML(k){
   else if(k==='space')out=spaceHTML();
   else if(k==='origin')out=originHTML();
   else if(k==='sky')out=skyHTML();
+  else if(k==='bf')out=bfHTML();
   if(out===null)return mapHTML();
   // a quick exit lives top-right of every building page (the bottom one stays too)
   return out.replace('</h1></div>','</h1><button class="textbtn" data-action="tab" data-tab="map">← BACK</button></div>');
@@ -5701,6 +6054,25 @@ function poiWildFor(kind,f){
     if(state.game)state.game.seen[lg[0]]=1;
     return {sp:lg[0],lv:lg[1],hp:lhp,max:lhp,shiny:Math.random()<shinyOdds(),parts:{},legend:1,bg:lg[2]};
   }
+  /* v6.2: the seven FRONTIER facilities — kinds bftw/bfdm/bfpl/bfar/bffa/bfpk/bfpy */
+  if(kind&&kind.length===4&&kind.slice(0,2)==='bf'){
+    var bfac=kind.slice(2),bd=bfFacDef(bfac);
+    if(!bd)return null;
+    var bpv=bfNext(bfac);
+    if(bpv.pos!==f)return null;
+    var bstrong=bpv.strong||(bfac==='pk'&&bfOf().pk.pend===2);
+    var bhp=Math.round((600+bpv.lv*60)*(bpv.brain?2.35:(bstrong?1.95:1.65)));
+    var btr={cls:bpv.cls,clsN:bpv.clsN,name:bpv.name,purse:bpv.lv*(bpv.brain?120:30),arena:bd.arena,bf:[bfac,f]};
+    if(bpv.brain)btr.brain=bpv.tier;
+    if(bfac==='ar')btr.judge=1;
+    if(bfac==='fa'){btr.fa=f;btr.foesp=bpv.sp;}
+    if(bfac==='pl'){
+      var mr=Math.random();
+      if(mr<0.30){btr.mood=0.85;btr.moodTxt=' Your POKEMON looks unsure today… (−15% dmg)';}
+      else if(mr>=0.70){btr.mood=1.25;btr.moodTxt=' Your POKEMON is in high spirits! (+25% dmg)';}
+    }
+    return {sp:bpv.sp,lv:bpv.lv,hp:bhp,max:bhp,shiny:false,parts:{},tr:btr};
+  }
   return null;
 }
 /* held/charm helpers (BATTLE TOWER exclusives) */
@@ -5763,11 +6135,28 @@ function poiStartFight(kind,f){
     if(state.game.dex[vlg[0]]&&state.game.dex[vlg[0]].c){toast(DEX[vlg[0]].n+' is already with you!');return;}
     if(vlg[0]==='deoxys'&&spaceLaunches()<3)return;
   }
+  /* v6.2 FRONTIER — every request checked against the facility's live position */
+  if(kind&&kind.length===4&&kind.slice(0,2)==='bf'){
+    if(!inHoenn()||!bfGate())return;
+    var bfp=bfOf(),bfc=kind.slice(2);
+    if(bfc==='tw'&&f!==(bfp.tw.streak||0))return;
+    if(bfc==='dm'&&f!==(bfp.dm.rd||0))return;
+    if(bfc==='pl'&&f!==(bfp.pl.streak||0))return;
+    if(bfc==='ar'&&f!==(bfp.ar.streak||0))return;
+    if(bfc==='fa'&&(f!==(bfp.fa.streak||0)||!bfp.fa.team))return;
+    if(bfc==='pk'){
+      if(f!==(bfp.pk.room||0))return;
+      var pkq=(f===9&&(bfp.pk.clears===1||bfp.pk.clears===3));
+      if(!bfp.pk.pend&&!pkq)return; // fights come from doors — or the QUEEN's chamber
+    }
+    if(bfc==='py'&&f!==(bfp.py.floor||0))return;
+  }
   var w=poiWildFor(kind,f);
   if(!w)return;
   if(state.session){
     state.session.wild=w;
-    state.session.bmsg=w.tr?(w.tr.clsN+' '+w.tr.name+' sent out '+DEX[w.sp].n+'! Log a set to attack!'):poiWildMsg(w);
+    if(w.tr&&w.tr.fa!==undefined)bfSetupRental();
+    state.session.bmsg=w.tr?(w.tr.clsN+' '+w.tr.name+' sent out '+DEX[w.sp].n+'! Log a set to attack!'+(w.tr.moodTxt||'')):poiWildMsg(w);
     save();sfx('battlestart');
     pendingEntrance=w.tr?{enemy:'ball',dly:1450}:{enemy:'wild'};
     tab='workout';render();
@@ -5780,8 +6169,114 @@ function poiStartFight(kind,f){
     showChooserThenStart('train');
   }
 }
+/* the SYMBOL ceremony — queued after a BRAIN falls */
+function bfSymbolCeremony(fac,tier){
+  var d=bfFacDef(fac);if(!d)return;
+  queueModal(function(){
+    sfx('badge');
+    showModal('<div style="text-align:center;padding:4px 0">'+symbolSVG(fac,tier,64)+'</div>'+
+      '<h3 style="text-align:center">The '+(tier===2?'GOLD':'SILVER')+' '+d.sym+' SYMBOL!</h3>'+
+      '<p style="text-align:center">'+d.brain.clsN+' '+d.brain.name+' nods: “That strength is real. Wear it proudly.”</p>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+    modalOk=function(){closeModal();render(true);};
+  });
+}
+/* the FACTORY swap offer — trade a rental for the foe you just beat */
+function bfSwapOffer(foesp){
+  var p=bfOf();
+  if(!p.fa.team||!DEX[foesp])return;
+  queueModal(function(){
+    var rows='';
+    p.fa.team.forEach(function(sp,i){
+      rows+='<button class="prow" data-action="bf-swap" data-i="'+i+'" style="padding:6px 10px">'+
+        '<img class="pspr" src="'+sprPath(sp,false)+'" alt="">'+
+        '<span class="pname" style="flex:1;min-width:0">'+DEX[sp].n+'</span>'+
+        '<span class="plv">SWAP OUT</span></button>';
+    });
+    showModal('<h3>Rental swap?</h3><p>The FACTORY offers the '+DEX[foesp].n+' you just beat. Trade one rental for it — or keep your squad.</p>'+
+      '<div style="text-align:center;padding:4px 0"><img class="bigspr" src="'+sprPath(foesp,false)+'" alt=""></div>'+rows+
+      '<div class="mbtns"><button class="btn" data-action="close-modal">KEEP MY SQUAD</button></div>');
+    modalOk=null;
+    bfSwapSp=foesp;
+  });
+}
+var bfSwapSp=null;
 /* the victory bookkeeping for building trainers — returns the banner text */
 function poiTrainerWin(tr){
+  /* v6.2: FRONTIER wins — advance the facility, pay BP, crown SYMBOLS */
+  if(tr.bf!==undefined){
+    var bfp2=bfOf(),bfc2=tr.bf[0],bpos=tr.bf[1];
+    var brainTxt='';
+    if(tr.brain!==undefined){
+      var bbp=tr.brain===2?20:10;
+      addBp(bbp);
+      if(tr.brain>=1&&(bfp2.sym[bfc2]||0)<tr.brain){
+        bfp2.sym[bfc2]=tr.brain;
+        brainTxt=' The '+(tr.brain===2?'GOLD':'SILVER')+' SYMBOL! +'+bbp+' BP!';
+        bfSymbolCeremony(bfc2,tr.brain);
+      }else brainTxt=' The BRAIN falls again! +'+bbp+' BP!';
+    }
+    if(bfc2==='tw'&&(bfp2.tw.streak||0)===bpos){
+      bfp2.tw.streak=bpos+1;
+      if(bfp2.tw.streak>(bfp2.tw.best||0))bfp2.tw.best=bfp2.tw.streak;
+      if(tr.brain===undefined)addBp(2);
+      return ' TOWER STREAK '+bfp2.tw.streak+'!'+(brainTxt||' +2 BP!');
+    }
+    if(bfc2==='pl'&&(bfp2.pl.streak||0)===bpos){
+      bfp2.pl.streak=bpos+1;
+      if(bfp2.pl.streak>(bfp2.pl.best||0))bfp2.pl.best=bfp2.pl.streak;
+      if(tr.brain===undefined)addBp(2);
+      return ' PALACE STREAK '+bfp2.pl.streak+'!'+(brainTxt||' +2 BP!');
+    }
+    if(bfc2==='ar'&&(bfp2.ar.streak||0)===bpos){
+      bfp2.ar.streak=bpos+1;
+      if(bfp2.ar.streak>(bfp2.ar.best||0))bfp2.ar.best=bfp2.ar.streak;
+      if(tr.brain===undefined)addBp(2);
+      return (tr.jwin?' JUDGES’ DECISION —':'')+' ARENA STREAK '+bfp2.ar.streak+'!'+(brainTxt||' +2 BP!');
+    }
+    if(bfc2==='fa'&&(bfp2.fa.streak||0)===bpos){
+      bfp2.fa.streak=bpos+1;
+      if(bfp2.fa.streak>(bfp2.fa.best||0))bfp2.fa.best=bfp2.fa.streak;
+      if(tr.brain===undefined)addBp(3);
+      if(tr.foesp)bfSwapOffer(tr.foesp);
+      return ' FACTORY STREAK '+bfp2.fa.streak+'!'+(brainTxt||' +3 BP!');
+    }
+    if(bfc2==='dm'&&(bfp2.dm.rd||0)===bpos){
+      bfp2.dm.rd=bpos+1;
+      if(tr.brain===undefined)addBp(1);
+      if(bfp2.dm.rd>=4){
+        bfp2.dm.rd=0;bfp2.dm.wins=(bfp2.dm.wins||0)+1;
+        addBp(4);
+        return ' TOURNAMENT CHAMPION!'+(brainTxt||'')+' +'+(tr.brain===undefined?'5':'4')+' BP!';
+      }
+      return ' Round won — on to '+['the QUARTERFINAL','the SEMIFINAL','THE FINAL'][bfp2.dm.rd-1]+'!'+(brainTxt||' +1 BP!');
+    }
+    if(bfc2==='pk'&&(bfp2.pk.room||0)===bpos){
+      bfp2.pk.room=bpos+1;bfp2.pk.pend=0;
+      if(tr.brain===undefined)addBp(1);
+      if(bfp2.pk.room>=10){
+        bfp2.pk.room=0;bfp2.pk.clears=(bfp2.pk.clears||0)+1;
+        addBp(6);
+        return ' THE PIKE IS CLEARED!'+(brainTxt||'')+' +'+(tr.brain===undefined?'7':'6')+' BP!';
+      }
+      return ' Room '+bfp2.pk.room+'/10 cleared!'+(brainTxt||' +1 BP!');
+    }
+    if(bfc2==='py'&&(bfp2.py.floor||0)===bpos){
+      bfp2.py.floor=bpos+1;
+      if(tr.brain===undefined)addBp(1);
+      var lootTxt='';
+      var roll=Math.random()*100,acc=0,lk=null;
+      BF_PY_LOOT.forEach(function(L){acc+=L[1];if(lk===null&&roll<acc)lk=L[0];});
+      if(lk){bagOf()[lk]=(bagOf()[lk]||0)+1;lootTxt=' Found a '+ITEMS[lk].n+' in the dark!';}
+      if(bfp2.py.floor>=7){
+        bfp2.py.floor=0;bfp2.py.clears=(bfp2.py.clears||0)+1;
+        addBp(8);
+        return ' PYRAMID CONQUERED!'+brainTxt+lootTxt+' +'+(tr.brain===undefined?'9':'8')+' BP!';
+      }
+      return ' Floor '+bfp2.py.floor+'/7 — the torch grows!'+(brainTxt||' +1 BP!')+lootTxt;
+    }
+    return '';
+  }
   if(tr.tower!==undefined){
     var pt=poiOf('tower');poiTowerWeek(pt);
     if((pt.floor||0)===tr.tower){
@@ -6298,6 +6793,12 @@ function frontHTML(){
     '<img src="'+sprPath(nxt.sp,false)+'" alt="" style="width:36px;height:36px;image-rendering:pixelated;flex:none">'+
     '<button class="btn acc" data-action="poi-fight" data-kind="front" data-f="'+streak+'">FIGHT</button></div>'+
     '<div class="plv" style="margin-top:4px">Win = streak +1 and BATTLE POINTS. Black out mid-fight and the streak resets. Every 7th fight, the TOWER TYCOON himself.</div></div>';
+  h+='<div class="panel"><h3>EXCHANGE CORNER<span class="bestchip">'+(state.game.bp||0)+' BP</span></h3>'+
+    '<div class="plv" style="margin-bottom:4px">Prizes you can’t buy with ₽ anywhere in Kanto.</div>'+bpShopRows()+'</div>';
+  return h+poiBackBtn();
+}
+/* the BP counter rows — shared by the Kanto BATTLE TOWER and the Hoenn FRONTIER hub */
+function bpShopRows(){
   var rows='';
   BP_SHOP.forEach(function(it){
     var name=it.n||ITEMS[it.k].n,desc=it.d||ITEMS[it.k].d;
@@ -6310,9 +6811,7 @@ function frontHTML(){
       (owned?'<span class="bestchip" style="flex:none;color:#2E8B48">OWNED</span>'
         :'<button class="btn'+(can?' acc':'')+'" data-action="bp-buy" data-k="'+it.k+'"'+(can?'':' disabled style="opacity:.5"')+'>'+it.bp+' BP</button>')+'</div>';
   });
-  h+='<div class="panel"><h3>EXCHANGE CORNER<span class="bestchip">'+(state.game.bp||0)+' BP</span></h3>'+
-    '<div class="plv" style="margin-bottom:4px">Prizes you can’t buy with ₽ anywhere in Kanto.</div>'+rows+'</div>';
-  return h+poiBackBtn();
+  return rows;
 }
 /* ----- DEPT. STORE ----- */
 var TM_LIST=[['THUNDERBOLT',3000],['FLAMETHROWER',3000],['ICE BEAM',3000],['PSYCHIC',3500],
@@ -7457,7 +7956,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v6.1.1 “Battle Theatre” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.2 “Battle Frontier” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -7678,19 +8177,41 @@ function saveLogEntry(){
       else if(state.session&&state.session.mode==='train'&&state.session.wild){
         if(!state.session.party)initBossSession();
         var wd=state.session.wild;
-        var stT=statsFor(am);
-        var wKm=knownMoves(am);
+        /* FACTORY (v6.2): the rental fights in your mon's place */
+        var fm=(wd.tr&&wd.tr.fa!==undefined&&state.session.bfRent)?state.session.bfRent:am;
+        var stT=statsFor(fm);
+        var wKm=knownMoves(fm);
         var wMv=wKm[Math.floor(Math.random()*wKm.length)];
-        var wCrit=Math.random()<Math.min(0.25,stT.spe/400)+heldCritBonus(am);
-        var dmgT=Math.round(vol*(1+Math.max(stT.atk,stT.spa)/250)*(wCrit?1.5:1)*heldBoostFor(am,moveTypeOf(wMv)));
+        var wCrit=Math.random()<Math.min(0.25,stT.spe/400)+heldCritBonus(fm);
+        var dmgT=Math.round(vol*(1+Math.max(stT.atk,stT.spa)/250)*(wCrit?1.5:1)*heldBoostFor(fm,moveTypeOf(wMv))*(wd.tr&&wd.tr.mood?wd.tr.mood:1));
         var wPre={sp:wd.sp,lv:wd.lv,hp:Math.max(0,wd.hp),max:wd.max,shiny:wd.shiny,tr:wd.tr};
         var wFrom=Math.round(wPre.hp/wd.max*100);
-        wd.parts=wd.parts||{};wd.parts[am.uid]=1; // everyone who lands a hit shares the EXP
+        wd.parts=wd.parts||{};wd.parts[fm.uid]=1; // everyone who lands a hit shares the EXP
         wd.hp-=dmgT;
+        /* BATTLE ARENA (v6.2): three sets on the clock, then the judges rule */
+        var judgeLoss=false;
+        if(wd.tr&&wd.tr.judge&&wd.hp>0){
+          wd.jd=(wd.jd||0)+1;
+          if(wd.jd>=3){
+            if(wd.hp<=wd.max*0.5){wd.hp=0;wd.tr.jwin=1;}
+            else judgeLoss=true;
+          }
+        }
         var wTo=Math.round(Math.max(0,wd.hp)/wd.max*100);
-        var wAtk=DEX[am.sp].n+' used '+wMv+'!'+(wCrit?' A critical hit!':'');
+        var wAtk=DEX[fm.sp].n+' used '+wMv+'!'+(wCrit?' A critical hit!':'');
         var wSteps=[{msg:wAtk,sfx:wCrit?'superhit':'hit',movesfx:wMv,lunge:'player',blink:'enemy',ehp:[wFrom,wTo],dmg:['enemy',dmgT],fx:moveTypeOf(wMv)}];
-        if(wd.hp<=0){
+        if(judgeLoss){
+          var arp=bfOf();
+          if(arp.ar.streak)toast('The ARENA streak of '+arp.ar.streak+' ends…');
+          arp.ar.streak=0;
+          var jN=wd.tr.clsN+' '+wd.tr.name;
+          state.session.wild=spawnWild();
+          var jnew=DEX[state.session.wild.sp].n;
+          state.session.bmsg='The judges raise '+jN+'’s hand — the ARENA match is lost. Back to training: a wild '+jnew+' appeared!';
+          wSteps.push({msg:'The 3-set clock runs out… the JUDGES rule against you!',sfx:'faint',hold:1500});
+          wSteps.push({msg:'Back to normal training! A wild '+jnew+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
+        }
+        else if(wd.hp<=0){
           // classic EXP: base yield × level / 7, ×1.5 for trainer mons, ×2 Lucky Egg,
           // split among every party member that took part in the fight
           var wParts=Object.keys(wd.parts||{}).filter(function(u){return !!findMon(u);});
@@ -7767,19 +8288,19 @@ function saveLogEntry(){
             wSteps.push({msg:'A wild '+newN+' appeared!',sfx:'battlestart',cry:state.session.wild.sp,refresh:true,slide:'enemy'});
           }
         }else{
-          state.session.bmsg=wAtk+' '+dmgT.toLocaleString()+' dmg.';
-          var wct=applyWildCounter(wd,am);
+          state.session.bmsg=wAtk+' '+dmgT.toLocaleString()+' dmg.'+(wd.tr&&wd.tr.judge?' ('+(3-(wd.jd||0))+' set'+((3-(wd.jd||0))===1?'':'s')+' on the clock!)':'');
+          var wct=applyWildCounter(wd,fm);
           wSteps.push({msg:wct.msg,sfx:'hit',lunge:'enemy',blink:'player',php:wct.php,dmg:['player',wct.dmg],quake:true});
           if(wct.fainted){
-            wSteps.push({msg:wct.faintMsg,sfx:'faint',cry:am.sp,faint:'player',hold:1100});
+            wSteps.push({msg:wct.faintMsg,sfx:'faint',cry:fm.sp,faint:'player',hold:1100});
             if(wct.goMsg)wSteps.push({msg:wct.goMsg,sfx:'battlestart',cry:(findMon(state.session.lead)||{}).sp,refresh:true,slide:'player'});
             else wSteps.push({msg:'Your whole team fainted! You blacked out…',refresh:true,hold:1400});
           }else{
             wSteps.push({refresh:true,hold:0});
           }
         }
-        insertBeforeRefresh(wSteps,leftoversStep(am));
-        pendingSteps={ov:{wild:wPre,lead:am},list:wSteps};
+        insertBeforeRefresh(wSteps,leftoversStep(fm));
+        pendingSteps={ov:{wild:wPre,lead:fm},list:wSteps};
       }
       // a new record feeds the lead a Rare Candy: jump to the next level (+PR bonus ₽)
       if(entry.w>prevBest&&prevBest>0){
@@ -8122,6 +8643,29 @@ function applyImport(txt){
           if(psrc.trick[tk]!==undefined)gm.poi.trick[tk]=pin(psrc.trick[tk],99);
         });
       }
+      /* v6.2: the BATTLE FRONTIER — one nested container, per-facility runs + symbols */
+      if(psrc.bf&&typeof psrc.bf==='object'){
+        var bsrc=psrc.bf,bfo={};
+        ['tw','pl','ar'].forEach(function(fk){
+          if(bsrc[fk])bfo[fk]={streak:pin(bsrc[fk].streak,999),best:pin(bsrc[fk].best,999)};
+        });
+        if(bsrc.dm)bfo.dm={rd:pin(bsrc.dm.rd,3),wins:pin(bsrc.dm.wins,9999)};
+        if(bsrc.fa){
+          bfo.fa={streak:pin(bsrc.fa.streak,999),best:pin(bsrc.fa.best,999),lead:pin(bsrc.fa.lead,2),team:null};
+          if(Array.isArray(bsrc.fa.team)){
+            var ft=bsrc.fa.team.filter(function(sp){return DEX[sp];}).slice(0,3);
+            if(ft.length===3)bfo.fa.team=ft;
+          }
+        }
+        if(bsrc.pk)bfo.pk={room:pin(bsrc.pk.room,9),clears:pin(bsrc.pk.clears,9999),pend:pin(bsrc.pk.pend,2)};
+        if(bsrc.py)bfo.py={floor:pin(bsrc.py.floor,6),clears:pin(bsrc.py.clears,9999)};
+        bfo.sym={};
+        if(bsrc.sym)['tw','dm','pl','ar','fa','pk','py'].forEach(function(sk){
+          var sv=pin(bsrc.sym[sk],2);
+          if(sv)bfo.sym[sk]=sv;
+        });
+        gm.poi.bf=bfo;
+      }
     }
     gm.bp=Math.max(0,Math.round(+dgame.bp)||0);
     gm.bestStreak=Math.max(0,parseInt(dgame.bestStreak,10)||0);
@@ -8413,8 +8957,55 @@ document.addEventListener('click',function(e){
   }
   else if(a==='area-mon'){showAreaMonModal(b.dataset.sp);}
   else if(a==='dex-art'){showDexArt(b.dataset.sp);}
-  else if(a==='poi-open'){if(state.game){tab='poi-'+b.dataset.k;render();}}
+  else if(a==='poi-open'){if(state.game){if(b.dataset.k==='bf')frontierFac=null;tab='poi-'+b.dataset.k;render();}}
   else if(a==='poi-fight'){poiStartFight(b.dataset.kind,parseInt(b.dataset.f,10));}
+  else if(a==='bf-open'){frontierFac=b.dataset.f;render();}
+  else if(a==='bf-back'){frontierFac=null;render();}
+  else if(a==='bf-draft'){
+    if(state.game&&bfGate()){
+      var bfd=bfOf();
+      if(!bfd.fa.team){
+        var poolC=BF_RENT_POOL.slice(),dteam=[];
+        for(var di2=0;di2<3;di2++)dteam.push(poolC.splice(Math.floor(Math.random()*poolC.length),1)[0]);
+        bfd.fa.team=dteam;bfd.fa.lead=0;bfd.fa.streak=0;
+        save();sfx('save');render(true);
+        toast('Three rentals signed out — good luck!');
+      }
+    }
+  }
+  else if(a==='bf-lead'){
+    var bfl=bfOf();
+    if(state.game&&bfl.fa.team){
+      bfl.fa.lead=Math.max(0,Math.min(bfl.fa.team.length-1,parseInt(b.dataset.i,10)||0));
+      save();render(true);
+    }
+  }
+  else if(a==='bf-swap'){
+    var bfs=bfOf(),si=parseInt(b.dataset.i,10);
+    if(bfSwapSp&&bfs.fa.team&&bfs.fa.team[si]!==undefined&&DEX[bfSwapSp]){
+      bfs.fa.team[si]=bfSwapSp;bfSwapSp=null;
+      save();sfx('save');closeModal();render(true);
+      toast('Rental swapped!');
+    }
+  }
+  else if(a==='bf-door'){
+    // LUCK: the room is decided the moment you commit (state-first, theatre-after)
+    if(state.game&&bfGate()){
+      var pkp=bfOf().pk;
+      if(!pkp.pend&&!(pkp.room===9&&(pkp.clears===1||pkp.clears===3))){
+        var dr=Math.random();
+        if(dr<0.55){pkp.pend=1;save();poiStartFight('bfpk',pkp.room||0);}
+        else if(dr<0.73){
+          state.game.hurt={};
+          if(state.session&&state.session.phps)partyMons().forEach(function(pm){state.session.phps[pm.uid]=maxHpOf(pm);});
+          bfPikeStep();save();sfx('save');render(true);
+          toast('A kind maid heals your whole team!');
+        }
+        else if(dr<0.90){bfPikeStep();save();render(true);toast('An empty room… you tiptoe through.');}
+        else {pkp.pend=2;save();poiStartFight('bfpk',pkp.room||0);}
+      }
+    }
+  }
   else if(a==='fuji-talk'){
     var pfj=poiOf('tower2');
     if(pfj.floor>=6&&!pfj.flute){
