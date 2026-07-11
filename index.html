@@ -148,8 +148,9 @@ html.theme-night .mapalert{background:#222A34;border-color:#10161E}
 #fx{position:fixed;inset:0;z-index:200;pointer-events:none;background:transparent}
 #fx.go{animation:fxflash .9s steps(1) forwards}
 @keyframes fxflash{0%{background:rgba(248,248,240,.95)}12%{background:transparent}24%{background:rgba(248,248,240,.95)}36%{background:transparent}48%{background:#10141A}100%{background:transparent}}
-@keyframes pagein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-#view.pagein{animation:pagein .22s ease-out}
+/* v6.3: GBA page turn — chunky stepped slide instead of a smooth fade */
+@keyframes pagein{0%{opacity:0;transform:translateX(16px)}100%{opacity:1;transform:none}}
+#view.pagein{animation:pagein .2s steps(4,jump-none)}
 @keyframes modalin{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
 .modal{animation:modalin .18s ease-out}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
@@ -307,6 +308,55 @@ button.dexcell{display:block;width:100%;font:inherit;white-space:normal}
 .blink{animation:blinkHit .14s steps(1) 4}
 @keyframes faintdrop{55%{opacity:1}to{transform:translateY(190px);opacity:0}}
 .faintdrop{animation:faintdrop .55s ease-in forwards}
+/* ---------- v6.3 battle theatre: level-up flash + stat sheet ---------- */
+@keyframes lvflashk{0%,100%{filter:none}25%,75%{filter:brightness(5) saturate(0)}50%{filter:brightness(1.4)}}
+.lvflash{animation:lvflashk .7s ease-in-out}
+@keyframes lvpin{0%{opacity:0;transform:scale(.7)}100%{opacity:1;transform:none}}
+.lvpanel{position:absolute;right:5px;bottom:5px;z-index:7;background:rgba(255,255,255,.95);
+  border:2px solid var(--bord,#583838);border-radius:5px;padding:5px 8px 4px;
+  font-family:'Press Start 2P';font-size:7px;color:#2A2A2A;line-height:2;
+  display:grid;grid-template-columns:auto auto;gap:0 12px;
+  animation:lvpin .22s steps(3,jump-none)}
+.lvpanel .lvtitle{grid-column:1/3;font-size:8px;color:#C05028;line-height:1.6}
+.lvpanel b{color:#2E8B48;margin-left:5px;font-weight:400}
+/* low-HP heartbeat: the whole databox beats red while your mon is critical */
+@keyframes dbcritk{0%,100%{border-color:var(--bord,#583838);box-shadow:none}
+  50%{border-color:#D03028;box-shadow:0 0 0 2px rgba(208,48,40,.25) inset}}
+.databox.dbcrit{animation:dbcritk 1s ease-in-out infinite}
+/* ---------- v6.3 badge ceremony ---------- */
+#badgefx{position:fixed;inset:0;z-index:215;pointer-events:none;display:flex;align-items:center;justify-content:center}
+#badgefx::before{content:'';position:absolute;inset:0;background:#10141A;opacity:0;animation:bgfxdim .3s steps(3) forwards}
+@keyframes bgfxdim{to{opacity:.82}}
+#badgefx .bgb{position:relative;width:96px;height:96px;image-rendering:pixelated;
+  filter:drop-shadow(0 0 14px rgba(248,208,72,.85));
+  animation:bgbin .55s cubic-bezier(.2,.9,.3,1.25) .15s backwards,bgbfly .6s ease-in 1.95s forwards}
+@keyframes bgbin{0%{transform:scale(.1) rotate(-540deg);opacity:0}100%{transform:none;opacity:1}}
+@keyframes bgbfly{0%{transform:none;opacity:1}100%{transform:translate(130px,300px) scale(.12) rotate(40deg);opacity:0}}
+#badgefx .bgt{position:absolute;top:24%;left:0;right:0;text-align:center;font-family:'Press Start 2P';
+  font-size:13px;color:#FFF8F0;text-shadow:2px 2px 0 rgba(0,0,0,.5);line-height:1.7;
+  animation:bgtin .3s steps(3) .5s backwards,bgtout .3s steps(3) 2s forwards}
+@keyframes bgtin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes bgtout{to{opacity:0}}
+#badgefx .bgs{position:absolute;font-size:18px;color:#F8C830;text-shadow:0 0 4px rgba(0,0,0,.5);
+  animation:bgstar .9s ease-out forwards}
+@keyframes bgstar{0%{transform:none;opacity:0}20%{opacity:1}
+  100%{transform:translate(var(--sx),var(--sy)) scale(1.4);opacity:0}}
+/* ---------- v6.3 water shimmer (delete this block + the .h2o div in mapHTML to remove) ---------- */
+.h2o{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.07;
+  background:repeating-linear-gradient(0deg,transparent 0 5px,#F8FCFF 5px 6px,transparent 6px 12px);
+  animation:h2ok 1.15s steps(2,jump-none) infinite}
+@keyframes h2ok{0%{transform:translateY(0)}100%{transform:translateY(3px)}}
+/* ---------- v6.3 secret base room ---------- */
+.baseroom{position:relative;aspect-ratio:240/150;border:3px solid var(--bord);border-radius:6px;overflow:hidden}
+.baseroom .bwall{position:absolute;left:0;right:0;top:0;height:24%;border-bottom:3px solid rgba(0,0,0,.28)}
+.baseroom .bfloor{position:absolute;left:0;right:0;top:24%;bottom:0}
+.bslotgrid{position:absolute;left:3.5%;right:3.5%;top:29%;bottom:4%;display:grid;
+  grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);gap:3% 2.5%}
+.bslot{border:2px dashed rgba(0,0,0,.28);border-radius:5px;background:rgba(255,255,255,.06);
+  display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;min-width:0}
+.bslot:active{background:rgba(255,255,255,.22)}
+.bslot.filled{border-style:solid;border-color:rgba(0,0,0,.18);background:rgba(255,255,255,.16)}
+.bslot img,.bslot svg{width:82%;height:82%;object-fit:contain;image-rendering:pixelated;pointer-events:none}
 /* GBA send-out: the ball pops open in a white burst and the mon materializes */
 @keyframes matzk{0%{transform:scale(.1);filter:brightness(7) saturate(0);opacity:0}
   30%{opacity:1}
@@ -1098,6 +1148,8 @@ function migrateState(){
   if(!(state.version>=14)){state.version=14;changed=true;}
   // v15: the Battle Frontier (v6.2) — all state lives in poi.bf, freeform; nothing to backfill
   if(!(state.version>=15)){state.version=15;changed=true;}
+  // v16: Secret Bases (v6.3) — game.base is new and optional; nothing to backfill
+  if(!(state.version>=16)){state.version=16;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -2258,14 +2310,22 @@ function statGainGrid(s0,s1){
     row('ATTACK',s0.atk,s1.atk)+row('SP. DEF',s0.spd,s1.spd)+
     row('DEFENSE',s0.def,s1.def)+row('SPEED',s0.spe,s1.spe)+'</div>';
 }
+/* v6.3: while a set is being resolved, the FIGHTER's level-up plays INSIDE the battle
+   (flash + GBA stat sheet) instead of a modal; everyone else keeps the modal */
+var pendingLvCapture=null;
 function queueLevelUp(mon,before,after){
   var s0=statsAt(mon.sp,before),s1=statsAt(mon.sp,after),nm=DEX[mon.sp].n;
-  queueModal(function(){
-    sfx('levelup');
-    showModal('<h3>'+esc(nm)+' grew to LV '+after+'!</h3>'+statGainGrid(s0,s1)+
-      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
-    modalOk=function(){closeModal();};
-  });
+  var isFighter=!!(state.session&&state.game&&(mon.uid===state.game.active||(state.session.lead&&mon.uid===state.session.lead)));
+  if(pendingLvCapture&&isFighter){
+    pendingLvCapture.push({n:nm,to:after,s0:s0,s1:s1});
+  }else{
+    queueModal(function(){
+      sfx('levelup');
+      showModal('<h3>'+esc(nm)+' grew to LV '+after+'!</h3>'+statGainGrid(s0,s1)+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>');
+      modalOk=function(){closeModal();};
+    });
+  }
   var mvs=movesFor(mon.sp);
   for(var li=0;li<mvs.length;li++){
     if(mvs[li][0]>before&&mvs[li][0]<=after){
@@ -3859,7 +3919,7 @@ function wildPanelHTML(anim,ov){
     '</div>'+
     '<div class="bt-pscene bt-layer">'+
       '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-2px;width:76px;height:76px;image-rendering:pixelated">'+
-      '<div class="databox" style="position:absolute;right:5px;bottom:5px;width:58%">'+
+      '<div class="databox'+(ppct<=20&&php>0?' dbcrit':'')+'" style="position:absolute;right:5px;bottom:5px;width:58%">'+
         '<div class="pname">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span> <span style="vertical-align:1px">'+pdots+'</span></div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div class="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div class="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div>'+
@@ -3925,7 +3985,7 @@ function battlePanelHTML(anim,ov,cameo){
     '</div>'+
     '<div class="bt-pscene bt-layer">'+
       '<img class="bt-pspr'+(anim?' slidein-l':'')+'" src="'+backSprPath(m)+'" alt="" style="position:absolute;left:6%;bottom:-2px;width:76px;height:76px;image-rendering:pixelated'+(php<=0?';opacity:.4':'')+'">'+
-      '<div class="databox" style="position:absolute;right:5px;bottom:5px;width:58%">'+
+      '<div class="databox'+(ppct<=20&&php>0?' dbcrit':'')+'" style="position:absolute;right:5px;bottom:5px;width:58%">'+
         '<div class="pname">'+DEX[m.sp].n+' <span class="plv">:L'+monLevel(m.xp)+'</span> <span style="vertical-align:1px">'+pdots+'</span></div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="background:#2E6048">HP</span><div class="gbar"><div class="bt-php" style="width:'+ppct+'%;background:'+hpColor(ppct)+'"></div></div></div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px"><span class="barlab" style="color:#88A8E8">EXP</span><div class="gbar exp"><div class="bt-pexp" style="width:'+expPctOf(m)+'%"></div></div></div>'+
@@ -4043,7 +4103,17 @@ function driftBar(sel,to,isHp){
   el.style.width=to+'%';
   if(isHp){
     el.style.background=hpColor(to);
-    if(sel==='.bt-php')el.classList.toggle('hpcrit',to<=20&&to>0);
+    if(sel==='.bt-php'){
+      var crit=to<=20&&to>0;
+      el.classList.toggle('hpcrit',crit);
+      // v6.3: the whole databox beats red + one soft beep when you FALL into the red
+      var db=el.closest?el.closest('.databox'):null;
+      if(db){
+        db.classList.toggle('dbcrit',crit);
+        if(crit&&!db.dataset.beeped){db.dataset.beeped=1;sfx('lowhp');}
+        if(!crit)delete db.dataset.beeped;
+      }
+    }
   }
 }
 function dmgFloat(side,val){
@@ -4133,6 +4203,21 @@ function runBattleStep(st){
   if(st.blink==='player')animTimers.push(setTimeout(function(){sprFx('.bt-pspr','blink');},240));
   if(st.faint==='enemy')sprFx('.bt-espr','faintdrop');
   if(st.faint==='player')sprFx('.bt-pspr','faintdrop');
+  if(st.levelup){
+    // v6.3: the GBA level-up — white flash on your sprite + the stat sheet in the corner
+    sprFx('.bt-pspr','lvflash');
+    var lsc=bq('.arenabg');
+    if(lsc){
+      var lp=document.createElement('div');lp.className='lvpanel';
+      var lrows='<div class="lvtitle">'+st.levelup.n+' :L'+st.levelup.to+'</div>';
+      [['HP','hp'],['ATK','atk'],['DEF','def'],['SP.A','spa'],['SP.D','spd'],['SPE','spe']].forEach(function(r){
+        lrows+='<div>'+r[0]+'<b>+'+(st.levelup.s1[r[1]]-st.levelup.s0[r[1]])+'</b></div>';
+      });
+      lp.innerHTML=lrows;
+      lsc.appendChild(lp);
+      animTimers.push(setTimeout(function(){if(lp.parentNode)lp.parentNode.removeChild(lp);},2150));
+    }
+  }
   if(st.trainer){
     var tEl=bq('.bt-espr');
     if(tEl){
@@ -4573,6 +4658,7 @@ function bossDefeated(){
   var wildAfter=(state.session&&state.session.wild)?DEX[state.session.wild.sp].n:null;
   // let the final KO animation land before the victory screen
   setTimeout(function(){
+  var fin=function(){
   queueModal(function(){
     sfx('victory');
     showModal('<div class="vbanner">VICTORY!</div>'+
@@ -4602,7 +4688,34 @@ function bossDefeated(){
     });
     grantMon('mewtwo','mewtwo','A legend stirs…','You are the CHAMPION! MEWTWO acknowledges your strength and joins you!');
   }
+  };
+  // v6.3: a fresh gym badge gets the full ceremony first — then the modals
+  if(bz.idx<8&&bz.badge)playBadgeFx(badgeSrcFor(bz.idx),bz.badge,fin);
+  else fin();
   },5600); // the KO + concede cameo + back-to-training step play out first
+}
+/* v6.3: the badge ceremony — the badge spins in huge, then flies into the case */
+function badgeSrcFor(i){
+  return inHoenn()
+    ?'sprites/badges/h-'+['stone','knuckle','dynamo','heat','balance','feather','mind','rain'][i]+'.png'
+    :'sprites/badges/'+['rock','water','electric','grass','poison','psychic','fire','ground'][i]+'.png';
+}
+function playBadgeFx(src,name,then){
+  var old=document.getElementById('badgefx');
+  if(old&&old.parentNode)old.parentNode.removeChild(old);
+  var ov=document.createElement('div');ov.id='badgefx';
+  var stars='';
+  [[-74,-44],[68,-56],[-56,62],[74,48],[0,-84]].forEach(function(s,i){
+    stars+='<span class="bgs" style="left:50%;top:50%;margin:-9px;--sx:'+s[0]+'px;--sy:'+s[1]+'px;animation-delay:'+(0.55+i*0.1)+'s">★</span>';
+  });
+  ov.innerHTML='<div class="bgt">'+esc(name)+'<br>GET!</div>'+
+    '<div style="position:relative"><img class="bgb" src="'+src+'" alt="">'+stars+'</div>';
+  document.body.appendChild(ov);
+  sfx('badge');
+  setTimeout(function(){
+    if(ov.parentNode)ov.parentNode.removeChild(ov);
+    if(then)then();
+  },2750);
 }
 /* roadblock & rival wins get their own little VICTORY screen, like the gym leaders */
 function trainerVictoryModal(tr,monSp,xpGain,isRival,newWildN){
@@ -4812,6 +4925,7 @@ function mapHTML(){
     '<div class="subtitle">'+tw.sub+' · town '+(ti+1)+'/'+TOWNS.length+(story?'':' · visiting')+wxChipHTML(ti)+'</div>'+
     '<div class="mapwrap">'+
     '<img class="mapimg" src="'+tw.img+'" alt="'+tw.n+'" style="width:100%;display:block;image-rendering:pixelated">'+
+    '<div class="h2o"></div>'+ // v6.3 water shimmer — delete this line + the .h2o CSS block to remove
     wxOverlayHTML(ti)+
     // BOSS only at your story town; past towns show a beaten-gym tag instead
     (story?spot('boss','BOSS')
@@ -5469,7 +5583,14 @@ var HOENN_POIS=[
     img:'map/poi/h-frontier.png',pal:{c:'#B06820',bg:'#F0E2C8',pb:'#F8F0DE',bx:'#FBF6EA'},
     gateTxt:'The S.S. TIDAL crew shakes their heads: “The BATTLE FRONTIER ferry boards CHAMPIONS only. Come back with the crown.”',
     gate:function(){return bfGate();},
-    st:function(){if(!bfGate())return 'CHAMPIONS';var n=0,s=bfOf().sym||{};['tw','dm','pl','ar','fa','pk','py'].forEach(function(k2){n+=s[k2]||0;});return n+'/14 SYM';}}
+    st:function(){if(!bfGate())return 'CHAMPIONS';var n=0,s=bfOf().sym||{};['tw','dm','pl','ar','fa','pk','py'].forEach(function(k2){n+=s[k2]||0;});return n+'/14 SYM';}},
+  /* v6.3: the SECRET BASE — scoutable anywhere, then it lives where you built it */
+  {k:'base',town:0,dt:function(){return (state.game&&state.game.base&&BASE_SPOTS[state.game.base.spot])?BASE_SPOTS[state.game.base.spot].town:curTown();},
+    n:'SECRET BASE',sub:'A hideout of your own — dolls, trophies, peace',icon:'sprites/npc/jiggly.png',
+    img:'sprites/arenas/cave.png',pal:{c:'#8A5A38',bg:'#EADFCE',pb:'#F5EEE2',bx:'#FAF5EC'},
+    gate:function(){return townIdx()>=1;},
+    gateTxt:'A scruffy wanderer eyes the walls: “Earn your first BADGE and I’ll teach you SECRET POWER…”',
+    st:function(){var b=state.game.base;if(!b||!BASE_SPOTS[b.spot])return 'SCOUT';var n=0,d=b.deco||{};for(var i=0;i<12;i++)if(d[i])n++;return n+'/12';}}
 ];
 var HOENN_FEATURES=[
   {k:'mart',n:'POKE MART',icon:'sprites/items/pokeball.png',
@@ -5484,7 +5605,10 @@ var HOENN_FEATURES=[
    }},
   {k:'collectors',n:'COLLECTORS',icon:'sprites/npc/lass.png',
    d:'Collectors around Hoenn now post special requests on the QUEST page — rare POKEMON await!',
-   cond:function(){return townIdx()>=2;}}
+   cond:function(){return townIdx()>=2;}},
+  {k:'sbase',n:'SECRET POWER',icon:'sprites/npc/jiggly.png',
+   d:'A wanderer taught you SECRET POWER! Scout a SECRET BASE — your own hideout to decorate with DOLLS and TROPHIES. Find SECRET SPOTS under PLACES in any town.',
+   cond:function(){return townIdx()>=1;}}
 ];
 /* ===== v6.2 THE BATTLE FRONTIER (Ever Grande, CHAMPIONS only) =====
    Seven facilities, each a different game on the same fight engine; seven BRAINS
@@ -5803,6 +5927,145 @@ function bfHTML(){
     '<div class="plv" style="margin-bottom:4px">The same legendary counter as the BATTLE TOWER back home.</div>'+bpShopRows()+'</div>';
   return h+poiBackBtn();
 }
+/* ===== v6.3 SECRET BASES (Hoenn) — a hideout of your own, decorated with
+   DOLLS (any POKEMON you've caught) and TROPHIES earned by real training ===== */
+var BASE_SPOTS=[
+  {k:'oak',town:0,n:'HOLLOW OAK',sub:'A huge tree behind town — a curtain of vines hides a hollow',pal:'wood'},
+  {k:'cliff',town:1,n:'RUSTBORO CLIFFSIDE',sub:'A crack in the rock face above the quarry',pal:'stone'},
+  {k:'bluff',town:3,n:'MAUVILLE BLUFF',sub:'A dusty cave over the bike road, buzzing faintly',pal:'stone'},
+  {k:'spring',town:4,n:'LAVARIDGE HOT CAVE',sub:'A steamy pocket behind the springs',pal:'ember'},
+  {k:'canopy',town:6,n:'FORTREE CANOPY DEN',sub:'A woven nest high in the trees, neighbors chirping',pal:'leaf'},
+  {k:'grotto',town:8,n:'SOOTOPOLIS GROTTO',sub:'A blue-lit hollow in the crater wall',pal:'tide'}
+];
+var BASE_PALS={
+  wood:{wall:'#7A5230',floor:'repeating-linear-gradient(90deg,#B08050 0 26px,#A87A4A 26px 27px)'},
+  stone:{wall:'#606878',floor:'repeating-linear-gradient(45deg,#9AA2B2 0 18px,#8F99A9 18px 36px)'},
+  ember:{wall:'#8A4A34',floor:'repeating-linear-gradient(90deg,#B87458 0 26px,#AE6A4E 26px 27px)'},
+  leaf:{wall:'#3E6E38',floor:'repeating-linear-gradient(90deg,#6FA862 0 26px,#659C58 26px 27px)'},
+  tide:{wall:'#345E90',floor:'repeating-linear-gradient(90deg,#6E96C4 0 26px,#6389B8 26px 27px)'}
+};
+var BASE_TROPHIES=[
+  {k:'dumb1',n:'BRONZE DUMBBELL',d:'Move 100,000 lifetime total',cond:function(){return totalVolumeAll()>=100000;}},
+  {k:'dumb2',n:'SILVER DUMBBELL',d:'Move 500,000 lifetime total',cond:function(){return totalVolumeAll()>=500000;}},
+  {k:'dumb3',n:'GOLD DUMBBELL',d:'Move 1,000,000 lifetime total',cond:function(){return totalVolumeAll()>=1000000;}},
+  {k:'banner',n:'STREAK BANNER',d:'Hit a 7-day training streak',cond:function(){return (state.game&&state.game.bestStreak||0)>=7;}},
+  {k:'cup',n:'CHAMPION CUP',d:'Enter the Hall of Fame',cond:function(){return !!(state.game&&(state.game.flags.champion||(state.game.hof&&state.game.hof.length)));}},
+  {k:'crest',n:'FRONTIER CREST',d:'Earn 7 FRONTIER SYMBOLS',cond:function(){return bfSymCount()>=7;}},
+  {k:'plaque',n:'PR PLAQUE',d:'Log a single lift of 100+',cond:function(){
+    var top=0;allLogsFlat().forEach(function(o){if(o.l.w>top)top=o.l.w;});return top>=100;}},
+  {k:'diploma',n:'DEX DIPLOMA',d:'Complete the whole POKEDEX',cond:function(){return state.game&&dexCaughtCount()>=DEX_ORDER.length;}}
+];
+var baseSlotSel=null,baseMoving=false;
+function trophySVG(k,size){
+  var g='';
+  var bronze='#B08048',silver='#C8D0DC',gold='#E8B838',dark='#585048';
+  function dumb(c){return '<rect x="6" y="14" width="7" height="12" rx="2" fill="'+c+'" stroke="'+dark+'" stroke-width="1.6"/>'+
+    '<rect x="27" y="14" width="7" height="12" rx="2" fill="'+c+'" stroke="'+dark+'" stroke-width="1.6"/>'+
+    '<rect x="12" y="18" width="16" height="4" fill="'+c+'" stroke="'+dark+'" stroke-width="1.6"/>';}
+  if(k==='dumb1')g=dumb(bronze);
+  else if(k==='dumb2')g=dumb(silver);
+  else if(k==='dumb3')g=dumb(gold);
+  else if(k==='banner')g='<line x1="10" y1="6" x2="10" y2="34" stroke="'+dark+'" stroke-width="2.4"/>'+
+    '<path d="M12 8 L33 12 L12 20 Z" fill="#D03028" stroke="'+dark+'" stroke-width="1.6"/>'+
+    '<text x="17" y="16.5" style="font-family:\'Press Start 2P\';font-size:6px;fill:#FFF8F0">7</text>';
+  else if(k==='cup')g='<path d="M13 8 H27 V16 A7 7 0 0 1 13 16 Z" fill="'+gold+'" stroke="'+dark+'" stroke-width="1.6"/>'+
+    '<path d="M13 10 C8 10 8 17 13 17 M27 10 C32 10 32 17 27 17" fill="none" stroke="'+dark+'" stroke-width="1.6"/>'+
+    '<rect x="17" y="23" width="6" height="4" fill="'+gold+'" stroke="'+dark+'" stroke-width="1.4"/>'+
+    '<rect x="13" y="27" width="14" height="5" rx="1" fill="'+bronze+'" stroke="'+dark+'" stroke-width="1.6"/>';
+  else if(k==='crest'){
+    g='<circle cx="20" cy="20" r="11" fill="none" stroke="'+gold+'" stroke-width="3"/>';
+    for(var ci=0;ci<7;ci++){var an=ci/7*6.2832-1.5708;
+      g+='<circle cx="'+(20+11*Math.cos(an)).toFixed(1)+'" cy="'+(20+11*Math.sin(an)).toFixed(1)+'" r="2.4" fill="'+silver+'" stroke="'+dark+'" stroke-width="1"/>';}
+  }
+  else if(k==='plaque')g='<rect x="7" y="9" width="26" height="22" rx="2" fill="#8A5A38" stroke="'+dark+'" stroke-width="1.8"/>'+
+    '<rect x="11" y="14" width="18" height="12" rx="1" fill="'+gold+'" stroke="'+dark+'" stroke-width="1.4"/>'+
+    '<text x="13" y="22.5" style="font-family:\'Press Start 2P\';font-size:5px;fill:#583818">100</text>';
+  else if(k==='diploma')g='<rect x="8" y="12" width="24" height="16" rx="3" fill="#F8F4E8" stroke="'+dark+'" stroke-width="1.8"/>'+
+    '<circle cx="8" cy="20" r="4" fill="#EFE9D8" stroke="'+dark+'" stroke-width="1.6"/>'+
+    '<circle cx="32" cy="20" r="4" fill="#EFE9D8" stroke="'+dark+'" stroke-width="1.6"/>'+
+    '<circle cx="20" cy="20" r="2.6" fill="#D03028"/>';
+  return '<svg viewBox="0 0 40 40" width="'+size+'" height="'+size+'" aria-hidden="true">'+g+'</svg>';
+}
+function baseSpotSVG(pal,size){
+  var p=BASE_PALS[pal]||BASE_PALS.wood;
+  return '<svg viewBox="0 0 40 40" width="'+size+'" height="'+size+'" aria-hidden="true">'+
+    '<rect x="4" y="8" width="32" height="26" rx="4" fill="'+p.wall+'" stroke="#585048" stroke-width="2"/>'+
+    '<path d="M13 34 V22 A7 7 0 0 1 27 22 V34 Z" fill="#241A12" stroke="#585048" stroke-width="1.6"/></svg>';
+}
+function baseScoutHTML(moving){
+  var rows='';
+  BASE_SPOTS.forEach(function(s,i){
+    var here=state.game.base&&state.game.base.spot===i;
+    rows+='<div class="prow" style="padding:7px 10px'+(here?';border-color:#8A5A38':'')+'">'+
+      '<span style="flex:none">'+baseSpotSVG(s.pal,34)+'</span>'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:15px">'+s.n+'</div>'+
+      '<div class="plv" style="margin-top:1px;white-space:normal;line-height:1.25">'+s.sub+' · '+TOWNS[s.town].n+'</div></div>'+
+      (here?'<span class="plv" style="flex:none;color:#2E8B48">HOME</span>'
+        :'<button class="btn acc" data-action="base-scout" data-i="'+i+'" style="flex:none">'+(moving?'MOVE':'SET UP')+'</button>')+'</div>';
+  });
+  return '<div class="titlebar"><h1>'+(moving?'MOVING TRUCK':'SECRET SPOTS')+'</h1></div>'+
+    '<div class="subtitle">'+(moving?'Pick the new spot — everything travels with you':'SECRET POWER hums in your hands')+'</div>'+
+    '<div class="panel"><div class="memo" style="margin-bottom:6px">'+(moving?'The MACHOKE movers idle patiently by the truck…':'Six hidden spots around Hoenn could become YOUR base. Pick one — you can always move later.')+'</div>'+rows+
+    (moving?'<button class="btn" data-action="base-move-cancel" style="width:100%;margin-top:6px">CANCEL</button>':'')+'</div>'+
+    poiBackBtn();
+}
+function baseHTML(){
+  var g=state.game,b=g.base;
+  var spot=b&&BASE_SPOTS[b.spot];
+  if(!spot||baseMoving)return baseScoutHTML(!!spot);
+  var pal=BASE_PALS[spot.pal];
+  var slots='';
+  for(var i=0;i<12;i++){
+    var d=(b.deco||{})[i],inner='';
+    if(d&&d.t==='doll'&&DEX[d.sp])inner='<img src="'+sprPath(d.sp,!!(g.dex[d.sp]&&g.dex[d.sp].s))+'" alt="'+DEX[d.sp].n+'">';
+    else if(d&&d.t==='tr')inner=trophySVG(d.k,34);
+    slots+='<button class="bslot'+(d?' filled':'')+'" data-action="base-slot" data-i="'+i+'" aria-label="slot '+(i+1)+'">'+inner+'</button>';
+  }
+  var earned=0;BASE_TROPHIES.forEach(function(t){if(t.cond())earned++;});
+  var trows='';
+  BASE_TROPHIES.forEach(function(t){
+    var ok=t.cond();
+    trows+='<div class="prow" style="padding:6px 10px'+(ok?'':';opacity:.55')+'">'+
+      '<span style="flex:none'+(ok?'':';filter:grayscale(1)')+'">'+trophySVG(t.k,30)+'</span>'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:15px">'+t.n+'</div>'+
+      '<div class="plv" style="margin-top:1px">'+t.d+'</div></div>'+
+      (ok?'<span class="bestchip" style="color:#2E8B48;flex:none">EARNED</span>':'')+'</div>';
+  });
+  return '<div class="titlebar"><h1>SECRET BASE</h1></div>'+
+    '<div class="subtitle">'+spot.n+' — your hideout</div>'+
+    '<div style="margin:0 12px"><div class="baseroom">'+
+      '<div class="bwall" style="background:'+pal.wall+'"></div>'+
+      '<div class="bfloor" style="background:'+pal.floor+'"></div>'+
+      '<div class="bslotgrid">'+slots+'</div></div>'+
+    '<div class="plv" style="margin-top:5px">Tap a spot to set a DOLL (any POKEMON you caught) or a TROPHY from the shelf.</div></div>'+
+    '<div class="panel"><h3>TROPHY SHELF<span class="bestchip">'+earned+' / '+BASE_TROPHIES.length+'</span></h3>'+trows+'</div>'+
+    '<div class="panel"><h3>RELOCATE</h3><div class="plv" style="margin-bottom:6px">The moving truck knows all six spots. Decorations travel with you.</div>'+
+    '<button class="btn" data-action="base-move" style="width:100%">MOVE BASE</button></div>'+
+    poiBackBtn();
+}
+function showBaseSlotModal(i){
+  if(!state.game||!state.game.base)return;
+  var cur=(state.game.base.deco||{})[i];
+  var dolls='';
+  DEX_ORDER.forEach(function(sp){
+    var d=state.game.dex[sp];
+    if(!d||!d.c)return;
+    dolls+='<button class="pstripbtn" data-action="base-doll" data-sp="'+sp+'" style="width:44px;padding:2px" aria-label="'+DEX[sp].n+'">'+
+      '<img src="'+sprPath(sp,!!d.s)+'" alt="" style="width:36px;height:36px;image-rendering:pixelated"></button>';
+  });
+  var trs='';
+  BASE_TROPHIES.forEach(function(t){
+    if(!t.cond())return;
+    trs+='<button class="pstripbtn" data-action="base-tr" data-k="'+t.k+'" style="width:44px;padding:2px" aria-label="'+t.n+'">'+trophySVG(t.k,32)+'</button>';
+  });
+  showModal('<h3>Decorate slot '+(i+1)+'</h3>'+
+    (trs?'<div class="plv" style="margin:2px 0 3px">TROPHIES</div><div style="display:flex;flex-wrap:wrap;gap:2px">'+trs+'</div>':'')+
+    '<div class="plv" style="margin:8px 0 3px">DOLLS — every POKEMON you caught</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:2px;max-height:38vh;overflow-y:auto">'+(dolls||'<span class="plv">Catch POKEMON to earn dolls!</span>')+'</div>'+
+    '<div class="mbtns">'+(cur?'<button class="btn" data-action="base-clear">CLEAR SLOT</button>':'')+
+    '<button class="btn" data-action="close-modal">CANCEL</button></div>');
+  modalOk=null;
+}
 /* ---- the region switch: state.game is always the ACTIVE region's save ---- */
 var KANTO_TOWNS=TOWNS,KANTO_TOWN_MAP_XY=TOWN_MAP_XY,KANTO_WILD_BANDS=WILD_BANDS,
     KANTO_AREA_SPAWNS=AREA_SPAWNS,KANTO_BOSSES=BOSSES,KANTO_ROAD_LOC=ROAD_LOC,KANTO_GYMS=GYMS,
@@ -5892,7 +6155,8 @@ function poiPlacesHTML(){
   if(!state.game)return '';
   var t=curTown(),rows='';
   POIS.forEach(function(p){
-    if(p.town!==t&&!(p.towns&&p.towns.indexOf(t)>=0))return;
+    var pt=p.dt?p.dt():p.town; // v6.3: the SECRET BASE lives wherever you built it
+    if(pt!==t&&!(p.towns&&p.towns.indexOf(t)>=0))return;
     if(p.gate&&!p.gate()){
       rows+='<div class="prow" style="padding:8px 10px;opacity:.6">'+
         '<img src="'+p.icon+'" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none;filter:brightness(0);opacity:.5">'+
@@ -5915,9 +6179,10 @@ function poiBackBtn(){return '<div style="margin:10px 12px"><button class="btn" 
 function poiPageHTML(k){
   var def=null;POIS.forEach(function(p){if(p.k===k)def=p;});
   if(!def||!state.game)return mapHTML();
-  if(def.town!==curTown()&&!(def.towns&&def.towns.indexOf(curTown())>=0)){
+  var defTown=def.dt?def.dt():def.town;
+  if(defTown!==curTown()&&!(def.towns&&def.towns.indexOf(curTown())>=0)){
     return '<div class="titlebar"><h1>'+def.n+'</h1><button class="textbtn" data-action="tab" data-tab="map">← BACK</button></div>'+
-      '<div class="panel"><div class="memo">This place is in '+TOWNS[def.town].n+' — hop the ferry there first!</div></div>'+poiBackBtn();
+      '<div class="panel"><div class="memo">This place is in '+TOWNS[defTown].n+' — hop the ferry there first!</div></div>'+poiBackBtn();
   }
   if(def.gate&&!def.gate()){
     return '<div class="titlebar"><h1>?????</h1><button class="textbtn" data-action="tab" data-tab="map">← BACK</button></div>'+
@@ -5945,6 +6210,7 @@ function poiPageHTML(k){
   else if(k==='origin')out=originHTML();
   else if(k==='sky')out=skyHTML();
   else if(k==='bf')out=bfHTML();
+  else if(k==='base')out=baseHTML();
   if(out===null)return mapHTML();
   // a quick exit lives top-right of every building page (the bottom one stays too)
   return out.replace('</h1></div>','</h1><button class="textbtn" data-action="tab" data-tab="map">← BACK</button></div>');
@@ -7822,6 +8088,7 @@ function sfx(name){
     else if(name==='superhit'){tone(t,280,0.09,'square',0.11,90);tone(t+0.1,170,0.13,'square',0.1,60);}
     else if(name==='weakhit')tone(t,150,0.12,'sine',0.07,90);
     else if(name==='faint')tone(t,420,0.5,'square',0.08,55);
+    else if(name==='lowhp'){tone(t,880,0.07,'square',0.04);tone(t+0.16,880,0.07,'square',0.04);}
     else if(name==='levelup')[523,659,784,1047].forEach(function(f,i){tone(t+i*0.09,f,0.1,'square',0.055);});
     else if(name==='badge'){[392,523,659,784,1047].forEach(function(f,i){tone(t+i*0.11,f,0.13,'square',0.06);});tone(t+0.56,1319,0.28,'square',0.05);}
     else if(name==='catch'){tone(t,980,0.06,'square',0.06);tone(t+0.07,740,0.06,'square',0.06);tone(t+0.22,523,0.09,'square',0.05);tone(t+0.32,659,0.09,'square',0.05);tone(t+0.42,784,0.16,'square',0.06);}
@@ -7956,7 +8223,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v6.2 “Battle Frontier” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.3 “Secret Base” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -8128,6 +8395,7 @@ function saveLogEntry(){
   var entry={id:uid(),ts:Date.now(),w:Math.round(w*100)/100,r:r,s:s};
   if(state.game){
     var am=activeMon();
+    pendingLvCapture=[]; // v6.3: the fighter's level-ups play inside the battle for this set
     if(am){
       var vol=entry.w*entry.r*entry.s;
       var expFrom=expPctOf(am),expLv0=monLevel(am.xp);
@@ -8315,6 +8583,13 @@ function saveLogEntry(){
       else if(!(state.session&&state.game)){sfx('save');}
       // hand the XP fill to the battle playback (wraps through 100 on level-up)
       if(pendingSteps)pendingSteps.exp={from:expFrom,to:expPctOf(am),wrap:monLevel(am.xp)>expLv0};
+      // v6.3: the captured level-up joins the battle steps (flash + stat sheet)
+      if(pendingLvCapture&&pendingLvCapture.length){
+        var lvfx=pendingLvCapture[pendingLvCapture.length-1];
+        if(pendingSteps)pendingSteps.list.push({msg:lvfx.n+' grew to :L'+lvfx.to+'!',sfx:'levelup',levelup:lvfx,hold:2400});
+        else toast(lvfx.n+' grew to :L'+lvfx.to+'!');
+      }
+      pendingLvCapture=null;
       if(state.game.egg){
         state.game.egg.left-=entry.s;
         if(state.game.egg.left<=0){
@@ -8348,6 +8623,7 @@ function saveLogEntry(){
   state.logs[id].sort(function(a,b){return a.ts-b.ts;});
   save();
   refreshSheetData(id);
+  pendingLvCapture=null; // v6.3: capture window never outlives the set
   toast(entry.w>prevBest&&prevBest>0?('New record — '+fmtW(entry.w)+' '+state.unit+'! 🎉 RARE CANDY!'):'Logged ✓'+(entry.xpg?' +'+entry.xpg+' XP':''));
   if(state.game)checkGameEvents();
 }
@@ -8665,6 +8941,22 @@ function applyImport(txt){
           if(sv)bfo.sym[sk]=sv;
         });
         gm.poi.bf=bfo;
+      }
+    }
+    /* v6.3: the SECRET BASE — spot index + up to 12 validated decorations (Hoenn only) */
+    gm.base=null;
+    if(hoR&&dgame.base&&isFinite(dgame.base.spot)&&BASE_SPOTS[+dgame.base.spot]){
+      gm.base={spot:+dgame.base.spot,deco:{}};
+      if(dgame.base.deco&&typeof dgame.base.deco==='object'){
+        for(var bdi=0;bdi<12;bdi++){
+          var bdv=dgame.base.deco[bdi];
+          if(!bdv)continue;
+          if(bdv.t==='doll'&&DEX[bdv.sp])gm.base.deco[bdi]={t:'doll',sp:bdv.sp};
+          else if(bdv.t==='tr'){
+            var bok=false;BASE_TROPHIES.forEach(function(x){if(x.k===bdv.k)bok=true;});
+            if(bok)gm.base.deco[bdi]={t:'tr',k:bdv.k};
+          }
+        }
       }
     }
     gm.bp=Math.max(0,Math.round(+dgame.bp)||0);
@@ -8986,6 +9278,42 @@ document.addEventListener('click',function(e){
       bfs.fa.team[si]=bfSwapSp;bfSwapSp=null;
       save();sfx('save');closeModal();render(true);
       toast('Rental swapped!');
+    }
+  }
+  else if(a==='base-scout'){
+    var bsi=parseInt(b.dataset.i,10);
+    if(state.game&&inHoenn()&&BASE_SPOTS[bsi]&&townIdx()>=1){
+      var hadBase=!!(state.game.base&&BASE_SPOTS[state.game.base.spot]);
+      if(!state.game.base)state.game.base={spot:bsi,deco:{}};
+      else state.game.base.spot=bsi;
+      baseMoving=false;
+      save();sfx('save');
+      toast((hadBase?'Base moved to ':'SECRET BASE set up in ')+TOWNS[BASE_SPOTS[bsi].town].n+'!');
+      render(true);
+    }
+  }
+  else if(a==='base-move'){baseMoving=true;render(true);}
+  else if(a==='base-move-cancel'){baseMoving=false;render(true);}
+  else if(a==='base-slot'){baseSlotSel=parseInt(b.dataset.i,10);showBaseSlotModal(baseSlotSel);}
+  else if(a==='base-doll'){
+    if(state.game&&state.game.base&&baseSlotSel!==null&&state.game.dex[b.dataset.sp]&&state.game.dex[b.dataset.sp].c){
+      if(!state.game.base.deco)state.game.base.deco={};
+      state.game.base.deco[baseSlotSel]={t:'doll',sp:b.dataset.sp};
+      save();sfx('save');closeModal();render(true);
+    }
+  }
+  else if(a==='base-tr'){
+    var btd=null;BASE_TROPHIES.forEach(function(x){if(x.k===b.dataset.k)btd=x;});
+    if(state.game&&state.game.base&&baseSlotSel!==null&&btd&&btd.cond()){
+      if(!state.game.base.deco)state.game.base.deco={};
+      state.game.base.deco[baseSlotSel]={t:'tr',k:b.dataset.k};
+      save();sfx('save');closeModal();render(true);
+    }
+  }
+  else if(a==='base-clear'){
+    if(state.game&&state.game.base&&state.game.base.deco&&baseSlotSel!==null){
+      delete state.game.base.deco[baseSlotSel];
+      save();closeModal();render(true);
     }
   }
   else if(a==='bf-door'){
