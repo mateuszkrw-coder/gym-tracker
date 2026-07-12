@@ -1,4 +1,4 @@
-Gym Tracker — Handover Document (current as of app v6.3 / sw v47 / schema v16, 2026-07-11)
+Gym Tracker — Handover Document (current as of app v6.3.1 / sw v48 / schema v16, 2026-07-12)
 
 ============================================================
 1. WHAT THIS IS
@@ -21,7 +21,7 @@ installed home-screen app isolated storage — a separate app couldn't read the 
 
 Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
 Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
-Current:   app v6.3 “Secret Base”, service-worker cache v47, data schema v16.
+Current:   app v6.3.1 “Secret Base”, service-worker cache v48, data schema v16.
 
 ============================================================
 2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
@@ -31,6 +31,12 @@ Mateusz works from (at least) TWO Windows laptops. Known so far:
     C:\Users\dctek\.claude\projects\D--gym-app\memory\)
   • Machine B: E:\gym app  — Windows user "Satsuki" (memory dir:
     C:\Users\Satsuki\.claude\projects\E--gym-app\memory\)
+  • Machine C (since 2026-07-12): C:\Users\Satsuki\Desktop\gym-tracker-main\gym-tracker-main
+    — Windows user "Satsuki" (a downloaded repo ZIP, re-wired to git + origin same day;
+    the download matched remote HEAD exactly, nothing lost). DIFFERS from A/B: HAS
+    Python 3.11 (still no node/gh). Its serve.ps1 derives $root from $PSScriptRoot,
+    so it needs NO per-machine path fix (consider copying to A/B). khinsider + GitHub
+    raw/api reachable; sounds-resource.com BLOCKED here.
 
 THIS FILE IS NOW TRACKED IN GIT (since v6.1) precisely so it can never be lost when
 hopping machines — `git pull` brings the latest handover along with the code.
@@ -264,8 +270,9 @@ feebasTown() (the day's lucky pier), trickOf(). migrateState() runs at INIT.
   flies to the case (bottom-right), THEN the victory modals (the fin() wrapper in the
   boss-victory setTimeout). Low HP: driftBar toggles .dbcrit on the player databox
   (pulses red) + one soft 'lowhp' beep on FALLING into ≤20% (dataset.beeped guard);
-  the panel templates pre-set dbcrit when rendering an already-red mon. Tab changes
-  use a stepped GBA wipe (.pagein restyle, steps(4) slide). Town maps carry a 2-frame
+  the panel templates pre-set dbcrit when rendering an already-red mon. Tab changes:
+  v6.3's stepped GBA wipe felt LAGGY on-device — v6.3.1 REVERTED it to the original
+  smooth .22s ease-out fade+rise (do not reintroduce steps() here). Town maps carry a 2-frame
   water shimmer: ONE .h2o div in mapHTML + one CSS block — both commented for easy
   removal if Mateusz dislikes it (he reserved judgment).
 • THE MAGMA/AQUA ARC (v6.1): 8 chapters in game.flags.arc1..arc8, one per building
@@ -419,7 +426,23 @@ Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanl
 ============================================================
 13. IMMEDIATE STATE
 ============================================================
-v6.3 “Secret Base” SHIPPED 2026-07-11 from machine B (E:\gym app) — the 4th release
+v6.3.1 SHIPPED 2026-07-12 from machine C (Desktop). Two changes, both by request:
+• TAB TRANSITION REVERT: the v6.3 steps(4) GBA page wipe felt laggy on his phone —
+  restored the exact v6.2 .pagein (fade + 8px rise, .22s ease-out; recovered
+  byte-for-byte from git a4ad8d1). The trigger JS was untouched in both versions.
+• OFFICIAL CLICK SOUND: sfx('click') now plays the REAL Gen-3 SE_SELECT instead of
+  the old approximate 920Hz blip. No audio file — the GBA itself synthesizes this
+  sound from sequence data, so seSelect() renders that data exactly via Web Audio:
+  50%-duty square, A#6 25ms → G7 125ms, velocity trembling 68/127/68/127/68, +0.4st
+  bend, instant attack/fast release (source: pret/pokeemerald se_select.mid +
+  voicegroup rs_sfx_1 voices 87/88, decoded with machine C's Python). Fires on every
+  [data-action] tap via the one global listener (first tap still plays 'title').
+  Zero new network assets; loudness knob = V in seSelect() (0.05).
+sw v48. Verified in the 8377 preview: parse gate OK, live CSSOM shows ease-out rule,
+tab taps through the real handler created exactly the expected oscillator graph
+(4-tone title + 1-osc select), nav/renders intact, zero console errors.
+
+Previous: v6.3 “Secret Base” SHIPPED 2026-07-11 from machine B (E:\gym app) — the 4th release
 of the day. Secret Bases (6 spots, doll+trophy decorating, moving truck) + the
 battle-theatre pack: in-battle level-up flash & stat sheet, gym badge ceremony,
 low-HP heartbeat databox + beep, GBA stepped page wipe, and the 2-frame water

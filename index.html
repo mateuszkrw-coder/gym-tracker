@@ -148,9 +148,8 @@ html.theme-night .mapalert{background:#222A34;border-color:#10161E}
 #fx{position:fixed;inset:0;z-index:200;pointer-events:none;background:transparent}
 #fx.go{animation:fxflash .9s steps(1) forwards}
 @keyframes fxflash{0%{background:rgba(248,248,240,.95)}12%{background:transparent}24%{background:rgba(248,248,240,.95)}36%{background:transparent}48%{background:#10141A}100%{background:transparent}}
-/* v6.3: GBA page turn — chunky stepped slide instead of a smooth fade */
-@keyframes pagein{0%{opacity:0;transform:translateX(16px)}100%{opacity:1;transform:none}}
-#view.pagein{animation:pagein .2s steps(4,jump-none)}
+@keyframes pagein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#view.pagein{animation:pagein .22s ease-out}
 @keyframes modalin{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
 .modal{animation:modalin .18s ease-out}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
@@ -8077,12 +8076,33 @@ function moveSfx(name){
   var sg=moveSlug(name);if(!sg)return;
   playSnd('sounds/moves/'+sg+'.mp3','mv_'+sg,0.5,1.5);
 }
+/* v6.3.1: the REAL Gen-3 menu blip (SE_SELECT), rendered from the official
+   sequence data (pret/pokeemerald sound/songs/midi/se_select.mid, voicegroup
+   rs_sfx_1 voices 87/88): 50%-duty square, A#6 for 25ms then G7 for 125ms,
+   velocity trembling 68/127/68/127/68, +0.4st bend, instant attack, fast release.
+   The GBA synthesizes this from the same data at runtime — no recording exists. */
+function seSelect(t0){
+  var c=audioCtx;if(!c)return;
+  var o=c.createOscillator(),g=c.createGain(),V=0.05;
+  o.type='square';
+  o.frequency.setValueAtTime(1909,t0);
+  o.frequency.setValueAtTime(3211,t0+0.025);
+  g.gain.setValueAtTime(V*0.54,t0);
+  g.gain.setValueAtTime(V,t0+0.025);
+  g.gain.setValueAtTime(V*0.54,t0+0.05);
+  g.gain.setValueAtTime(V,t0+0.075);
+  g.gain.setValueAtTime(V*0.54,t0+0.1);
+  g.gain.setValueAtTime(V*0.54,t0+0.15);
+  g.gain.linearRampToValueAtTime(0.0001,t0+0.158);
+  o.connect(g);g.connect(c.destination);
+  o.start(t0);o.stop(t0+0.17);
+}
 function sfx(name){
   if(state.sound===false)return;
   if(!ac())return;
   var t=audioCtx.currentTime;
   try{
-    if(name==='click')tone(t,920,0.05,'square',0.03);
+    if(name==='click')seSelect(t);
     else if(name==='save'){tone(t,660,0.07,'square',0.05);tone(t+0.08,880,0.1,'square',0.05);}
     else if(name==='hit')tone(t,210,0.11,'square',0.09,110);
     else if(name==='superhit'){tone(t,280,0.09,'square',0.11,90);tone(t+0.1,170,0.13,'square',0.1,60);}
@@ -8223,7 +8243,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v6.3 “Secret Base” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.3.1 “Secret Base” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
