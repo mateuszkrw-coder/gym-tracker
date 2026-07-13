@@ -1,6 +1,6 @@
 /* Gym Tracker service worker.
    Bump CACHE when you change any file, so installed phones pick up the update. */
-const CACHE = 'gym-tracker-v48';
+const CACHE = 'gym-tracker-v49';
 const TOWN_MAPS = ['viridian','pewter','cerulean','vermilion','celadon','fuchsia','saffron','cinnabar','indigo'];
 const HOENN_TOWN_MAPS = ['littleroot','rustboro','dewford','mauville','lavaridge','petalburg','fortree','mossdeep','sootopolis','evergrande'];
 const ARENAS = ['gym','grass','water','cave','pond','ice','sand','poison','teal','psychic'];
@@ -18,7 +18,10 @@ const HOENN_TRAINERS = ['brendan','may','birch','steven','roxanne','brawly','wat
   'anabel','tucker','spenser','greta','noland','lucy','brandon'];
 const HOENN_BADGES = ['stone','knuckle','dynamo','heat','balance','feather','mind','rain'];
 const ITEM_KEYS = ['potion','superpotion','hyperpotion','fullrestore','revive','pokeball','greatball','ultraball','luckyegg','hpup','protein','iron','calcium','zinc','carbos','rarecandy',
-  'charcoal','mysticwater','magnet','blackbelt','twistedspoon','sharpbeak','hardstone','scopelens','leftovers','expshare'];
+  'charcoal','mysticwater','magnet','blackbelt','twistedspoon','sharpbeak','hardstone','scopelens','leftovers','expshare',
+  /* v6.4: berries + shoal goods (PokeAPI item sprites) */
+  'cheriberry','chestoberry','pechaberry','rawstberry','aspearberry','figyberry','wikiberry','magoberry','aguavberry','iapapaberry',
+  'shellbell','shoalsalt','shoalshell'];
 const BADGE_TYPES = ['normal','fire','water','electric','grass','psychic','fighting','flying','poison','ground','rock','bug','ghost','ice','dragon','steel'];
 const NPCS = ['nurse','lass','boy','oldman','man','youngster','chef','jiggly'];
 const GYM_ROOMS = ['pewter','cerulean','vermilion','celadon','fuchsia','saffron','cinnabar','viridian','lorelei','bruno','agatha','lance','champion',
@@ -47,6 +50,9 @@ const ASSETS = [
   .concat(HOENN_IDS.map((i) => './sprites/shiny/' + i + '.png'))
   .concat(HOENN_IDS.map((i) => './sprites/back/' + i + '.png'))
   .concat(HOENN_IDS.map((i) => './sprites/back/shiny/' + i + '.png'))
+  /* v6.4: the Gen-3 party menu icons — tiny, and every TEAM/BOX list uses them */
+  .concat(MON_IDS.map((i) => './sprites/icons/' + i + '.png'))
+  .concat(HOENN_IDS.map((i) => './sprites/icons/' + i + '.png'))
   .concat(HOENN_TRAINERS.map((t) => './sprites/trainers/' + t + '.png'))
   .concat(HOENN_BADGES.map((b) => './sprites/badges/h-' + b + '.png'))
   .concat(HOENN_TOWN_MAPS.map((t) => './map/hoenn/' + t + '.png'))

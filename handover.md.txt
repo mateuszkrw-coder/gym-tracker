@@ -1,4 +1,4 @@
-Gym Tracker — Handover Document (current as of app v6.3.1 / sw v48 / schema v16, 2026-07-12)
+Gym Tracker — Handover Document (current as of app v6.4 / sw v49 / schema v17, 2026-07-13)
 
 ============================================================
 1. WHAT THIS IS
@@ -21,7 +21,7 @@ installed home-screen app isolated storage — a separate app couldn't read the 
 
 Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
 Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
-Current:   app v6.3.1 “Secret Base”, service-worker cache v48, data schema v16.
+Current:   app v6.4 “Contest Spectacular”, service-worker cache v49, data schema v17.
 
 ============================================================
 2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
@@ -121,6 +121,8 @@ map/                  — KANTO: 9 FRLG town maps, center.png, mart.png, kanto.p
                             pokearth hoenn-em/68) and bf-{tower,dome,palace,arena,
                             factory,pike,pyramid}.png cropped from it locally
 sprites/                  — front sprites {dexId}.png; shiny/, back/, back/shiny/ — 306 each
+  icons/{dexId}.png       — (v6.4) 306 Gen-3 party menu icons, pret decomp top frames,
+                            used by TEAM/BOX lists (fallback: front sprite), precached
   art/{dexId}.png         — 306 official Sugimori artworks, lazy-loaded, NOT precached
   trainers/               — KANTO cast + HOENN cast + (v6.1) archie, maxie, tabitha,
                             shelly, matt, aquagrunt, magmagrunt + (v6.2) the 7 BRAINS:
@@ -135,7 +137,11 @@ sounds/cries/, sounds/moves/  — audio (see §4)
 docs/poi-blueprints.md — older design notes
 
 ============================================================
-6. DATA MODEL  (state, localStorage key `gymtracker.v1`, schema version 14)
+6. DATA MODEL  (state, localStorage key `gymtracker.v1`, schema version 17)
+   v6.4 adds: state.bw:[{ts,w}] at the ROOT (bodyweight, shared across regions);
+   mons carry cond{cool..tough,sheen}? rib{cat:0..4}? tm[]? (tm now survives import);
+   poi gains garden{plots[6],bm} hall{wk,done} shoal{salt,shell,bell,got}
+   lotto{d} nav{d}; flags gains berrygift/conteststar (wholesale, no sanitizer work).
 ============================================================
 {
   version:14, unit, theme:'night'|'day', sound, gamePlayed, dev,
@@ -275,6 +281,10 @@ feebasTown() (the day's lucky pier), trickOf(). migrateState() runs at INIT.
   smooth .22s ease-out fade+rise (do not reintroduce steps() here). Town maps carry a 2-frame
   water shimmer: ONE .h2o div in mapHTML + one CSS block — both commented for easy
   removal if Mateusz dislikes it (he reserved judgment).
+• CONTEST SPECTACULAR (v6.4): CONTEST HALL (Petalburg) + BERRY GARDEN (Littleroot) +
+  POKENAV (TRAINER page) + LOTTERY (Dept. Store) + ROULETTE (Game Corner) + SHOAL
+  CAVE (Mossdeep) — all Hoenn; plus region-free BODY WEIGHT log, PR HALL, PR
+  THEATRE, 5 canon CARD STARS and Gen-3 party icons in TEAM/BOX. Full detail in §13.
 • THE MAGMA/AQUA ARC (v6.1): 8 chapters in game.flags.arc1..arc8, one per building
   (Devon → Weather Inst → Mt. Pyre → Magma Hideout → Aqua Hideout → Space Center →
   Seafloor Cavern → Sky Pillar). arcStage() gates everything; arcHint() prints the
@@ -426,7 +436,77 @@ Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanl
 ============================================================
 13. IMMEDIATE STATE
 ============================================================
-v6.3.1 SHIPPED 2026-07-12 from machine C (Desktop). Two changes, both by request:
+v6.4 “Contest Spectacular” SHIPPED 2026-07-13 from machine C (Desktop) — the biggest
+single release yet. Everything below is LIVE and preview-tested end-to-end:
+• CONTEST HALL (Petalburg, POI 'hall'): weekly contests in 5 categories mapped to REAL
+  muscle groups (catOfGroupName: tough=Legs+Fore arm, cool=Pecs+Triceps, beauty=Back,
+  cute=Biceps, smart=Shoulders+abs — muscle words match BEFORE motion words, and it's
+  "fore\s?arm" because the default group is spelled "Fore arm"). Condition =
+  pokéblock feed (mon.cond, permanent, sheen-capped 255) + this week's real sets ×4
+  (capped 120). One entry per category per week (poi.hall {wk,done}, lazy Monday
+  reset). Rank ladder NORMAL→SUPER→HYPER→MASTER per mon per category (mon.rib 0..4);
+  contest = visual round (condTotal vs 3 deterministic rivals, strHash(wk+cat+rank))
+  + 5 appeal rounds (move contest-types via CONTEST_MOVE_CAT, combo bonuses, light
+  RNG rolled state-first) → 3-modal theatre. Ribbons render as inline SVG rosettes
+  (ribbonSVG) on the mon sheet + PokéNav. All 5 MASTER on one mon → flags.conteststar.
+• BERRY GARDEN (Littleroot, POI 'garden'): 6 plots; growth = TRAINING DAYS since
+  planting (retroactive from daySetsMap, no page-open needed; ripe at 3). Harvest
+  2 (+1 on a 4-training-day week). 10 berries as bag ITEMS (5×tier-1 ₽200 at the
+  seed stand, 5×tier-2 from the weekly BERRY MASTER gift). Welcome basket once via
+  flags.berrygift. POKEBLOCK BLENDER lives on the hall page: berry+mon → permanent
+  cond gain ((18|30)+2×weekTrainDays), sheen +14/+22, blocks are instant (no block
+  inventory).
+• POKENAV (routed tab 'nav', Hoenn only, button on TRAINER page): MATCH CALL — one
+  deterministic daily rematch (navCaller: hash of day+startTs; kind 'call' injection;
+  win stamps poi.nav.d via poiTrainerWin tr.call branch); TRAINER'S EYES — gym leader
+  gallery with beaten state; CONDITION — party contest bars + ribbons.
+• LOTTERY (Dept. Store panel, Hoenn only): daily 5-digit draw (strHash of day+startTs)
+  vs each mon's hidden ticket (strHash of uid); trailing matches: 2=vitamin,
+  3=rare candy, 4=₽10k, 5=MASTER BALL. poi.lotto{d}. State-first, digit-reveal modal.
+• ROULETTE (Mauville Game Corner, Hoenn): SLOTS|ROULETTE seg (module global
+  cornerGame); 12 cells (4 species rows × 3 color cols), 5c a bet, pays 12×/4×/3×;
+  result rolled BEFORE the ball sweep (.roulon cell chase). Shares corner coins.
+• SHOAL CAVE (Mossdeep, POI 'shoal'): tide = parity of local epoch-day (tideLow);
+  collect 1 salt (low) or shell (high) per day (poi.shoal {salt,shell,got});
+  4+4 → forge SHELL BELL (held item: heals the fighter min(12% max HP, dmg/400)
+  after each set — shellBellStep beside leftoversStep in BOTH the wild and boss
+  paths). ICE ROOM: plain battle-catch wilds (Spheal 60/Snorunt 25/Zubat 10/Golbat 5).
+• TRACKER HALF: BODY WEIGHT page (tab 'body', from OPTION + CARD): state.bw at the
+  ROOT (shared across regions, sanitized in applyImport, capped 2000), SVG trend
+  chart, add/delete entries. PR HALL (tab 'prhall', from CARD): every exercise's
+  best as ranked plaques. PR THEATRE: every new record plays a full-screen
+  celebration (#prfx overlay, Sugimori art of the active mon, auto-dismiss 2.6s) —
+  fires from saveLogEntry OUTSIDE the game branch, so it works with no game too.
+• TRAINER CARD: 5 canon CARD STARS (champion / full dex / 7 frontier symbols /
+  contest star / 1M lifetime volume) as a gold-star row (canonStars), plus PR HALL
+  + BODY WEIGHT link buttons.
+• GEN-3 PARTY ICONS: sprites/icons/{dexId}.png — all 306, cropped top frames of
+  pret/pokeemerald graphics/pokemon/*/icon.png (they ARE correctly paletted; the
+  handover's old "palette-stripped" warning applies to tilesets, not icons).
+  TEAM rows + BOX grid render icons (monIconPath/monIconImg, onerror→battle sprite).
+  Precached in sw (~350B each).
+• PERF PASS: BOX/DEX grids lazy-load images (loading=lazy decoding=async), BOX
+  search debounced 120ms, lists moved from 2-3KB sprites to ~350B icons.
+• BUGFIXES: sanitizeGame now keeps mon.tm on import (taught TMs used to VANISH on
+  every restore — pre-existing since v6.1); catOfGroupName order fixed so "Leg
+  press"-style names stay TOUGH; hallPickCat revalidated against findMon (stale
+  uid after import/region switch).
+• Schema v17 (root bw init + stamp). sanitizeGame whitelists poi
+  garden/hall/shoal/lotto/nav + mon cond/rib/tm; game.flags rides wholesale
+  (berrygift/conteststar free). sw v49 precaches 306 icons + 13 item sprites
+  (10 berries, shellbell, shoalsalt, shoalshell — PokeAPI).
+• ART NOTE for machine A: hall/garden/shoal use arena-art banners + CSS chrome;
+  official Emerald interiors (Bulbapedia "Lilycove Contest Hall E.png" etc.) are a
+  5-minute polish fetch where Bulbapedia works (blocked on machines B+C).
+• Tested in the 8377 preview end-to-end (fresh boot schema v17; planted champion
+  save; garden plant/retro-growth/harvest/master; blender cond+sheen; full contest
+  → ribbon + week lock; shoal collect/forge/ice-chooser; lottery draw+lock;
+  roulette bet/sweep; PokéNav 3 views + LIVE Match Call fight through a real
+  workout set (victory, purse, nav stamp) + PR theatre overlay fired same set;
+  body/prhall/card; region switch parks everything; Kanto regression ZERO leakage;
+  import roundtrip 100% survival; day-theme POI palettes; zero console errors).
+
+Previous: v6.3.1 SHIPPED 2026-07-12 from machine C (Desktop). Two changes, both by request:
 • TAB TRANSITION REVERT: the v6.3 steps(4) GBA page wipe felt laggy on his phone —
   restored the exact v6.2 .pagein (fade + 8px rise, .22s ease-out; recovered
   byte-for-byte from git a4ad8d1). The trigger JS was untouched in both versions.
