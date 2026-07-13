@@ -1,4 +1,4 @@
-Gym Tracker — Handover Document (current as of app v6.4 / sw v49 / schema v17, 2026-07-13)
+Gym Tracker — Handover Document (current as of app v6.4.1 / sw v50 / schema v17, 2026-07-13)
 
 ============================================================
 1. WHAT THIS IS
@@ -21,7 +21,7 @@ installed home-screen app isolated storage — a separate app couldn't read the 
 
 Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
 Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
-Current:   app v6.4 “Contest Spectacular”, service-worker cache v49, data schema v17.
+Current:   app v6.4.1 “Contest Spectacular”, service-worker cache v50, data schema v17.
 
 ============================================================
 2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
@@ -361,7 +361,11 @@ feebasTown() (the day's lucky pier), trickOf(). migrateState() runs at INIT.
     3. bulbapedia.bulbagarden.net/wiki/Special:FilePath/<File>.png with browser UA
        (works on machine A; machine B must use Wayback: web.archive.org/web/2023id_/…)
     4. Serebii pokearth (serebii.net/pokearth/maps/hoenn-em/{id}.png)
-    5. pokemon.fandom.com API — MUST append &format=png or you get WebP
+    5. pokemon.fandom.com API — MUST append &format=png or you get WebP.
+       PROVEN on machine C (v6.4.1): action=parse&page=<Article>&prop=images lists a
+       page's files, then action=query&titles=File:X&prop=imageinfo&iiprop=url gives
+       the static.wikia URL. Gen-III interiors live on CITY articles as
+       "<City> - <Building> (Gen III).png" — not on the building's own page.
   Emerald interior/location screenshots are named "<Location> E.png" (or "1F E",
   "entrance E", "SE" for Sapphire/Emerald shares) on Bulbapedia — probe with the
   MediaWiki API (action=query&prop=images) when unsure.
@@ -436,7 +440,45 @@ Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanl
 ============================================================
 13. IMMEDIATE STATE
 ============================================================
-v6.4 “Contest Spectacular” SHIPPED 2026-07-13 from machine C (Desktop) — the biggest
+v6.4.1 SHIPPED 2026-07-13 from machine C (Desktop), all by request:
+• OFFICIAL INTERIORS: Contest Hall (map/poi/h-hall.png, 240×160 Gen-III lobby) +
+  Shoal Cave (h-shoal.png banner, h-shoalice.png inside THE ICE ROOM panel) — found
+  via the pokemon.fandom.com API on machine C (action=parse&prop=images on the
+  Lilycove_City / Shoal_Cave articles → imageinfo URL → &format=png). Bulbapedia is
+  Cloudflared on machine C; Fandom is NOT — add that to the art-route list. The
+  GARDEN keeps its CSS banner deliberately (original mechanic, no canon interior;
+  Fandom's Berry_Master.png is anime art — rejected).
+• ROAD/TRAINER-FIGHT SPRITE FIX (the "cut in half" bug): trainer/boss starts hide the
+  player's back sprite behind a 1730ms animation-delay with backwards fill (matz).
+  If iOS drops/stalls that delayed animation (VS-splash compositing, Low Power Mode),
+  NOTHING stripped the class until the first set — the mon stranded half-materialized.
+  sendOutFx now arms settleEntrance(spr,ms) — a token-guarded timer that force-removes
+  matz/wildin and clears the inline delay right after the entrance window (dly+950 for
+  balls, dly+700 for wilds). A newer entrance invalidates older timers (sendTok).
+• VS SPLASH FLIPPED to the classic FRLG arrangement: the opponent's blue banner rides
+  TOP (slides in first), your red banner rides BOTTOM (answers .12s later). One CSS
+  swap on #vsfx .vsl/.vsr — playVsFx untouched, covers roadblocks/bosses/POIs/brains.
+• UNLOCK THEATRE: every FEATURES announcement now bursts a PR-style full-screen
+  overlay first (playUnlockFx: #unlockfx, gold-blue, icon at 96px, 2.3s) and shows
+  the detail modal 1.9s in. NEW: fxHold — queueModal treats the fx gap as occupied,
+  or parallel announcements clobber each other (the modal queue only knew about
+  #modalwrap.open). Any future "fx then modal" flow MUST set/clear fxHold the same way.
+• PLACES DESIGN VOTE: poiPlacesDemoHTML renders THREE candidate looks stacked, in
+  KANTO CELADON ONLY (poiPlacesHTML branches on !inHoenn()&&t===4): STYLE 1 BIG ART
+  (92px cover image, name on a bottom gradient, chip top-right, sub underneath),
+  STYLE 2 POSTER GRID (2-col tiles, 70px image, centered name+chip, no sub),
+  STYLE 3 TICKET LIST (78×58 thumb, 6px palette-colored left spine, classic text).
+  All buttons live. WAITING ON MATEUSZ'S PICK — then apply the winner to every town
+  and DELETE the demo + this note.
+• Tested in the 8377 preview: parse gate; live road fight (splash: enemy top y14,
+  player bottom y374; sprite settles class-clean/76px/grounded at 2.6s); unlock fx
+  wiring proven via the delayed modal + CSS validated full-viewport; Celadon shows
+  all 3 styles (9 live buttons, style-2 tile tap navigates); town 3 keeps the classic
+  list; hall/shoal banners render the official art (LOW TIDE tag works); zero console
+  errors. NOTE: the Browser pane screenshot tool was wedged AGAIN this session —
+  geometry was verified via getBoundingClientRect, not pixels.
+
+Previous: v6.4 “Contest Spectacular” SHIPPED 2026-07-13 from machine C (Desktop) — the biggest
 single release yet. Everything below is LIVE and preview-tested end-to-end:
 • CONTEST HALL (Petalburg, POI 'hall'): weekly contests in 5 categories mapped to REAL
   muscle groups (catOfGroupName: tough=Legs+Fore arm, cool=Pecs+Triceps, beauty=Back,

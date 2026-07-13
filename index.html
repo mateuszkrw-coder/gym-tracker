@@ -165,6 +165,14 @@ html.theme-night .mapalert{background:#222A34;border-color:#10161E}
 #prfx.fade{opacity:0;transition:opacity .5s}
 @keyframes prpop{0%{transform:scale(.4);opacity:0}100%{transform:none;opacity:1}}
 @keyframes prtwinkle{0%,100%{opacity:1}50%{opacity:.35}}
+/* v6.4.1: the UNLOCK theatre wears the same stage in gold-blue */
+#unlockfx{position:fixed;inset:0;z-index:260;pointer-events:none;display:flex;align-items:center;justify-content:center}
+#unlockfx .prveil{position:absolute;inset:0;background:rgba(16,20,26,.72);animation:fadein .25s ease-out}
+#unlockfx .prcard{position:relative;text-align:center;animation:prpop .5s cubic-bezier(.2,1.4,.4,1)}
+#unlockfx .ulstars{font-size:20px;color:#78C8F8;letter-spacing:10px;animation:prtwinkle 1s infinite}
+#unlockfx .prtitle{font-family:'Press Start 2P';font-size:16px;margin-top:8px}
+#unlockfx .prline{font-family:VT323;font-size:24px;color:#FFF8F0;margin-top:6px;letter-spacing:1px}
+#unlockfx.fade{opacity:0;transition:opacity .5s}
 /* v6.4: the roulette ball sweep */
 .roulcell.roulon{background:#F8D030!important;box-shadow:0 0 0 2px #E8A010 inset}
 .dexcell:active{transform:scale(.95)}
@@ -572,10 +580,12 @@ html.theme-day #travelfx.hoenn .tfxsign{border-color:#2E8B48}
 #vsfx::before{content:'';position:absolute;inset:0;background:#10141A;opacity:.86}
 #vsfx .vsp{position:absolute;width:118%;height:46%;display:flex;align-items:center;gap:14px;
   padding:0 13%;box-sizing:border-box}
-#vsfx .vsl{top:2%;left:-4%;background:linear-gradient(105deg,#C03028 72%,transparent 72%);
-  transform:translateX(-105%);animation:vsin .36s ease-out forwards}
-#vsfx .vsr{bottom:2%;right:-4%;background:linear-gradient(-75deg,#3878C8 72%,transparent 72%);
-  justify-content:flex-end;transform:translateX(105%);animation:vsin .36s ease-out .12s forwards}
+/* v6.4.1: flipped to the classic FRLG arrangement — the CHALLENGER (you) rides the
+   bottom banner, the opponent looms on top */
+#vsfx .vsl{bottom:2%;left:-4%;background:linear-gradient(105deg,#C03028 72%,transparent 72%);
+  transform:translateX(-105%);animation:vsin .36s ease-out .12s forwards}
+#vsfx .vsr{top:2%;right:-4%;background:linear-gradient(-75deg,#3878C8 72%,transparent 72%);
+  justify-content:flex-end;transform:translateX(105%);animation:vsin .36s ease-out forwards}
 @keyframes vsin{to{transform:none}}
 #vsfx .vsp img{width:112px;height:112px;image-rendering:pixelated;filter:drop-shadow(0 3px 0 rgba(0,0,0,.35))}
 #vsfx .vsp span{font-family:'Press Start 2P';font-size:12px;color:#FFF8F0;line-height:1.5;
@@ -2335,8 +2345,11 @@ function addMon(sp,shiny){
   return m;
 }
 function totalVolumeAll(){var v=0;allLogsFlat().forEach(function(o){v+=o.l.w*o.l.r*o.l.s;});return v;}
+/* v6.4.1: fxHold marks the gap while an UNLOCK theatre plays before its modal —
+   the queue must treat that window as occupied or announcements clobber each other */
+var fxHold=false;
 function queueModal(f){
-  if($('#modalwrap').classList.contains('open'))modalQueue.push(f);
+  if(fxHold||$('#modalwrap').classList.contains('open'))modalQueue.push(f);
   else f();
 }
 function applyXP(mon,gain){
@@ -2580,18 +2593,24 @@ function checkGameEvents(){
   ensureDaily();
   ensureNpcq();
   // features reveal themselves as the journey advances — announce each ONCE
+  // (v6.4.1: the UNLOCK theatre bursts first, the details follow)
   FEATURES.forEach(function(f){
     if(g.flags['feat_'+f.k]||!f.cond())return;
     g.flags['feat_'+f.k]=1;changed=true;
     (function(f2){
       queueModal(function(){
+        fxHold=true;
+        playUnlockFx(f2.icon,f2.n);
         sfx('badge');
-        showModal('<div class="vbanner" style="font-size:13px;line-height:1.6">NEW FEATURE<br>UNLOCKED!</div>'+
-          '<div style="text-align:center;padding:6px 0"><img src="'+f2.icon+'" alt="" style="width:44px;height:44px;image-rendering:pixelated"></div>'+
-          '<h3 style="text-align:center">'+f2.n+'</h3>'+
-          '<p style="text-align:center">'+f2.d+'</p>'+
-          '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
-        modalOk=function(){closeModal();render(true);};
+        setTimeout(function(){
+          fxHold=false;
+          showModal('<div class="vbanner" style="font-size:13px;line-height:1.6">NEW FEATURE<br>UNLOCKED!</div>'+
+            '<div style="text-align:center;padding:6px 0"><img src="'+f2.icon+'" alt="" style="width:44px;height:44px;image-rendering:pixelated"></div>'+
+            '<h3 style="text-align:center">'+f2.n+'</h3>'+
+            '<p style="text-align:center">'+f2.d+'</p>'+
+            '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
+          modalOk=function(){closeModal();render(true);};
+        },1900);
       });
     })(f);
   });
@@ -4195,6 +4214,19 @@ function sprFx(sel,cls){
 }
 /* GBA send-out theatre: trainer-owned mons burst out of a ball; wilds pounce in.
    delay (ms) lets entrances wait for the VS splash or stagger enemy-then-player. */
+/* v6.4.1: the settle guard — if iOS drops or stalls the delayed entrance animation
+   (VS-splash compositing, Low Power Mode), the sprite used to strand half-materialized
+   ("cut in half") until the first set. This forces the final grounded state on time. */
+var sendTok=0;
+function settleEntrance(spr,ms){
+  var tok=++sendTok;
+  spr.dataset.sendTok=tok;
+  setTimeout(function(){
+    if(spr.dataset.sendTok!==String(tok))return; // a newer entrance took over
+    spr.classList.remove('matz','wildin');
+    spr.style.animationDelay='';
+  },ms);
+}
 function sendOutFx(side,kind,delay){
   delay=delay||0;
   var spr=bq(side==='player'?'.bt-pspr':'.bt-espr');if(!spr)return;
@@ -4204,6 +4236,7 @@ function sendOutFx(side,kind,delay){
   if(kind==='wild'){
     if(delay)spr.style.animationDelay=delay+'ms';
     spr.classList.add('wildin');
+    settleEntrance(spr,delay+700);
     return;
   }
   var sc=bq(side==='player'?'.bt-pscene':'.bt-scene');
@@ -4221,6 +4254,7 @@ function sendOutFx(side,kind,delay){
   }
   spr.style.animationDelay=(280+delay)+'ms';
   spr.classList.add('matz');
+  settleEntrance(spr,delay+950);
   setTimeout(function(){sfx('ballopen');},300+delay);
 }
 /* battle-start entrances, queued by the render that draws the fresh panel */
@@ -5649,11 +5683,11 @@ var HOENN_POIS=[
     st:function(){var p=poiOf('garden'),n=0,r=0;(p.plots||[]).forEach(function(pl){if(pl){n++;if(gardenStage(pl)>=3)r++;}});return r?r+' RIPE!':(n?n+' growing':'');}},
   /* v6.4: the CONTEST HALL — weekly contests, POKEBLOCKS, ribbons */
   {k:'hall',town:5,n:'CONTEST HALL',sub:'Weekly contests in five categories — win RIBBONS',icon:'sprites/300.png',
-    img:'sprites/arenas/teal.png',pal:{c:'#C04888',bg:'#F2D8E6',pb:'#F9EBF2',bx:'#FCF3F8'},
+    img:'map/poi/h-hall.png',pal:{c:'#C04888',bg:'#F2D8E6',pb:'#F9EBF2',bx:'#FCF3F8'},
     st:function(){var n=0,mx=0;(state.game.mons||[]).forEach(function(m){if(m.rib)CONTEST_CATS.forEach(function(c){n+=(m.rib[c[0]]||0);if((m.rib[c[0]]||0)>mx)mx=m.rib[c[0]];});});return n?n+' RIB':'';}},
   /* v6.4: SHOAL CAVE — tides by day, salts + shells, an icy back room */
   {k:'shoal',town:7,n:'SHOAL CAVE',sub:'The tide turns daily — salts, shells and cold air',icon:'sprites/363.png',
-    img:'sprites/arenas/ice.png',pal:{c:'#4888C0',bg:'#D4E4F2',pb:'#EAF2F9',bx:'#F2F8FC'},
+    img:'map/poi/h-shoal.png',pal:{c:'#4888C0',bg:'#D4E4F2',pb:'#EAF2F9',bx:'#F2F8FC'},
     st:function(){var p=poiOf('shoal');return p.bell?'BELL ✓':((p.salt||0)+'s/'+(p.shell||0)+'sh');}},
   /* v6.3: the SECRET BASE — scoutable anywhere, then it lives where you built it */
   {k:'base',town:0,dt:function(){return (state.game&&state.game.base&&BASE_SPOTS[state.game.base.spot])?BASE_SPOTS[state.game.base.spot].town:curTown();},
@@ -5843,12 +5877,7 @@ function hallHTML(){
   var p=hallOf();
   var h='<div class="titlebar"><h1>CONTEST HALL</h1></div>'+
     '<div class="subtitle">PETALBURG — “Set the stage! Strike the pose!”</div>'+
-    /* the stage: red curtains, warm boards, a spotlight — CSS only */
-    '<div class="panel" style="padding:0;overflow:hidden;border-color:#C04888">'+
-    '<div style="height:74px;background:linear-gradient(180deg,#C82838 0%,#A81830 46%,#881028 100%);position:relative">'+
-    '<div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(0,0,0,.18) 0 12px,transparent 12px 26px)"></div>'+
-    '<div style="position:absolute;left:50%;top:0;width:120px;height:74px;transform:translateX(-50%);background:radial-gradient(ellipse at 50% 0%,rgba(255,244,200,.5),transparent 70%)"></div></div>'+
-    '<div style="height:26px;background:linear-gradient(180deg,#D8A868,#C08848);border-top:3px solid #7A5020"></div></div>';
+    poiBanner('hall','LILYCOVE CONTEST HALL'); /* official Gen-3 interior (v6.4.1) */
   var week=weekTrainDays();
   /* pick your star */
   var party=battleParty(),am=activeMon();
@@ -6026,10 +6055,7 @@ function shoalHTML(){
   var low=tideLow(),today=todayKey(),got=p.got===today;
   var h='<div class="titlebar"><h1>SHOAL CAVE</h1></div>'+
     '<div class="subtitle">MOSSDEEP — the sea breathes in and out</div>'+
-    '<div class="panel" style="padding:0;overflow:hidden;border-color:#4888C0">'+
-    '<div style="height:64px;position:relative;background:linear-gradient(180deg,'+(low?'#B8D8E8 0%,#8FB8D0 60%,#C8B890 100%':'#5888B8 0%,#3868A0 70%,#2A5488 100%')+')">'+
-    '<div style="position:absolute;left:0;right:0;bottom:0;height:'+(low?10:30)+'px;background:linear-gradient(180deg,rgba(56,120,200,.55),rgba(30,80,150,.75))"></div>'+
-    '<div style="position:absolute;left:12px;top:10px;font-family:\'Press Start 2P\';font-size:11px;color:#FFF8F0;text-shadow:1px 1px 0 #2A5488">'+(low?'LOW TIDE':'HIGH TIDE')+'</div></div></div>';
+    poiBanner('shoal',low?'LOW TIDE':'HIGH TIDE'); /* official interior (v6.4.1) */
   h+='<div class="panel"><h3>THE TIDE POOLS</h3>'+
     '<div class="plv" style="margin-bottom:4px;white-space:normal">'+(low
       ?'The water pulled back — SHOAL SALT glitters in the dry hollows. The tide turns tomorrow.'
@@ -6057,6 +6083,7 @@ function shoalHTML(){
       (can?'<button class="btn acc" data-action="shoal-forge">FORGE</button>':'<span class="plv" style="flex:none">'+(p.salt||0)+'/4 · '+(p.shell||0)+'/4</span>')+'</div></div>';
   }
   h+='<div class="panel"><h3>THE ICE ROOM</h3>'+
+    '<img src="map/poi/h-shoalice.png" alt="" style="width:100%;height:62px;object-fit:cover;object-position:50% 30%;image-rendering:pixelated;border-radius:6px;border:2px solid var(--bord);display:block;margin-bottom:6px">'+
     '<div class="plv" style="margin-bottom:4px;white-space:normal">Cold air rolls out of the deepest chamber. SPHEAL and SNORUNT nest here — fight or catch, your call.</div>'+
     '<div style="display:flex;gap:8px">'+
     '<img src="'+sprPath('spheal',false)+'" alt="" style="width:34px;height:34px;image-rendering:pixelated">'+
@@ -6326,6 +6353,21 @@ function prhallHTML(){
       '<div class="plv" style="font-size:11px;margin-top:2px">'+esc(state.unit)+' × '+b.r+'</div></div></div>';
   });
   return h+'<div class="panel"><h3>THE PLAQUES<span class="bestchip">'+bests.length+'</span></h3>'+rows+'</div>';
+}
+/* v6.4.1: the UNLOCK theatre — new places burst open like records do */
+function playUnlockFx(icon,name){
+  var old=document.getElementById('unlockfx');if(old)old.remove();
+  var el=document.createElement('div');
+  el.id='unlockfx';
+  el.innerHTML='<div class="prveil"></div>'+
+    '<div class="prcard">'+
+    '<div class="ulstars">✦ ✦ ✦</div>'+
+    '<img src="'+icon+'" alt="" style="width:96px;height:96px;image-rendering:pixelated;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))">'+
+    '<div class="prtitle" style="color:#78C8F8;text-shadow:2px 2px 0 #204058">UNLOCKED!</div>'+
+    '<div class="prline">'+name+'</div></div>';
+  document.body.appendChild(el);
+  setTimeout(function(){el.classList.add('fade');},1750);
+  setTimeout(function(){el.remove();},2300);
 }
 /* the full-screen record celebration — plays over whatever else is happening */
 function playPrFx(exName,w){
@@ -6907,9 +6949,65 @@ function poiBanner(k,tag){
 function poiTowerWeek(p){
   if(p.weekKey!==wkKey()){p.weekKey=wkKey();p.floor=0;save();}
 }
+/* v6.4.1: THREE candidate looks for the PLACES list, demoed in CELADON only —
+   Mateusz picks his favourite, then that one ships to every town (and this demo dies) */
+function poiPlacesDemoHTML(list){
+  var h='';
+  /* ---- STYLE 1: BIG ART — the interior takes the stage, name on a film strip ---- */
+  h+='<div class="panel"><h3>PLACES <span class="bestchip">STYLE 1 · BIG ART</span></h3>';
+  list.forEach(function(p){
+    var chip=p.st?p.st():'';
+    h+='<button class="prow" data-action="poi-open" data-k="'+p.k+'" style="display:block;padding:0;overflow:hidden;margin-top:8px">'+
+      '<div style="position:relative">'+
+      '<img src="'+p.img+'" alt="" style="width:100%;height:92px;object-fit:cover;image-rendering:pixelated;display:block">'+
+      '<div style="position:absolute;inset:auto 0 0 0;background:linear-gradient(180deg,transparent,rgba(10,14,20,.82));padding:18px 10px 6px;text-align:left">'+
+      '<span style="font-family:\'Press Start 2P\';font-size:11px;color:#FFF8F0;text-shadow:1px 1px 0 rgba(0,0,0,.6)">'+p.n+'</span></div>'+
+      (chip?'<span class="bestchip" style="position:absolute;top:6px;right:6px;background:var(--boxw)">'+chip+'</span>':'')+
+      '</div>'+
+      '<div class="plv" style="padding:6px 10px;text-align:left;white-space:normal;line-height:1.25">'+p.sub+'</div></button>';
+  });
+  h+='</div>';
+  /* ---- STYLE 2: POSTER GRID — two tidy tiles per row, tap to enter ---- */
+  h+='<div class="panel"><h3>PLACES <span class="bestchip">STYLE 2 · POSTER GRID</span></h3>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">';
+  list.forEach(function(p){
+    var chip=p.st?p.st():'';
+    var ac=(p.pal&&p.pal.c)||'var(--bord)';
+    h+='<button class="prow" data-action="poi-open" data-k="'+p.k+'" style="display:block;padding:0;overflow:hidden;margin:0;border-color:'+ac+'">'+
+      '<img src="'+p.img+'" alt="" style="width:100%;height:70px;object-fit:cover;image-rendering:pixelated;display:block">'+
+      '<div style="padding:6px 6px 7px;text-align:center">'+
+      '<div class="pname" style="font-size:12px;line-height:1.3">'+p.n+'</div>'+
+      (chip?'<div class="plv" style="margin-top:3px;color:'+ac+'">'+chip+'</div>':'')+
+      '</div></button>';
+  });
+  h+='</div></div>';
+  /* ---- STYLE 3: TICKET LIST — the classic row, bigger art, mood-colored spine ---- */
+  h+='<div class="panel"><h3>PLACES <span class="bestchip">STYLE 3 · TICKET LIST</span></h3>';
+  list.forEach(function(p){
+    var chip=p.st?p.st():'';
+    var ac=(p.pal&&p.pal.c)||'var(--bord)';
+    h+='<button class="prow" data-action="poi-open" data-k="'+p.k+'" style="padding:0;overflow:hidden;border-left:6px solid '+ac+';margin-top:8px">'+
+      '<img src="'+p.img+'" alt="" style="width:78px;height:58px;object-fit:cover;image-rendering:pixelated;flex:none;display:block">'+
+      '<div style="flex:1;min-width:0;padding:6px 8px"><div class="pname" style="font-size:15px">'+p.n+'</div>'+
+      '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">'+p.sub+'</div></div>'+
+      (chip?'<span class="bestchip" style="flex:none;margin-right:8px;border-color:'+ac+';color:'+ac+'">'+chip+'</span>':'')+
+      '</button>';
+  });
+  h+='<div class="plv" style="margin-top:8px">Three looks, same doors — tell me which one should dress every town.</div></div>';
+  return h;
+}
 function poiPlacesHTML(){
   if(!state.game)return '';
-  var t=curTown(),rows='';
+  var t=curTown(),rows='',demoList=[];
+  if(!inHoenn()&&t===4){
+    POIS.forEach(function(p){
+      var pt=p.dt?p.dt():p.town;
+      if(pt!==t&&!(p.towns&&p.towns.indexOf(t)>=0))return;
+      if(p.gate&&!p.gate())return; // Celadon has no gated doors — demo skips them anyway
+      demoList.push(p);
+    });
+    if(demoList.length)return poiPlacesDemoHTML(demoList);
+  }
   POIS.forEach(function(p){
     var pt=p.dt?p.dt():p.town; // v6.3: the SECRET BASE lives wherever you built it
     if(pt!==t&&!(p.towns&&p.towns.indexOf(t)>=0))return;
@@ -9061,7 +9159,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v6.4 “Contest Spectacular” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.4.1 “Contest Spectacular” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
