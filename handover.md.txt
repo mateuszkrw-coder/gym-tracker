@@ -1,4 +1,4 @@
-Gym Tracker — Handover Document (current as of app v6.4.1 / sw v50 / schema v17, 2026-07-13)
+Gym Tracker — Handover Document (current as of app v6.5 / sw v51 / schema v17, 2026-07-13)
 
 ============================================================
 1. WHAT THIS IS
@@ -21,7 +21,7 @@ installed home-screen app isolated storage — a separate app couldn't read the 
 
 Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
 Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
-Current:   app v6.4.1 “Contest Spectacular”, service-worker cache v50, data schema v17.
+Current:   app v6.5 “Night Life”, service-worker cache v51, data schema v17.
 
 ============================================================
 2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
@@ -419,7 +419,10 @@ the handover wins; update the local memory to match.
   he asks knowing the tradeoffs (Gen-5 style only, ~25 MB, clashes with FRLG look).
 • No harsh punishment — rest days cost nothing. Approved exceptions: boss blackout
   +25%, Battle Tower streak reset, 10h Center heals, safari flee-on-fail.
-• Night theme is DONE — do NOT restyle it. All skins/palettes are day-only.
+• Night theme: REDONE in v6.5 at Mateusz's explicit request (the old “locked” note
+  is void). The v6.5 token set (§13) is the new baseline — don't restyle again
+  unless he asks. All biome/building skins/palettes remain DAY-only (applySkin
+  still returns early at night).
 • One points-currency: BATTLE POINTS (Battle Tower + Pokéathlon; BP shop at the Tower).
 • Weather is art-only, BOTH regions, forecast board included (locked, he said no
   weather-gated mechanics).
@@ -440,7 +443,40 @@ Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanl
 ============================================================
 13. IMMEDIATE STATE
 ============================================================
-v6.4.1 SHIPPED 2026-07-13 from machine C (Desktop), all by request:
+v6.5 “Night Life” SHIPPED 2026-07-13 from machine C (Desktop), all by request:
+• PLACES = STYLE 1 “BIG ART” EVERYWHERE (Mateusz's pick): full-width interior art
+  (92px cover) with the name on a bottom gradient strip, status chip top-right, sub
+  text under the card; locked doors render as dark silhouette cards with their
+  gateTxt hint. The Celadon 3-style demo is DELETED (poiPlacesDemoHTML is gone).
+• THE THEATRE FAMILY grew: playTownFx (badge win → the newly-opened town's map art
+  framed in gold, then a SET SAIL town card — the old badge-modal town sentence
+  moved there), playHatchFx (egg wobbles → white burst → newborn pops + reveal
+  modal replaces the old two-modal chain), playFinishFx (end-workout: TRAINING
+  DONE! + duration over the ace's art, then a REDESIGNED recap modal: vbanner +
+  2×2 stat tile grid + purse row). ALL fx-then-modal flows use the fxHold gate.
+• MODALS MODERNIZED globally: springy rise-in (.34s cubic-bezier(.2,1.25,.4,1)),
+  deep drop shadow, blurred backdrop (backdrop-filter 3px).
+• NIGHT THEME REDONE (Mateusz lifted the old “night is locked” rule himself —
+  §11 note superseded): proper dark-theme tokens per Material guidance — bg
+  #0E1116 (near-black blue, matches the meta theme-color now), elevation steps
+  #141A21 → #1A212B → #232B37, borders #3A4656 slate (the day theme's orange
+  no longer burns on dark), text #E7ECF2/#93A0B4 (~88%/60%), desaturated night
+  accents (--red #E5726A coral, --accent #4FAE72, --gold #E2B85C, --hp/--exp
+  softened), warm-tinted acc buttons (#2E2018 + #F0B896 text).
+• NIGHT TOWNS: fixed a LONG-broken rule — `filter:var(--townf,none) brightness(…)`
+  resolved INVALID at computed-value time (--townf never existed), which reset
+  filter to none, so town maps were never dimmed at night. Now a real moonlight
+  pass: brightness(.55) saturate(.68) contrast(1.05) + a radial moon-glow /
+  deep-blue gradient veil (mapwrap::after). Lesson: never chain var() with a
+  'none' fallback into a filter list.
+• BACK-SPRITE HARDENING (the recurring “cut in half”): alignBack's canvas pad
+  scan can return an ALL-TRANSPARENT read on iOS under memory pressure — pad
+  then measured the whole sprite and placeBack sank the mon 40-78px below the
+  floor, CACHED for the fight. Now: an empty scan counts as pad 0, and pad
+  clamps to 18 rows max. (Plus v6.4.1's settleEntrance guard for the stall case.)
+• sw v51. Version string v6.5 “Night Life”.
+
+Previous: v6.4.1 SHIPPED 2026-07-13 from machine C (Desktop), all by request:
 • OFFICIAL INTERIORS: Contest Hall (map/poi/h-hall.png, 240×160 Gen-III lobby) +
   Shoal Cave (h-shoal.png banner, h-shoalice.png inside THE ICE ROOM panel) — found
   via the pokemon.fandom.com API on machine C (action=parse&prop=images on the

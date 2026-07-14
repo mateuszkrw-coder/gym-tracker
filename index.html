@@ -34,8 +34,15 @@
   --muted:#787878;
   --radius:6px;
 }
-html.theme-night{--bg:#141A22;--ink:#E8F0F8;--inkmut:#8898B0;
-  --cream:#222B38;--cream2:#1B2330;--boxw:#2A3442;--text:#E4ECF4;--mut:#9AA8BC}
+/* v6.5 NIGHT REDO — proper dark-theme tokens (Material dark guidance):
+   near-black blue-tinted base (never pure black), THREE elevation steps
+   (page < panel < box), desaturated accents (saturated day colors vibrate
+   on dark), text at ~88% / ~60% white equivalents, soft slate borders
+   instead of the day theme's blazing FireRed orange. */
+html.theme-night{--bg:#0E1116;--ink:#EDF1F6;--inkmut:#93A0B4;
+  --cream:#1A212B;--cream2:#141A21;--boxw:#232B37;--text:#E7ECF2;--mut:#93A0B4;
+  --bord:#3A4656;--frame:#2A3442;--red:#E5726A;--gold:#E2B85C;
+  --hp:#5FC97B;--exp:#6FA8F5;--accent:#4FAE72}
 html.theme-day{--bg:#E4E8EE;--ink:#283038;--inkmut:#5A6878}
 /* EMERALD (Hoenn) skin — DAY theme only, night stays untouched by design.
    Official Emerald window look: soft green page, deep green-teal frames, gold accent */
@@ -43,15 +50,19 @@ html.theme-day.hoenn{--bg:#DCEAE0;--cream2:#E2F0E4;--bord:#20885C;--accent:#1880
 html.theme-day.hoenn #tabbar button.on{background:#DFF2E6;border-color:#20885C}
 html.theme-day.hoenn .btn.acc{background:#E4F4EA}
 /* night: the WHOLE UI goes dark — boxes, buttons, battle databoxes, the lot */
-html.theme-night .card.done{background:#26303E;border-color:#46525F}
-html.theme-night #tabbar button.on{background:#4A2A1E}
-html.theme-night .btn.acc{background:#4A2A1E}
-html.theme-night .databox{background:rgba(26,34,46,.92)}
-html.theme-night .statrow{border-bottom-color:rgba(255,255,255,.14)}
-html.theme-night .todaylist{border-top-color:rgba(255,255,255,.16)}
-html.theme-night .dot{border-color:rgba(255,255,255,.28)}
-/* moonlight over every town (and the POKEMON CENTER floor) */
-html.theme-night .mapwrap::after{content:'';position:absolute;inset:0;background:rgba(46,72,140,.22);pointer-events:none}
+html.theme-night .card.done{background:#1E2833;border-color:#39485A}
+html.theme-night #tabbar button.on{background:#2E2018;border-color:#5A4030}
+html.theme-night .btn.acc{background:#2E2018;border-color:#5A4030;color:#F0B896}
+html.theme-night .databox{background:rgba(20,26,34,.94)}
+html.theme-night .statrow{border-bottom-color:rgba(255,255,255,.09)}
+html.theme-night .todaylist{border-top-color:rgba(255,255,255,.10)}
+html.theme-night .dot{border-color:rgba(255,255,255,.22)}
+html.theme-night .panel,html.theme-night .prow{box-shadow:0 1px 0 rgba(0,0,0,.35)}
+/* proper NIGHT falls over every town: deep-blue moonlight, cool shadows,
+   a faint glow along the horizon — the same official maps, asleep */
+html.theme-night .mapwrap::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% -10%,rgba(120,150,220,.12),transparent 55%),
+    linear-gradient(180deg,rgba(24,36,74,.30),rgba(16,24,52,.38))}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);
   font-family:'VT323','Courier New',monospace;
@@ -132,7 +143,7 @@ button.card:active{background:var(--cream2)}
 .qreveal .panel:nth-of-type(2){animation-delay:.19s}
 .qreveal .panel:nth-of-type(3){animation-delay:.26s}
 .qreveal .panel:nth-of-type(n+4){animation-delay:.32s}
-html.theme-night .mapwrap img{filter:brightness(.62) saturate(.85)}
+html.theme-night .mapwrap img{filter:brightness(.55) saturate(.68) contrast(1.05)}
 .hotspot{position:absolute;background:none;border:none;display:flex;align-items:flex-end;justify-content:center;padding:0;cursor:pointer}
 .npc{position:absolute;width:16px;image-rendering:pixelated;pointer-events:none;transform:translate(-50%,-100%);z-index:1}
 .hotspot:active{background:rgba(255,255,255,.25)}
@@ -150,8 +161,10 @@ html.theme-night .mapalert{background:#222A34;border-color:#10161E}
 @keyframes fxflash{0%{background:rgba(248,248,240,.95)}12%{background:transparent}24%{background:rgba(248,248,240,.95)}36%{background:transparent}48%{background:#10141A}100%{background:transparent}}
 @keyframes pagein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 #view.pagein{animation:pagein .22s ease-out}
-@keyframes modalin{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
-.modal{animation:modalin .18s ease-out}
+/* v6.5: popups pop — springy rise-in, and the world blurs softly behind them */
+@keyframes modalin{from{opacity:0;transform:scale(.86) translateY(16px)}to{opacity:1;transform:none}}
+.modal{animation:modalin .34s cubic-bezier(.2,1.25,.4,1);box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.backdrop{backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
 .backdrop{animation:fadein .2s ease-out}
 /* v6.4: the PR THEATRE — a record deserves a spotlight (both themes) */
@@ -165,14 +178,29 @@ html.theme-night .mapalert{background:#222A34;border-color:#10161E}
 #prfx.fade{opacity:0;transition:opacity .5s}
 @keyframes prpop{0%{transform:scale(.4);opacity:0}100%{transform:none;opacity:1}}
 @keyframes prtwinkle{0%,100%{opacity:1}50%{opacity:.35}}
-/* v6.4.1: the UNLOCK theatre wears the same stage in gold-blue */
-#unlockfx{position:fixed;inset:0;z-index:260;pointer-events:none;display:flex;align-items:center;justify-content:center}
-#unlockfx .prveil{position:absolute;inset:0;background:rgba(16,20,26,.72);animation:fadein .25s ease-out}
-#unlockfx .prcard{position:relative;text-align:center;animation:prpop .5s cubic-bezier(.2,1.4,.4,1)}
-#unlockfx .ulstars{font-size:20px;color:#78C8F8;letter-spacing:10px;animation:prtwinkle 1s infinite}
-#unlockfx .prtitle{font-family:'Press Start 2P';font-size:16px;margin-top:8px}
-#unlockfx .prline{font-family:VT323;font-size:24px;color:#FFF8F0;margin-top:6px;letter-spacing:1px}
-#unlockfx.fade{opacity:0;transition:opacity .5s}
+/* v6.4.1/v6.5: the theatre family — unlock, new town, egg hatch, training done */
+#unlockfx,#townfx,#hatchfx,#finfx{position:fixed;inset:0;z-index:260;pointer-events:none;display:flex;align-items:center;justify-content:center}
+#unlockfx .prveil,#townfx .prveil,#hatchfx .prveil,#finfx .prveil{position:absolute;inset:0;background:rgba(16,20,26,.72);animation:fadein .25s ease-out}
+#unlockfx .prcard,#townfx .prcard,#hatchfx .prcard,#finfx .prcard{position:relative;text-align:center;animation:prpop .5s cubic-bezier(.2,1.4,.4,1)}
+#unlockfx .ulstars,#townfx .ulstars{font-size:20px;color:#78C8F8;letter-spacing:10px;animation:prtwinkle 1s infinite}
+#unlockfx .prtitle,#townfx .prtitle,#hatchfx .prtitle,#finfx .prtitle{font-family:'Press Start 2P';font-size:16px;margin-top:8px;color:#F8D030;text-shadow:2px 2px 0 #584808}
+#unlockfx .prline,#townfx .prline{font-family:VT323;font-size:24px;color:#FFF8F0;margin-top:6px;letter-spacing:1px}
+#finfx .prstars{font-size:22px;color:#F8D030;letter-spacing:8px;animation:prtwinkle 1s infinite}
+#finfx .prw{font-family:'Press Start 2P';font-size:20px;color:#FFF8F0;margin-top:6px}
+#unlockfx.fade,#townfx.fade,#hatchfx.fade,#finfx.fade{opacity:0;transition:opacity .5s}
+/* the hatch: egg wobbles + sinks away in a white burst, the newborn pops in its place */
+#hatchfx .hegg{animation:heggk 1.65s ease-in-out forwards}
+@keyframes heggk{0%,18%{transform:none}24%{transform:rotate(-9deg)}30%{transform:rotate(8deg)}
+  36%{transform:rotate(-7deg)}42%{transform:rotate(6deg)}52%{transform:none}
+  60%{transform:rotate(-10deg) scale(1.04)}68%{transform:rotate(9deg) scale(1.06)}
+  86%{transform:scale(1.1);opacity:1}100%{transform:scale(.2);opacity:0}}
+#hatchfx .hburst{position:absolute;left:50%;top:44%;width:10px;height:10px;border-radius:50%;
+  background:#FFF8F0;transform:translate(-50%,-50%) scale(0);animation:hburstk .5s ease-out 1.55s forwards}
+@keyframes hburstk{0%{transform:translate(-50%,-50%) scale(0);opacity:1}
+  70%{transform:translate(-50%,-50%) scale(22);opacity:.95}100%{transform:translate(-50%,-50%) scale(30);opacity:0}}
+#hatchfx .hmon{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(0);
+  animation:hmonk .45s cubic-bezier(.2,1.5,.4,1) 1.7s forwards}
+@keyframes hmonk{to{transform:translate(-50%,-50%) scale(1)}}
 /* v6.4: the roulette ball sweep */
 .roulcell.roulon{background:#F8D030!important;box-shadow:0 0 0 2px #E8A010 inset}
 .dexcell:active{transform:scale(.95)}
@@ -433,7 +461,9 @@ button.dexcell{display:block;width:100%;font:inherit;white-space:normal}
 @keyframes fxleaf{0%{opacity:0;background:linear-gradient(100deg,transparent 40%,rgba(120,200,80,.45) 50%,transparent 60%)}
   45%{opacity:1;background:linear-gradient(100deg,transparent 8%,rgba(120,200,80,.5) 50%,transparent 92%)}100%{opacity:0}}
 .mapwrap img.mapimg{filter:var(--townf,none)}
-html.theme-night .mapwrap img.mapimg{filter:var(--townf,none) brightness(.62) saturate(.85)}
+/* v6.5: --townf was a dead hook — var() made this rule resolve INVALID at
+   computed-value time, which reset filter to none (night dim silently broken) */
+html.theme-night .mapwrap img.mapimg{filter:brightness(.55) saturate(.68) contrast(1.05)}
 /* official FRLG battle scene: fixed 240:112 stage, sprites on the ground,
    compact databoxes, text box glued underneath */
 .arenabg{position:relative;aspect-ratio:240/112;background-size:cover;background-position:center;
@@ -469,7 +499,7 @@ html.theme-night .mapwrap img.mapimg{filter:var(--townf,none) brightness(.62) sa
 /* the training screen wears green; boss fights keep the FireRed frame */
 .livebar.mode-train{border-bottom-color:#2E8B48}
 .btwrap.mode-train>.panel{border-color:#2E8B48;background:#EAF6EA}
-html.theme-night .btwrap.mode-train>.panel{background:#18261C;border-color:#2E6B48}
+html.theme-night .btwrap.mode-train>.panel{background:#15201A;border-color:#35604A}
 .btwrap.mode-train .btmemo{border-color:#2E8B48}
 /* road-trainer fights inherit the biome vars set by applySkin — no hardcoded green */
 .btwrap.mode-road>.panel{border-color:var(--bord);background:var(--cream)}
@@ -1016,21 +1046,32 @@ function endWorkout(){
   var cut=0;
   if(state.game&&st.volume){cut=Math.round(st.volume/20);addMoney(cut);}
   save();render();
+  /* v6.5: the FINISH theatre plays first, then the recap card slides up */
   sfx('victory');
   var amEnd=state.game?activeMon():null;
-  function srow(icon,label,val){
-    return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:20px">'+
-      '<img src="'+itemIcon(icon)+'" alt="" style="width:20px;height:20px;image-rendering:pixelated;flex:none">'+
-      '<span style="flex:1;color:var(--mut)">'+label+'</span><b>'+val+'</b></div>';
+  fxHold=true;
+  playFinishFx(fmtDur(end-ses.start));
+  function tile(icon,val,label,col){
+    return '<div style="background:var(--boxw);border:2px solid var(--bord);border-radius:8px;padding:8px 4px;text-align:center;min-width:0">'+
+      '<img src="'+itemIcon(icon)+'" alt="" style="width:20px;height:20px;image-rendering:pixelated">'+
+      '<div style="font-family:\'Press Start 2P\';font-size:10px;margin-top:5px;color:'+col+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+val+'</div>'+
+      '<div class="plv" style="margin-top:3px">'+label+'</div></div>';
   }
-  showModal('<h3 style="text-align:center">Workout complete! 💪</h3>'+
-    (amEnd?'<div style="text-align:center;padding:2px 0 6px"><img class="bigspr'+(amEnd.shiny?' shinyglow':'')+'" src="'+sprPath(amEnd.sp,amEnd.shiny)+'" alt="" style="width:72px;height:72px"></div>':'')+
-    srow('greatball','Duration',fmtDur(end-ses.start))+
-    srow('protein','Exercises · Sets',st.exercises+' · '+st.sets)+
-    srow('iron','Volume',fmtVol(st.volume)+' '+esc(state.unit))+
-    (ses.xpg?srow('luckyegg','XP earned','+'+ses.xpg):'')+
-    (cut?srow('pokeball','Purse','₽'+cut.toLocaleString()):'')+
-    '<div class="mbtns"><button class="btn acc" data-action="close-modal">DONE</button></div>');
+  setTimeout(function(){
+    fxHold=false;
+    showModal('<div class="vbanner" style="font-size:13px;line-height:1.6">WORKOUT<br>COMPLETE!</div>'+
+      (amEnd?'<div style="text-align:center;padding:4px 0 6px"><img class="bigspr'+(amEnd.shiny?' shinyglow':'')+'" src="'+sprPath(amEnd.sp,amEnd.shiny)+'" alt="" style="width:64px;height:64px"></div>':'')+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 2px">'+
+      tile('greatball',fmtDur(end-ses.start),'duration','#3878C8')+
+      tile('protein',st.exercises+' · '+st.sets,'exercises · sets','#C04828')+
+      tile('iron',fmtVol(st.volume),esc(state.unit)+' moved','#7848B0')+
+      tile('luckyegg',ses.xpg?'+'+ses.xpg:'—','XP earned','#B8860B')+
+      '</div>'+
+      (cut?'<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 10px;background:var(--boxw);border:2px solid var(--bord);border-radius:8px">'+
+        '<img src="'+itemIcon('pokeball')+'" alt="" style="width:18px;height:18px;image-rendering:pixelated">'+
+        '<span class="plv" style="flex:1">Purse</span><b>₽'+cut.toLocaleString()+'</b></div>':'')+
+      '<div class="mbtns"><button class="btn acc" data-action="close-modal">DONE</button></div>');
+  },2050);
   if(state.game)checkGameEvents();
 }
 function applyTheme(){
@@ -1038,7 +1079,7 @@ function applyTheme(){
   // the EMERALD skin rides on a class so night CSS can simply ignore it
   document.documentElement.className=th+(state.region==='hoenn'?' hoenn':'');
   var meta=document.querySelector('meta[name="theme-color"]');
-  if(meta)meta.setAttribute('content',state.theme==='day'?(state.region==='hoenn'?'#DCEAE0':'#E4E8EE'):'#182028');
+  if(meta)meta.setAttribute('content',state.theme==='day'?(state.region==='hoenn'?'#DCEAE0':'#E4E8EE'):'#0E1116');
 }
 function migrateState(){
   var changed=false, note=null;
@@ -4125,7 +4166,12 @@ function alignBack(){
         for(var xx=0;xx<c.width;xx++){if(d[(y*c.width+xx)*4+3]>8)break outer;}
         pad++;
       }
-      backPadCache[src]=pad;
+      /* v6.5: iOS canvas readback can come back EMPTY (memory pressure) — the scan
+         then counts the whole sprite as padding and sinks the mon half below the
+         floor, cached for the whole fight ("cut in half"). An empty scan means
+         failure, and no legit back sprite pads deeper than ~18 rows. */
+      if(pad>=c.height)pad=0;
+      backPadCache[src]=Math.min(pad,18);
       placeBack(src); // re-query the CURRENT sprite, not the one at call time
     }catch(e){backPadCache[src]=0;}
   };
@@ -4768,10 +4814,30 @@ function bossDefeated(){
     sfx('badge');
     showModal('<h3>'+(bz.badge?esc(bz.badge)+' GET! 🏅':'VICTORY!')+'</h3>'+
       '<p>Your whole team earned +'+bonus+' XP! '+esc(bz.n)+' paid out <b>₽'+Math.round(bz.lv*60*(bz.round||1)).toLocaleString()+'</b>.'+
-      (bz.idx<8&&bz.badge?' <b>'+TOWNS[Math.min(bz.idx+1,8)].n+'</b> just opened on your MAP — hop the ferry there (first trip free!) to challenge '+esc(BOSSES[bz.idx+1].n)+'.':(isChamp?'':' Next challenger: '+esc(BOSSES[bz.idx+1].n)+'.'))+'</p>'+
+      (bz.idx<8&&bz.badge?'':(isChamp?'':' Next challenger: '+esc(BOSSES[bz.idx+1].n)+'.'))+'</p>'+
       '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
     modalOk=function(){closeModal();render(true);};
   });
+  /* v6.5: a fresh badge opens a town — the town gets its own curtain call */
+  if(bz.idx<8&&bz.badge){
+    (function(nt,ni){
+      if(!nt)return;
+      queueModal(function(){
+        fxHold=true;
+        playTownFx(nt.img,nt.n);
+        sfx('ferry');
+        setTimeout(function(){
+          fxHold=false;
+          showModal('<div class="mapwrap" style="margin:0 0 8px"><img class="mapimg" src="'+nt.img+'" alt="" style="width:100%;display:block;image-rendering:pixelated;aspect-ratio:240/140;object-fit:cover"></div>'+
+            '<h3 style="text-align:center">'+nt.n+'</h3>'+
+            '<p style="text-align:center;color:var(--mut)">'+(nt.sub||'')+'</p>'+
+            '<p style="text-align:center;margin-top:4px">Hop the ferry — the first trip is free!'+(BOSSES[ni]?' '+esc(BOSSES[ni].n)+' awaits at the gym.':'')+'</p>'+
+            '<div class="mbtns"><button class="btn acc" data-action="modal-ok">SET SAIL</button></div>',true);
+          modalOk=function(){closeModal();render(true);};
+        },1900);
+      });
+    })(TOWNS[Math.min(bz.idx+1,8)],bz.idx+1);
+  }
   if(isChamp){
     queueModal(function(){
       sfx('badge');
@@ -6369,6 +6435,55 @@ function playUnlockFx(icon,name){
   setTimeout(function(){el.classList.add('fade');},1750);
   setTimeout(function(){el.remove();},2300);
 }
+/* v6.5: the TOWN theatre — a newly-opened town shows its map, framed in gold */
+function playTownFx(img,name){
+  var old=document.getElementById('townfx');if(old)old.remove();
+  var el=document.createElement('div');
+  el.id='townfx';
+  el.innerHTML='<div class="prveil"></div>'+
+    '<div class="prcard" style="width:min(300px,84vw)">'+
+    '<div class="ulstars" style="color:#F8D030">✦ ✦ ✦</div>'+
+    '<img src="'+img+'" alt="" style="width:100%;border-radius:10px;border:3px solid #F8D030;box-shadow:0 10px 34px rgba(0,0,0,.55);image-rendering:pixelated;display:block;margin:6px auto 0">'+
+    '<div class="prtitle">NEW TOWN!</div>'+
+    '<div class="prline">'+name+'</div></div>';
+  document.body.appendChild(el);
+  setTimeout(function(){el.classList.add('fade');},1750);
+  setTimeout(function(){el.remove();},2300);
+}
+/* v6.5: the HATCH theatre — the egg wobbles, bursts white, and the newborn appears */
+function playHatchFx(sp,shiny){
+  var old=document.getElementById('hatchfx');if(old)old.remove();
+  var el=document.createElement('div');
+  el.id='hatchfx';
+  el.innerHTML='<div class="prveil"></div>'+
+    '<div class="prcard">'+
+    '<div class="hegg">'+eggSVG(88)+'</div>'+
+    '<div class="hburst"></div>'+
+    '<img class="hmon'+(shiny?' shinyglow':'')+'" src="'+sprPath(sp,shiny)+'" alt="" style="width:110px;height:110px;image-rendering:pixelated">'+
+    '<div class="prtitle" style="opacity:0;animation:fadein .4s ease-out 1.75s forwards">'+(shiny?'✨ ':'')+DEX[sp].n+'!</div></div>';
+  document.body.appendChild(el);
+  setTimeout(function(){sfx('evolve');},250);
+  setTimeout(function(){sfx('catch');if(shiny)sfx('shiny');},1650);
+  setTimeout(function(){el.classList.add('fade');},2650);
+  setTimeout(function(){el.remove();},3200);
+}
+/* v6.5: the FINISH theatre — the workout's own victory lap */
+function playFinishFx(durTxt){
+  var old=document.getElementById('finfx');if(old)old.remove();
+  var am=state.game?activeMon():null;
+  var art=am?'<img src="sprites/art/'+DEX[am.sp].id+'.png" alt="" onerror="this.onerror=null;this.src=\''+sprPath(am.sp,am.shiny)+'\';this.style.imageRendering=\'pixelated\'" style="width:120px;height:120px;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))">':'';
+  var el=document.createElement('div');
+  el.id='finfx';
+  el.innerHTML='<div class="prveil"></div>'+
+    '<div class="prcard">'+
+    '<div class="prstars">★ ★ ★</div>'+
+    art+
+    '<div class="prtitle" style="color:#58C868;text-shadow:2px 2px 0 #1C4A28">TRAINING DONE!</div>'+
+    '<div class="prw">'+durTxt+'</div></div>';
+  document.body.appendChild(el);
+  setTimeout(function(){el.classList.add('fade');},1900);
+  setTimeout(function(){el.remove();},2450);
+}
 /* the full-screen record celebration — plays over whatever else is happening */
 function playPrFx(exName,w){
   var old=document.getElementById('prfx');if(old)old.remove();
@@ -6949,82 +7064,32 @@ function poiBanner(k,tag){
 function poiTowerWeek(p){
   if(p.weekKey!==wkKey()){p.weekKey=wkKey();p.floor=0;save();}
 }
-/* v6.4.1: THREE candidate looks for the PLACES list, demoed in CELADON only —
-   Mateusz picks his favourite, then that one ships to every town (and this demo dies) */
-function poiPlacesDemoHTML(list){
-  var h='';
-  /* ---- STYLE 1: BIG ART — the interior takes the stage, name on a film strip ---- */
-  h+='<div class="panel"><h3>PLACES <span class="bestchip">STYLE 1 · BIG ART</span></h3>';
-  list.forEach(function(p){
-    var chip=p.st?p.st():'';
-    h+='<button class="prow" data-action="poi-open" data-k="'+p.k+'" style="display:block;padding:0;overflow:hidden;margin-top:8px">'+
-      '<div style="position:relative">'+
-      '<img src="'+p.img+'" alt="" style="width:100%;height:92px;object-fit:cover;image-rendering:pixelated;display:block">'+
-      '<div style="position:absolute;inset:auto 0 0 0;background:linear-gradient(180deg,transparent,rgba(10,14,20,.82));padding:18px 10px 6px;text-align:left">'+
-      '<span style="font-family:\'Press Start 2P\';font-size:11px;color:#FFF8F0;text-shadow:1px 1px 0 rgba(0,0,0,.6)">'+p.n+'</span></div>'+
-      (chip?'<span class="bestchip" style="position:absolute;top:6px;right:6px;background:var(--boxw)">'+chip+'</span>':'')+
-      '</div>'+
-      '<div class="plv" style="padding:6px 10px;text-align:left;white-space:normal;line-height:1.25">'+p.sub+'</div></button>';
-  });
-  h+='</div>';
-  /* ---- STYLE 2: POSTER GRID — two tidy tiles per row, tap to enter ---- */
-  h+='<div class="panel"><h3>PLACES <span class="bestchip">STYLE 2 · POSTER GRID</span></h3>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">';
-  list.forEach(function(p){
-    var chip=p.st?p.st():'';
-    var ac=(p.pal&&p.pal.c)||'var(--bord)';
-    h+='<button class="prow" data-action="poi-open" data-k="'+p.k+'" style="display:block;padding:0;overflow:hidden;margin:0;border-color:'+ac+'">'+
-      '<img src="'+p.img+'" alt="" style="width:100%;height:70px;object-fit:cover;image-rendering:pixelated;display:block">'+
-      '<div style="padding:6px 6px 7px;text-align:center">'+
-      '<div class="pname" style="font-size:12px;line-height:1.3">'+p.n+'</div>'+
-      (chip?'<div class="plv" style="margin-top:3px;color:'+ac+'">'+chip+'</div>':'')+
-      '</div></button>';
-  });
-  h+='</div></div>';
-  /* ---- STYLE 3: TICKET LIST — the classic row, bigger art, mood-colored spine ---- */
-  h+='<div class="panel"><h3>PLACES <span class="bestchip">STYLE 3 · TICKET LIST</span></h3>';
-  list.forEach(function(p){
-    var chip=p.st?p.st():'';
-    var ac=(p.pal&&p.pal.c)||'var(--bord)';
-    h+='<button class="prow" data-action="poi-open" data-k="'+p.k+'" style="padding:0;overflow:hidden;border-left:6px solid '+ac+';margin-top:8px">'+
-      '<img src="'+p.img+'" alt="" style="width:78px;height:58px;object-fit:cover;image-rendering:pixelated;flex:none;display:block">'+
-      '<div style="flex:1;min-width:0;padding:6px 8px"><div class="pname" style="font-size:15px">'+p.n+'</div>'+
-      '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">'+p.sub+'</div></div>'+
-      (chip?'<span class="bestchip" style="flex:none;margin-right:8px;border-color:'+ac+';color:'+ac+'">'+chip+'</span>':'')+
-      '</button>';
-  });
-  h+='<div class="plv" style="margin-top:8px">Three looks, same doors — tell me which one should dress every town.</div></div>';
-  return h;
-}
+/* v6.5: the PLACES list wears the BIG ART look everywhere — Mateusz's pick.
+   The interior art takes the stage; locked doors show as dark silhouettes. */
 function poiPlacesHTML(){
   if(!state.game)return '';
-  var t=curTown(),rows='',demoList=[];
-  if(!inHoenn()&&t===4){
-    POIS.forEach(function(p){
-      var pt=p.dt?p.dt():p.town;
-      if(pt!==t&&!(p.towns&&p.towns.indexOf(t)>=0))return;
-      if(p.gate&&!p.gate())return; // Celadon has no gated doors — demo skips them anyway
-      demoList.push(p);
-    });
-    if(demoList.length)return poiPlacesDemoHTML(demoList);
-  }
+  var t=curTown(),rows='';
   POIS.forEach(function(p){
     var pt=p.dt?p.dt():p.town; // v6.3: the SECRET BASE lives wherever you built it
     if(pt!==t&&!(p.towns&&p.towns.indexOf(t)>=0))return;
     if(p.gate&&!p.gate()){
-      rows+='<div class="prow" style="padding:8px 10px;opacity:.6">'+
-        '<img src="'+p.icon+'" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none;filter:brightness(0);opacity:.5">'+
-        '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px;color:var(--mut)">?????</div>'+
-        '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">'+(p.gateTxt||'A tower looms to the east… the ghosts there are unidentifiable. Rumor says TEAM ROCKET hides a special SCOPE in CELADON.')+'</div></div></div>';
+      rows+='<div class="prow" style="display:block;padding:0;overflow:hidden;margin-top:8px;opacity:.8">'+
+        '<div style="position:relative">'+
+        '<img src="'+p.img+'" alt="" loading="lazy" decoding="async" style="width:100%;height:58px;object-fit:cover;image-rendering:pixelated;display:block;filter:brightness(.22) saturate(.35)">'+
+        '<div style="position:absolute;inset:auto 0 0 0;background:linear-gradient(180deg,transparent,rgba(8,12,18,.85));padding:14px 10px 6px;text-align:left">'+
+        '<span style="font-family:\'Press Start 2P\';font-size:11px;color:#9AA5B1">?????</span></div></div>'+
+        '<div class="plv" style="padding:6px 10px;white-space:normal;line-height:1.25">'+(p.gateTxt||'A tower looms to the east… the ghosts there are unidentifiable. Rumor says TEAM ROCKET hides a special SCOPE in CELADON.')+'</div></div>';
       return;
     }
     var chip=p.st?p.st():'';
-    rows+='<button class="prow" data-action="poi-open" data-k="'+p.k+'" style="padding:8px 10px">'+
-      '<img src="'+p.img+'" alt="" style="width:54px;height:36px;object-fit:cover;image-rendering:pixelated;border-radius:4px;border:2px solid var(--bord);flex:none">'+
-      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:16px">'+p.n+'</div>'+
-      '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.25">'+p.sub+'</div></div>'+
-      (chip?'<span class="bestchip" style="flex:none">'+chip+'</span>':'')+
-      '<span class="plv" style="flex:none">▶</span></button>';
+    rows+='<button class="prow" data-action="poi-open" data-k="'+p.k+'" style="display:block;padding:0;overflow:hidden;margin-top:8px">'+
+      '<div style="position:relative">'+
+      '<img src="'+p.img+'" alt="" loading="lazy" decoding="async" style="width:100%;height:92px;object-fit:cover;image-rendering:pixelated;display:block">'+
+      '<div style="position:absolute;inset:auto 0 0 0;background:linear-gradient(180deg,transparent,rgba(8,12,18,.82));padding:18px 10px 6px;text-align:left">'+
+      '<span style="font-family:\'Press Start 2P\';font-size:11px;color:#FFF8F0;text-shadow:1px 1px 0 rgba(0,0,0,.6)">'+p.n+'</span></div>'+
+      (chip?'<span class="bestchip" style="position:absolute;top:6px;right:6px;background:var(--boxw)">'+chip+'</span>':'')+
+      '</div>'+
+      '<div class="plv" style="padding:6px 10px;text-align:left;white-space:normal;line-height:1.25">'+p.sub+'</div></button>';
   });
   if(!rows)return '';
   return '<div class="panel"><h3>PLACES</h3>'+rows+'</div>';
@@ -9159,7 +9224,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v6.4.1 “Contest Spectacular” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.5 “Night Life” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -9535,22 +9600,19 @@ function saveLogEntry(){
           var hshiny=Math.random()<0.2;
           state.game.egg=null;
           addMon(hsp,hshiny);
+          /* v6.5: the egg gets a real hatching — wobble, white burst, newborn reveal */
           queueModal(function(){
-            sfx('evolve');
-            showModal('<h3>Oh?</h3><p>The EGG is hatching!</p>'+
-              '<div style="text-align:center;padding:8px 0"><span class="evoflash" style="display:inline-block">'+eggSVG(56)+'</span></div>'+
-              '<div class="mbtns"><button class="btn acc" data-action="modal-ok">. . .</button></div>',true);
-            modalOk=function(){
-              closeModal();
-              queueModal(function(){
-                sfx('catch');
-                if(hshiny)setTimeout(function(){sfx('shiny');},600);
-                showModal('<h3>'+DEX[hsp].n+' hatched from the EGG!</h3>'+(hshiny?'<p>✨ It’s SHINY!</p>':'')+
-                  '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(hshiny?' shinyglow':'')+'" src="'+sprPath(hsp,hshiny)+'" alt=""></div>'+
-                  '<div class="mbtns"><button class="btn acc" data-action="modal-ok">OK</button></div>',true);
-                modalOk=function(){closeModal();render(true);};
-              });
-            };
+            fxHold=true;
+            playHatchFx(hsp,hshiny);
+            setTimeout(function(){
+              fxHold=false;
+              showModal('<div class="vbanner" style="font-size:13px;line-height:1.6">EGG HATCHED!</div>'+
+                '<div style="text-align:center;padding:8px 0"><img class="bigspr'+(hshiny?' shinyglow':'')+'" src="'+sprPath(hsp,hshiny)+'" alt=""></div>'+
+                '<h3 style="text-align:center">'+DEX[hsp].n+' joined the team!</h3>'+
+                (hshiny?'<p style="text-align:center">✨ It’s SHINY!</p>':'')+
+                '<div class="mbtns"><button class="btn acc" data-action="modal-ok">WELCOME</button></div>',true);
+              modalOk=function(){closeModal();render(true);};
+            },3000);
           });
         }
       }
