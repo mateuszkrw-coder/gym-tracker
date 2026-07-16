@@ -2326,8 +2326,10 @@ function itemIcon(k){return 'sprites/items/'+k+'.png';}
 function money(){return (state.game&&state.game.money)||0;}
 function addMoney(n){if(state.game&&n>0)state.game.money=(state.game.money||0)+n;}
 function bagOf(){if(!state.game)return {};if(!state.game.bag)state.game.bag={};return state.game.bag;}
-/* the POKEMON CENTER: hurt mons rest 10 hours each, or burn a FULL RESTORE for right now */
+/* the POKEMON CENTER: hurt mons rest 10 hours each (free), or pay the express fee —
+   v6.6.1: ₽500 flat heals the WHOLE team instantly, at every branch */
 var REST_MS=10*3600000;
+var CENTER_FEE=500;
 function restOf(){if(!state.game)return {};if(!state.game.rest)state.game.rest={};return state.game.rest;}
 function resolveRests(){
   if(!state.game||state.session)return;
@@ -4901,6 +4903,17 @@ function trainerVictoryModal(tr,monSp,xpGain,isRival,newWildN){
       modalOk=function(){closeModal();};
     });
   },3400); // let the faint + defeat steps play out
+}
+/* v6.6.1: the man at the gym door — same words as the locked hall, at the map click */
+function gymGuideModal(){
+  var bz=bossInfo();if(!bz)return;
+  sfx('weakhit');
+  showModal('<div style="text-align:center;padding-bottom:2px"><img src="sprites/npc/oldman.png" alt="" style="width:44px;height:44px;image-rendering:pixelated"></div>'+
+    '<h3 style="text-align:center">THE GYM GUIDE</h3>'+
+    '<p style="text-align:center">“Whoa there, trainer! '+esc(bz.n)+' only faces trainers who cleared the road here. Finish your QUESTS first — then these doors open.”</p>'+
+    '<div class="mbtns"><button class="btn" data-action="close-modal">STEP BACK</button>'+
+    '<button class="btn acc" data-action="go-quests">TO THE QUESTS</button></div>');
+  modalOk=null;
 }
 function showStadiumModal(){
   var bz=bossInfo();
@@ -8946,16 +8959,14 @@ function centerHTML(){
   var h='<div class="titlebar"><h1>POKEMON CENTER</h1></div>';
   if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet '+profName()+'.</div>';
   var g=state.game,rest=restOf(),bag=bagOf();
-  var freeTown=curTown()===0; /* v6.6: the home-town Center heals on the spot, like the real games */
+  /* v6.6.1: every Center offers the paid express lane — the 10h rest stays free */
   h+='<div class="subtitle">'+TOWNS[curTown()].n+' branch</div>'+
     '<div class="mapwrap"><img class="mapimg" src="map/center.png" alt="Pokemon Center" style="width:100%;display:block;image-rendering:pixelated">'+
     '<img class="npc" src="sprites/npc/nurse.png" alt="" style="left:50%;top:31%;width:9%">'+
     '<img class="npc" src="sprites/npc/oldman.png" alt="" style="left:15%;top:70%;width:9%">'+
     '<img class="npc" src="sprites/npc/lass.png" alt="" style="left:79%;top:76%;width:9%">'+
     '</div>'+
-    (freeTown
-      ?'<div class="panel"><h3>NURSE</h3><div class="plv" style="line-height:1.35">Welcome home! The '+TOWNS[0].n+' branch treats its own trainers <b>on the spot</b> — no waiting, ever. Shall I take your POKEMON?</div></div>'
-      :'<div class="panel"><h3>NURSE</h3><div class="plv" style="line-height:1.35">Welcome! Leave a POKEMON with me and it will be fighting fit in <b>10 hours</b>. In a hurry? A FULL RESTORE from the MART heals instantly — you have <b>'+(bag.fullrestore||0)+'</b> in your bag. (The '+TOWNS[0].n+' branch heals instantly!)</div></div>');
+    '<div class="panel"><h3>NURSE</h3><div class="plv" style="line-height:1.35">Welcome! Leave a POKEMON with me and it will be fighting fit in <b>10 hours</b> — free, as always. In a hurry? For <b>₽'+CENTER_FEE.toLocaleString()+'</b> flat I’ll have your <b>whole team</b> dancing on the spot.</div></div>';
   if(state.session){
     h+='<div class="panel"><div class="plv" style="color:#D03028">The nurse can’t treat a team mid-battle — finish your workout first!</div></div>';
   }
@@ -8987,9 +8998,10 @@ function centerHTML(){
       '</div></div>';
   });
   if(needy){
+    var canPay=money()>=CENTER_FEE;
     h+='<div class="panel"><h3>SICK BAY<span class="bestchip">'+needy+'</span></h3>'+rows+
-      (freeTown&&!state.session
-        ?'<button class="btn acc" data-action="center-heal-all" style="width:100%;margin-top:8px">🔔 HEAL MY TEAM — FREE</button>'
+      (!state.session
+        ?'<button class="btn'+(canPay?' acc':'')+'" data-action="center-heal-all" style="width:100%;margin-top:8px"'+(canPay?'':' disabled')+'>🔔 INSTANT HEAL — ₽'+CENTER_FEE.toLocaleString()+(canPay?'':' (not enough ₽)')+'</button>'
         :'')+'</div>';
   }
   else h+='<div class="panel"><div class="plv">Your whole team is fighting fit! Come back after a rough battle.</div></div>';
@@ -9258,7 +9270,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v6.6 “League Rules” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.6.1 “League Rules” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -10309,7 +10321,11 @@ document.addEventListener('click',function(e){
     if(bid==='train'){if(state.session){tab='workout';render();}else{pendingMb=null;showChooserThenStart('train');}}
     else if(bid==='boss'){
       if(state.session){tab='workout';render();}
-      else if(state.game){tab='gymhall';render();}
+      else if(state.game){
+        /* v6.6.1: the Gym Guide stops you AT THE DOOR — the arena won't even open */
+        if(!roadClear()&&bossInfo())gymGuideModal();
+        else {tab='gymhall';render();}
+      }
       else toast('Meet '+profName()+' first!');
     }
     else if(bid==='mart'){
@@ -10795,17 +10811,21 @@ document.addEventListener('click',function(e){
       toast(DEX[rmM.sp].n+' is resting — back in 10h');
     }
   }
-  /* v6.6: the home-town nurse heals the whole team on the spot — the classic way */
+  /* v6.6.1: the nurse's express lane — ₽500 flat, whole team, every branch */
   else if(a==='center-heal-all'){
-    if(!state.game||state.session||curTown()!==0)return;
+    if(!state.game||state.session)return;
+    if(money()<CENTER_FEE){toast('Not enough ₽ — the free 10h rest is always open.');return;}
     var healedList=[];
     state.game.mons.forEach(function(hm){
       var hmx=maxHpOf(hm),hcur=Math.max(0,Math.min(hmx,curHpOf(hm)));
       if(hcur<hmx||restOf()[hm.uid])healedList.push(hm);
+    });
+    if(!healedList.length)return;
+    state.game.money-=CENTER_FEE;
+    healedList.forEach(function(hm){
       if(state.game.hurt)delete state.game.hurt[hm.uid];
       delete restOf()[hm.uid];
     });
-    if(!healedList.length)return;
     save();
     sfx('heal');
     var healTray='';

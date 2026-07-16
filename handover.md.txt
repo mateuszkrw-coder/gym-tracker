@@ -1,4 +1,4 @@
-Gym Tracker — Handover Document (current as of app v6.6 / sw v52 / schema v17, 2026-07-13)
+Gym Tracker — Handover Document (current as of app v6.6.1 / sw v53 / schema v17, 2026-07-13)
 
 ============================================================
 1. WHAT THIS IS
@@ -21,7 +21,7 @@ installed home-screen app isolated storage — a separate app couldn't read the 
 
 Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
 Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
-Current:   app v6.6 “League Rules”, service-worker cache v52, data schema v17.
+Current:   app v6.6.1 “League Rules”, service-worker cache v53, data schema v17.
 
 ============================================================
 2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
@@ -418,7 +418,9 @@ the handover wins; update the local memory to match.
 • ANIMATED battle sprites: assessed and DECLINED (2026-07-10). Don't revisit unless
   he asks knowing the tradeoffs (Gen-5 style only, ~25 MB, clashes with FRLG look).
 • No harsh punishment — rest days cost nothing. Approved exceptions: boss blackout
-  +25%, Battle Tower streak reset, 10h Center heals, safari flee-on-fail.
+  +25%, Battle Tower streak reset, safari flee-on-fail, and Center heals: 10h rest
+  free everywhere, OR ₽500 flat (CENTER_FEE) heals the whole team instantly at any
+  branch (v6.6.1 — replaced v6.6's free-instant-in-town-0).
 • Night theme: REDONE in v6.5 at Mateusz's explicit request (the old “locked” note
   is void). The v6.5 token set (§13) is the new baseline — don't restyle again
   unless he asks. All biome/building skins/palettes remain DAY-only (applySkin
@@ -443,7 +445,24 @@ Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanl
 ============================================================
 13. IMMEDIATE STATE
 ============================================================
-v6.6 “League Rules” SHIPPED 2026-07-13 from machine C (Desktop), all by request:
+v6.6.1 SHIPPED 2026-07-13 from machine C (Desktop), two tweaks on v6.6 by request:
+• INSTANT HEAL IS NOW PAID + EVERYWHERE: the v6.6 town-0-free special is GONE.
+  Every Center branch offers “🔔 INSTANT HEAL — ₽500” (var CENTER_FEE=500, one
+  knob) under the sick bay: whole team on the spot, disabled with “(not enough ₽)”
+  when broke, money guard + toast in the center-heal-all action (fee charged only
+  if someone actually needs healing). The FREE 10h rest stays in every village,
+  and the heal CEREMONY modal (tray + chime) is unchanged. Fee sanity: less than
+  one Full Restore (₽2,500 heals ONE mon) but real money early game.
+• GYM DOORS GATE AT THE MAP CLICK: tapping BOSS on the town map with !roadClear()
+  now pops gymGuideModal() (the Gym Guide, same words as the locked hall page,
+  with a TO THE QUESTS button) and NEVER opens the arena. The v6.6 locked
+  gymhall page remains as the second lock for direct tab navigation.
+• Tested in the 8377 preview: blocked map click → guide modal, stays on map;
+  ₽9,000→₽8,500 after a 2-mon heal (hurt+rest cleared, ALL HEALED tray);
+  broke trainer (₽120) → disabled button; cleared road → map click opens the
+  gym straight to TALK TO MISTY; zero console errors. sw v53.
+
+Previous: v6.6 “League Rules” SHIPPED 2026-07-13 from machine C (Desktop), all by request:
 • GYM PAGES CLEANED: the pinned bouncing leader sprite + name tag are GONE from the
   gym interior (the official screenshots already show the leader standing there —
   gy.lx/gy.ly in GYMS are now unused but kept). The leader's TEAM renders as a
