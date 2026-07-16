@@ -203,6 +203,9 @@ html.theme-night .mapalert{background:#222A34;border-color:#10161E}
 @keyframes hmonk{to{transform:translate(-50%,-50%) scale(1)}}
 /* v6.4: the roulette ball sweep */
 .roulcell.roulon{background:#F8D030!important;box-shadow:0 0 0 2px #E8A010 inset}
+/* v6.6: the Center tray — healed mons blink back to life one by one */
+.healslot{display:inline-block;animation:healblink .95s ease-in-out both}
+@keyframes healblink{0%,35%{opacity:.2;transform:scale(.85)}55%{opacity:1;transform:scale(1.12)}75%{opacity:.55}100%{opacity:1;transform:none}}
 .dexcell:active{transform:scale(.95)}
 .prow:active,.card:active{transition:transform .08s}
 button.card:active,button.prow:active{transform:scale(.98)}
@@ -3521,11 +3524,13 @@ function wxIcon(w,s){
   return '';
 }
 function wxChipHTML(t){
+  if(state.theme!=='day')return ''; // v6.6: no daylight weather over sleeping towns
   var w=wxFor(t);
   if(w==='clear')return '';
   return '<span class="wxchip">'+wxIcon(w,13)+' '+WX_NAMES[w]+'</span>';
 }
 function wxOverlayHTML(t){
+  if(state.theme!=='day')return ''; // v6.6: night skies stay clear and dark
   var w=wxFor(t);
   return w==='clear'?'':'<div class="wxov wx-'+w+'"></div>';
 }
@@ -4975,23 +4980,43 @@ function gymhallHTML(){
   var bz=bossInfo();
   if(!bz)return h+'<div class="empty"><div class="big">🏆</div>The league is quiet… every boss is beaten.</div>';
   var gy=GYMS[bz.idx]||GYMS[0];
+  /* v6.6: the gym doors are LOCKED until the road is clear — like the real games */
+  if(!roadClear()){
+    return '<div class="titlebar"><h1>'+esc(bz.gym)+'</h1></div>'+
+      '<div class="subtitle">The doors won’t budge</div>'+
+      '<div class="mapwrap"><img class="mapimg" src="'+gy.img+'" alt="" style="width:100%;display:block;image-rendering:pixelated;filter:brightness(.28) saturate(.4)">'+
+      '<span class="maptag" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">🔒 LOCKED</span></div>'+
+      '<div class="panel"><h3>THE GYM GUIDE</h3>'+
+      '<div class="prow" style="padding:8px 10px">'+
+      '<img src="sprites/npc/oldman.png" alt="" style="width:34px;height:34px;image-rendering:pixelated;flex:none">'+
+      '<div style="flex:1;min-width:0"><div class="pname" style="font-size:15px">“Whoa there, trainer!”</div>'+
+      '<div class="plv" style="margin-top:2px;white-space:normal;line-height:1.3">“'+esc(bz.n)+' only faces trainers who cleared the road here. Finish your QUESTS first — then these doors open.”</div></div></div>'+
+      '<button class="btn acc" data-action="tab" data-tab="quests" style="width:100%;margin-top:8px">TO THE QUESTS</button></div>'+
+      '<div style="margin:10px 12px"><button class="btn" data-action="tab" data-tab="map" style="width:100%">← BACK TO TOWN</button></div>';
+  }
+  /* v6.6: the official interior stands alone — the leader already lives in the art */
   h='<div class="titlebar"><h1>'+esc(bz.gym)+'</h1></div>'+
     '<div class="subtitle">'+(bz.badge?esc(bz.badge)+' on the line':'The final challenge')+(bz.round>1?' · ROUND '+bz.round:'')+'</div>'+
-    '<div class="mapwrap"><img class="mapimg" src="'+gy.img+'" alt="" style="width:100%;display:block;image-rendering:pixelated">'+
-    '<button data-action="gym-talk" aria-label="Talk to '+bz.n+'" style="position:absolute;left:'+gy.lx+'%;top:'+gy.ly+'%;transform:translate(-50%,-50%);background:none;border:none;padding:6px;text-align:center;line-height:1">'+
-    '<img class="bob" src="sprites/trainers/'+bz.tr+'.png" alt="" style="width:46px;height:46px;image-rendering:pixelated;display:block;margin:0 auto">'+
-    '<span class="maptag" style="display:inline-block;margin-top:2px">'+bz.n+'</span></button>'+
-    '</div>';
+    '<div class="mapwrap"><img class="mapimg" src="'+gy.img+'" alt="" style="width:100%;display:block;image-rendering:pixelated"></div>';
   var balls='';
   for(var i=0;i<bz.teamSize;i++){
     balls+='<img src="'+itemIcon('pokeball')+'" alt="" style="width:13px;height:13px;image-rendering:pixelated;margin-left:2px;vertical-align:-2px'+(i<bz.memberIdx?';filter:grayscale(1);opacity:.45':'')+'">';
   }
+  /* v6.6: the leader's team shows its faces, beaten members fade out */
+  var teamRow='';
+  bz.team.forEach(function(t,ti){
+    var beaten=ti<bz.memberIdx;
+    teamRow+='<span style="flex:1;text-align:center;min-width:0">'+
+      '<img src="sprites/'+t.monId+'.png" alt="'+t.mon+'" style="width:52px;height:52px;image-rendering:pixelated'+(beaten?';filter:grayscale(1);opacity:.35':'')+'">'+
+      '<span class="plv" style="display:block;font-size:12px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+t.mon+'</span></span>';
+  });
   var pct=Math.round(bz.hp/bz.max*100);
   h+='<div class="panel"><h3>'+bz.n+'<span class="bestchip">'+balls+'</span></h3>'+
-    '<div class="plv" style="margin-bottom:6px">'+bz.mon+' :L'+bz.lv+' leads a team of '+bz.teamSize+'. '+
-    (roadClear()?'Walk up and talk to challenge!':'<span style="color:#D03028">The road is blocked — clear your QUESTS to challenge!</span>')+'</div>'+
+    '<div style="display:flex;align-items:flex-start;gap:2px;margin:4px 0 8px">'+teamRow+'</div>'+
+    '<div class="plv" style="margin-bottom:6px">'+bz.mon+' :L'+bz.lv+' leads a team of '+bz.teamSize+'.</div>'+
     '<div style="display:flex;align-items:center;gap:5px"><span class="barlab">HP</span><div class="gbar"><div style="width:'+pct+'%;background:'+hpColor(pct)+'"></div></div></div>'+
-    '<div class="plv" style="margin-top:4px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg</div></div>'+
+    '<div class="plv" style="margin-top:4px">'+bz.hp.toLocaleString()+' / '+bz.max.toLocaleString()+' kg</div>'+
+    '<button class="btn acc" data-action="gym-talk" style="width:100%;margin-top:10px">TALK TO '+esc(bz.n)+'</button></div>'+
     '<div style="margin:10px 12px"><button class="btn" data-action="tab" data-tab="map" style="width:100%">← BACK TO TOWN</button></div>';
   return h;
 }
@@ -8921,13 +8946,16 @@ function centerHTML(){
   var h='<div class="titlebar"><h1>POKEMON CENTER</h1></div>';
   if(!state.game)return h+'<div class="empty"><div class="big">?</div>Your adventure has not started yet.<br>Reopen the app to meet '+profName()+'.</div>';
   var g=state.game,rest=restOf(),bag=bagOf();
+  var freeTown=curTown()===0; /* v6.6: the home-town Center heals on the spot, like the real games */
   h+='<div class="subtitle">'+TOWNS[curTown()].n+' branch</div>'+
     '<div class="mapwrap"><img class="mapimg" src="map/center.png" alt="Pokemon Center" style="width:100%;display:block;image-rendering:pixelated">'+
     '<img class="npc" src="sprites/npc/nurse.png" alt="" style="left:50%;top:31%;width:9%">'+
     '<img class="npc" src="sprites/npc/oldman.png" alt="" style="left:15%;top:70%;width:9%">'+
     '<img class="npc" src="sprites/npc/lass.png" alt="" style="left:79%;top:76%;width:9%">'+
     '</div>'+
-    '<div class="panel"><h3>NURSE</h3><div class="plv" style="line-height:1.35">Welcome! Leave a POKEMON with me and it will be fighting fit in <b>10 hours</b>. In a hurry? A FULL RESTORE from the MART heals instantly — you have <b>'+(bag.fullrestore||0)+'</b> in your bag.</div></div>';
+    (freeTown
+      ?'<div class="panel"><h3>NURSE</h3><div class="plv" style="line-height:1.35">Welcome home! The '+TOWNS[0].n+' branch treats its own trainers <b>on the spot</b> — no waiting, ever. Shall I take your POKEMON?</div></div>'
+      :'<div class="panel"><h3>NURSE</h3><div class="plv" style="line-height:1.35">Welcome! Leave a POKEMON with me and it will be fighting fit in <b>10 hours</b>. In a hurry? A FULL RESTORE from the MART heals instantly — you have <b>'+(bag.fullrestore||0)+'</b> in your bag. (The '+TOWNS[0].n+' branch heals instantly!)</div></div>');
   if(state.session){
     h+='<div class="panel"><div class="plv" style="color:#D03028">The nurse can’t treat a team mid-battle — finish your workout first!</div></div>';
   }
@@ -8958,7 +8986,12 @@ function centerHTML(){
       '<div class="plv" style="margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+status+btns+'</div>'+
       '</div></div>';
   });
-  if(needy)h+='<div class="panel"><h3>SICK BAY<span class="bestchip">'+needy+'</span></h3>'+rows+'</div>';
+  if(needy){
+    h+='<div class="panel"><h3>SICK BAY<span class="bestchip">'+needy+'</span></h3>'+rows+
+      (freeTown&&!state.session
+        ?'<button class="btn acc" data-action="center-heal-all" style="width:100%;margin-top:8px">🔔 HEAL MY TEAM — FREE</button>'
+        :'')+'</div>';
+  }
   else h+='<div class="panel"><div class="plv">Your whole team is fighting fit! Come back after a rough battle.</div></div>';
   h+='<div style="margin:10px 12px"><button class="btn" data-action="tab" data-tab="map" style="width:100%">← BACK TO TOWN</button></div>';
   return h;
@@ -9083,6 +9116,7 @@ function sfx(name){
   try{
     if(name==='click')seSelect(t);
     else if(name==='save'){tone(t,660,0.07,'square',0.05);tone(t+0.08,880,0.1,'square',0.05);}
+    else if(name==='heal'){[784,988,1175,1568].forEach(function(f,i){tone(t+i*0.09,f,0.09,'square',0.06);});tone(t+0.4,1568,0.24,'square',0.05);}
     else if(name==='hit')tone(t,210,0.11,'square',0.09,110);
     else if(name==='superhit'){tone(t,280,0.09,'square',0.11,90);tone(t+0.1,170,0.13,'square',0.1,60);}
     else if(name==='weakhit')tone(t,150,0.12,'sine',0.07,90);
@@ -9224,7 +9258,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v6.5 “Night Life” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.6 “League Rules” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -10760,6 +10794,30 @@ document.addEventListener('click',function(e){
       save();sfx('save');render(true);
       toast(DEX[rmM.sp].n+' is resting — back in 10h');
     }
+  }
+  /* v6.6: the home-town nurse heals the whole team on the spot — the classic way */
+  else if(a==='center-heal-all'){
+    if(!state.game||state.session||curTown()!==0)return;
+    var healedList=[];
+    state.game.mons.forEach(function(hm){
+      var hmx=maxHpOf(hm),hcur=Math.max(0,Math.min(hmx,curHpOf(hm)));
+      if(hcur<hmx||restOf()[hm.uid])healedList.push(hm);
+      if(state.game.hurt)delete state.game.hurt[hm.uid];
+      delete restOf()[hm.uid];
+    });
+    if(!healedList.length)return;
+    save();
+    sfx('heal');
+    var healTray='';
+    healedList.slice(0,6).forEach(function(hm,hi){
+      healTray+='<span class="healslot" style="animation-delay:'+(hi*0.13)+'s">'+monIconImg(hm.sp,hm.shiny,34)+'</span>';
+    });
+    showModal('<div class="vbanner" style="font-size:13px;line-height:1.6;color:#58C868">ALL HEALED!</div>'+
+      '<div style="text-align:center;padding:4px 0"><img src="sprites/npc/nurse.png" alt="" style="width:44px;height:44px;image-rendering:pixelated"></div>'+
+      '<div style="display:flex;justify-content:center;gap:6px;padding:6px 0">'+healTray+'</div>'+
+      '<p style="text-align:center">“Your POKEMON are fighting fit'+(healedList.length>6?' — all '+healedList.length+' of them':'')+'! We hope to see you again!”</p>'+
+      '<div class="mbtns"><button class="btn acc" data-action="modal-ok">THANKS!</button></div>',true);
+    modalOk=function(){closeModal();render(true);};
   }
   else if(a==='restore-mon'){
     if(!state.game)return;

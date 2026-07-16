@@ -1,4 +1,4 @@
-Gym Tracker — Handover Document (current as of app v6.5 / sw v51 / schema v17, 2026-07-13)
+Gym Tracker — Handover Document (current as of app v6.6 / sw v52 / schema v17, 2026-07-13)
 
 ============================================================
 1. WHAT THIS IS
@@ -21,7 +21,7 @@ installed home-screen app isolated storage — a separate app couldn't read the 
 
 Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
 Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
-Current:   app v6.5 “Night Life”, service-worker cache v51, data schema v17.
+Current:   app v6.6 “League Rules”, service-worker cache v52, data schema v17.
 
 ============================================================
 2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
@@ -443,7 +443,35 @@ Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanl
 ============================================================
 13. IMMEDIATE STATE
 ============================================================
-v6.5 “Night Life” SHIPPED 2026-07-13 from machine C (Desktop), all by request:
+v6.6 “League Rules” SHIPPED 2026-07-13 from machine C (Desktop), all by request:
+• GYM PAGES CLEANED: the pinned bouncing leader sprite + name tag are GONE from the
+  gym interior (the official screenshots already show the leader standing there —
+  gy.lx/gy.ly in GYMS are now unused but kept). The leader's TEAM renders as a
+  sprite row in the info panel (beaten members fade), and the challenge moved to a
+  proper “TALK TO <LEADER>” button. If Mateusz reports any gym whose official
+  interior LACKS the leader, fetch the leader version from machine A / Fandom
+  (city article, “<City> - Gym (Gen III).png”).
+• GYM DOORS LOCK (like the real games): !roadClear() now blocks the ENTIRE gym page
+  — dimmed interior + 🔒 tag + a GYM GUIDE hint + TO THE QUESTS button. stadium-go
+  keeps its own roadClear guard as the second lock.
+• NIGHT WEATHER OFF: wxChipHTML/wxOverlayHTML return '' unless theme-day (sun over
+  a sleeping town broke the night illusion; no official night maps exist for Gen 3).
+  Weather STAYS pure art in day (locked rule unchanged); the Institute board is
+  untouched (indoor info).
+• HOME-TOWN INSTANT HEAL: the town-0 POKEMON CENTER (Viridian/Littleroot) heals the
+  whole team FREE and INSTANTLY — “🔔 HEAL MY TEAM” under the sick bay →
+  center-heal-all action (deletes hurt+rest for all mons) → the heal CEREMONY modal
+  (nurse, .healslot tray of party icons blinking back one by one, new 'heal' sfx =
+  the rising center chime). Other towns keep the 10h rest system + a hint that the
+  home branch heals instantly. §11's “10h Center heals” exception now reads:
+  EXCEPT town 0 (Mateusz's request — home comfort, like the games).
+• Tested in the 8377 preview: locked page (dim/guide/no talk btn/quests btn), open
+  page (no overlay, team row 74+95, TALK TO BROCK), town-0 heal (2 needy → tray 2,
+  hurt+rest cleared, ALL HEALED ceremony), town-1 regression (REST 10H intact, no
+  heal-all, hint present), night map = 0 chips/overlays, day path untouched
+  (two-line early return), zero console errors. sw v52.
+
+Previous: v6.5 “Night Life” SHIPPED 2026-07-13 from machine C (Desktop), all by request:
 • PLACES = STYLE 1 “BIG ART” EVERYWHERE (Mateusz's pick): full-width interior art
   (92px cover) with the name on a bottom gradient strip, status chip top-right, sub
   text under the card; locked doors render as dark silhouette cards with their
