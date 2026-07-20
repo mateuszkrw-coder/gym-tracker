@@ -1,4 +1,4 @@
-Gym Tracker — Handover Document (current as of app v6.6.1 / sw v53 / schema v17, 2026-07-13)
+Gym Tracker — Handover Document (current as of app v6.7 / sw v54 / schema v18, 2026-07-20)
 
 ============================================================
 1. WHAT THIS IS
@@ -21,7 +21,7 @@ installed home-screen app isolated storage — a separate app couldn't read the 
 
 Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
 Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
-Current:   app v6.6.1 “League Rules”, service-worker cache v53, data schema v17.
+Current:   app v6.7 “Fair Fight”, service-worker cache v54, data schema v18.
 
 ============================================================
 2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
@@ -137,11 +137,16 @@ sounds/cries/, sounds/moves/  — audio (see §4)
 docs/poi-blueprints.md — older design notes
 
 ============================================================
-6. DATA MODEL  (state, localStorage key `gymtracker.v1`, schema version 17)
+6. DATA MODEL  (state, localStorage key `gymtracker.v1`, schema version 18)
    v6.4 adds: state.bw:[{ts,w}] at the ROOT (bodyweight, shared across regions);
    mons carry cond{cool..tough,sheen}? rib{cat:0..4}? tm[]? (tm now survives import);
    poi gains garden{plots[6],bm} hall{wk,done} shoal{salt,shell,bell,got}
    lotto{d} nav{d}; flags gains berrygift/conteststar (wholesale, no sanitizer work).
+   v6.7 adds: game.res {sp:{c,f,v,rw}} (field research, seeded at migration from
+   mons+dex in BOTH game and altGame); poi mine{d,u,wall{c{},items[{i,k|m,g}]}}
+   and flip{lv,best}; mons carry fx? (entry particle key); every LOG ENTRY now
+   stores rel (effort vs the exercise best at log time); flags gains v67note,
+   resm1..resm4, shinycharm (all wholesale).
 ============================================================
 {
   version:14, unit, theme:'night'|'day', sound, gamePlayed, dev,
@@ -293,6 +298,14 @@ feebasTown() (the day's lucky pier), trickOf(). migrateState() runs at INIT.
   the Millennium Comet gift (:L30) via checkGameEvents.
 • Legend fights are ordinary wilds with legend:1 — if they FAINT they pay huge EXP
   and "return to the same spot" (button stays until caught). Master Ball advised.
+• v6.7 “FAIR FIGHT” PACK (see §13 for full detail): EFFORT SCALING (damage/XP =
+  % of YOUR per-exercise best × the median-best benchmark — one line in
+  saveLogEntry feeds everything; ≥95% = guaranteed crit); VOLTORB FLIP at both
+  Game Corners (authentic HGSS boards, coins share the slots purse); MINING WALL
+  (Pewter museum / Dewford Granite Cave — sets = pickaxe swings); FIELD RESEARCH
+  (5 tasks/species, any 4 = researched, ₽400 each, milestones up to the SHINY
+  CHARM); ENTRY PARTICLES (8 earned cosmetic send-out bursts, m.fx); MUSCLE
+  EMBLEMS (per-group lifetime-set medals on the CARD).
 • Nav: 6 docked tabs — TRAINER · MAP · TEAM · LAB · QUEST · OPTION. Routed pages:
   TRAVEL, MART, CENTER, GYMHALL, WORKOUT, TROPHY, CARD, poi-* (all 23 buildings).
 
@@ -445,7 +458,82 @@ Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanl
 ============================================================
 13. IMMEDIATE STATE
 ============================================================
-v6.6.1 SHIPPED 2026-07-13 from machine C (Desktop), two tweaks on v6.6 by request:
+v6.7 “Fair Fight” SHIPPED 2026-07-20 from machine C (Desktop) — six features, all
+by request (he asked for the effort fix + picked 5 from a research brainstorm):
+• EFFORT SCALING (the flagship fix — “side delts feel useless”): battle damage AND
+  set-XP no longer scale with raw kg. In saveLogEntry, vol = rel × powerBase() ×
+  r × s, where rel = entry.w / prevBest (capped 1.25, =1 on a first-ever log) and
+  powerBase() = MEDIAN of all per-exercise bests (min 20, lives next to bestW).
+  entry.rel is stored on every logged set (survives delete/undo untouched).
+  rel ≥ 0.95 → GUARANTEED CRIT in both wild and boss paths (“PERFECT FORM —
+  critical hit!”); beating a PR overdrives damage up to 125% and still triggers
+  the old candy-level + PR theatre. One-time NEW RULES modal via flags.v67note
+  (both regions). Lifetime-volume trophies/ranks still use RAW tonnage.
+• VOLTORB FLIP (Game Corner, BOTH regions): the full HGSS table — VF_LEVELS holds
+  the authentic 8-level × 5-variant [×2,×3,volt] boards; 5×5 grid, per-line SUM +
+  VOLTORB hint plates (VF_COLS row colors), FLIP/MARK modes, pot = product of
+  flipped multipliers. Clear all ×2/×3 → pot banks into poi.corner.coins (the
+  SAME purse the slots feed — a free skill road to the prize shelf), level +1
+  (max 8), poi.flip {lv,best}. Voltorb → level drops to #cards flipped (min 1).
+  Board lives in module global vfB (transient; leaving forfeits, vfB.rg guards
+  region switches). Corner seg is now region-aware: Kanto SLOTS|FLIP, Hoenn
+  SLOTS|ROULETTE|FLIP; poi-open resets cornerGame to slots.
+• MINING WALL (Kanto: MUSEUM DIG SITE, Pewter town 1 — its first POI; Hoenn:
+  GRANITE DIG SITE, Dewford town 2): every SET logged today = 1 pickaxe swing
+  (retroactive via daySetsMap, swings = setsToday − poi.mine.u, u resets with the
+  d day-stamp). 8×5 wall, 4 treasures rolled STATE-FIRST at wall creation
+  (mineNewWall: weighted loot — cash 400/1200/5000, balls, meds, vitamins, rare
+  candy, berries in Hoenn via BERRY_T1); cleared dirt GLINTS when an unfound
+  treasure is in the 8-neighborhood (mineNear). All 4 found → fresh wall
+  instantly. Wall persists across days; only swings are daily. FEATURES announce
+  in both regions (feat_mine, town 1 / town 2).
+• FIELD RESEARCH (PLA-style, BOTH regions): 5 tasks per species — obtain 1 /
+  obtain 3 / defeat 5 / win 3 with it / (evo species: own its evolution, finals:
+  raise to :L30, live-computed) — ANY 4 = RESEARCHED, so unique legends can
+  finish. Counters in game.res[sp] {c,f,v,rw}: c bumps in registerDex (catches,
+  gifts, hatches, evolutions), f + v in the wild-faint hook, v also on the boss
+  finisher. Per-species claim ₽400 on the dex-art sheet; dex grid shows a gold
+  pulsing dot (claimable) or green tick (researched). Milestone board above the
+  grid: 10→₽2,000, 30→3 candies, 60→₽10,000, 75% of the regional dex (114
+  Kanto / 152 Hoenn) → THE SHINY CHARM (flags.shinycharm — shinyOdds() was
+  ALREADY wired to double 5%→10%, the charm just finally exists). Milestone
+  flags resm1..resm4 ride wholesale. Migration v18 seeds res from owned mons +
+  dex for game AND altGame.
+• ENTRY PARTICLES (cosmetic, BOTH regions): 8 CSS-only battle-entry flourishes
+  (PARTICLES table: sparkle free, confetti 1 badge, bubbles 30 species, flames
+  7-day streak, lightning 1,000 lifetime sets, leaves 250k volume, hearts 20
+  mons, gold burst champion) — unlocks are LIVE conds (retroactive, nothing
+  stored, base-trophy style). Equipped key on the mon (m.fx, sanitized); picker
+  panel on the mon sheet under HELD ITEM; spawnEntryParticles fires inside
+  sendOutFx for player ball sends (+650ms), .ptcwrap div in .bt-pscene,
+  auto-removed. leadMon() resolves the enterer (bfrent rental = no fx, fine).
+• MUSCLE EMBLEMS (Trainer CARD, region-free): lifetime SETS per muscle group —
+  the fair yardstick, matching the release theme — bronze 300 / silver 1,000 /
+  gold 3,000 (EMBLEM_TIERS). Seven hex-shield SVGs (emblemSVG: metal fill by
+  tier, rim = the muscle's move-type color) in a CARD panel; tap → progress
+  modal. Live-computed from logs via groupKeyOf (emblemSets) — nothing stored.
+• Schema v18 (res seed + stamp). sanitizeGame additions: poi.mine (validated
+  wall), poi.flip, game.res, mon.fx. sw v54 — ZERO new network assets (arenas
+  cave art, item sprites, sprite 100 = Voltorb, everything already precached).
+• Tested end-to-end in the 8377 preview: parse gate; fresh boot v18; planted
+  Kanto save — effort math EXACT (12kg@12 best → rel 1, 108 XP with the 1.5×
+  session mult vs 21 pre-v6.7; 6kg → rel .5, 54 XP; 13kg PR → rel 1.08, 117 XP,
+  PR theatre, perfect-form kill); res tallies bumped in live fights (zubat f:1,
+  charizard v:4); particles panel gates right (3 unlocked on the planted save),
+  flames wrap spawned on a real switch send-out (12 spans, none for the bare
+  mon); emblems 2/21 (1,206 leg sets = silver, modal math right); mining 9
+  swings from real sets, nugget +₽400, glint on the true neighbor; Voltorb Flip
+  L1 board CLEARED for exactly 24 coins (the [3,1,6] max) → banked, lv 2, then
+  bust → lv 1 with bank untouched, MARK dot works; dex board 13/151 with 13 gold
+  dots, muk sheet 4/5 → ₽400 claim → tick, milestone ₽2,000 claim; Hoenn: mine
+  at Dewford, corner seg 3 tables, own coin purse, own v67note/feat_mine;
+  import roundtrip 100% survival of res/rw/fx/mine/flip/coins/resm1 both saves;
+  zero console errors throughout. NOTE: planted-state writes can be overwritten
+  by stray app save() timers — write AFTER a fresh reload settles (bit me twice).
+  Also: town visit clamps to badge-unlocked towns at boot (planted Hoenn visit 3
+  reverted until boss.idx=4) — not a bug, just a planting gotcha.
+
+Previous: v6.6.1 SHIPPED 2026-07-13 from machine C (Desktop), two tweaks on v6.6 by request:
 • INSTANT HEAL IS NOW PAID + EVERYWHERE: the v6.6 town-0-free special is GONE.
   Every Center branch offers “🔔 INSTANT HEAL — ₽500” (var CENTER_FEE=500, one
   knob) under the sick bay: whole team on the spot, disabled with “(not enough ₽)”
