@@ -726,6 +726,45 @@ html.theme-day #travelfx.hoenn .tfxsign{border-color:#2E8B48}
 #toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 #toast button{background:none;border:none;color:var(--red);font-family:'Press Start 2P';font-size:11px;padding:0}
 
+/* ---------- v6.8 trainer cards (the Archero pick theatre) ---------- */
+#perkfx{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center}
+#perkfx .pkveil{position:absolute;inset:0;background:radial-gradient(circle at 50% 42%,rgba(30,26,60,.88),rgba(8,8,18,.96));animation:pkveil .35s ease-out}
+@keyframes pkveil{from{opacity:0}to{opacity:1}}
+#perkfx .pkwrap{position:relative;width:100%;max-width:390px;padding:0 10px;text-align:center}
+#perkfx .pktitle{font-family:'Press Start 2P';font-size:14px;color:#F8D848;text-shadow:0 2px 0 rgba(0,0,0,.6);animation:pkdrop .5s cubic-bezier(.2,1.4,.4,1)}
+#perkfx .pksub{font-family:'Press Start 2P';font-size:9px;color:#B8C4D8;margin-top:8px}
+@keyframes pkdrop{from{opacity:0;transform:translateY(-26px)}to{opacity:1;transform:none}}
+#perkfx .pkrow{display:flex;gap:7px;margin:16px 0 14px;perspective:700px}
+.pcard{flex:1;min-width:0;border-radius:10px;padding:9px 5px 8px;cursor:pointer;position:relative;
+  font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:5px;
+  background:linear-gradient(180deg,#FBF6EA 0%,#F1E7D2 100%);
+  animation:pkin .55s cubic-bezier(.2,1.3,.4,1) backwards,pkfloat 2.6s ease-in-out .6s infinite alternate;
+  transition:transform .18s ease,box-shadow .18s ease}
+@keyframes pkin{from{opacity:0;transform:translateY(90px) rotateY(96deg)}60%{opacity:1}to{opacity:1;transform:none}}
+@keyframes pkfloat{from{transform:translateY(0)}to{transform:translateY(-5px)}}
+.pcard.rar0{border:3px solid #B08048;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+.pcard.rar1{border:3px solid #4878D8;box-shadow:0 4px 16px rgba(72,120,216,.5)}
+.pcard.rar2{border:3px solid #A050C8;box-shadow:0 4px 20px rgba(160,80,200,.65)}
+.pcard.rar2::before{content:'';position:absolute;inset:-3px;border-radius:10px;pointer-events:none;
+  background:linear-gradient(120deg,transparent 30%,rgba(255,232,140,.5) 50%,transparent 70%);
+  background-size:250% 100%;animation:pkshimmer 2.2s linear infinite}
+@keyframes pkshimmer{from{background-position:120% 0}to{background-position:-130% 0}}
+.pcard.sel{transform:translateY(-14px) scale(1.06);animation:none;z-index:2}
+.pcard.rar0.sel{box-shadow:0 0 0 3px #F8D848,0 10px 22px rgba(0,0,0,.6)}
+.pcard.rar1.sel{box-shadow:0 0 0 3px #F8D848,0 10px 24px rgba(72,120,216,.75)}
+.pcard.rar2.sel{box-shadow:0 0 0 3px #F8D848,0 10px 26px rgba(160,80,200,.85)}
+.pcard .pcrar{font-family:'Press Start 2P';font-size:7px;letter-spacing:.5px}
+.pcard .pcicon{width:40px;height:40px;image-rendering:pixelated;margin:2px 0}
+.pcard .pcname{font-family:'Press Start 2P';font-size:8.5px;color:#3A3430;line-height:1.35}
+.pcard .pcdesc{font-size:14px;color:#5A5248;line-height:1.22;min-height:52px}
+.pcard .pcown{font-size:11px;color:#96897A;border-top:1px solid rgba(0,0,0,.12);padding-top:4px;width:100%}
+.pcard.pwin{animation:pkwin 1.1s ease-out forwards;z-index:3}
+@keyframes pkwin{0%{transform:translateY(-14px) scale(1.06)}30%{transform:translateY(-20px) scale(1.14);box-shadow:0 0 0 4px #F8D848,0 0 44px 14px rgba(248,216,72,.6)}100%{transform:translateY(-16px) scale(1.1);box-shadow:0 0 0 3px #F8D848,0 0 30px 8px rgba(248,216,72,.4);opacity:1}}
+.pcard.pgone{animation:pkgone .5s ease-in forwards}
+@keyframes pkgone{to{opacity:0;transform:translateY(70px) rotate(6deg)}}
+#perkfx .pkconfirm{width:100%;padding:14px 6px}
+#perkfx .pkclose{display:block;margin:10px auto 0;color:#8A96AC}
+
 /* ---------- v6.7 field research dex markers ---------- */
 .restick{position:absolute;top:2px;left:3px;font-size:11px;color:#2E8B48;text-shadow:0 0 3px var(--boxw)}
 .resdot{position:absolute;top:3px;left:3px;width:9px;height:9px;border-radius:50%;background:#E8A010;
@@ -976,6 +1015,7 @@ function render(keepScroll){
   else if(tab==='quests')v.innerHTML=questsHTML();
   else if(tab==='body')v.innerHTML=bodyHTML();
   else if(tab==='prhall')v.innerHTML=prhallHTML();
+  else if(tab==='perks')v.innerHTML=perksHTML();
   else if(tab==='nav')v.innerHTML=navHTML();
   else if(tab&&tab.indexOf('poi-')===0)v.innerHTML=poiPageHTML(tab.slice(4));
   else v.innerHTML=settingsHTML();
@@ -1114,7 +1154,11 @@ function endWorkout(){
   state.sessions.push({id:uid(),start:ses.start,end:end,sets:st.sets,volume:st.volume,exercises:st.exercises});
   var cut=0;
   if(state.game&&st.volume){cut=Math.round(st.volume/20);addMoney(cut);}
+  /* v6.8 GOLDEN TOUCH: the stipend joins the purse row of the recap */
+  if(state.game&&perkN('goldentouch')){var gtp=250*perkN('goldentouch');addMoney(gtp);cut+=gtp;}
   save();render();
+  /* v6.8: a banked card pick greets you right after the recap */
+  if(state.game&&perkPicksLeft()>0)queueModal(function(){openPerkChooser();});
   /* v6.5: the FINISH theatre plays first, then the recap card slides up */
   sfx('victory');
   var amEnd=state.game?activeMon():null;
@@ -1304,6 +1348,9 @@ function migrateState(){
   if(state.game&&seedRes(state.game))changed=true;
   if(state.altGame&&seedRes(state.altGame))changed=true;
   if(!(state.version>=18)){state.version=18;changed=true;}
+  // v19: v6.8 TRAINER CARDS — level derives live from training days, picks bank
+  // automatically, game.perks is created lazily; nothing to backfill
+  if(!(state.version>=19)){state.version=19;changed=true;}
   // a workout left running for >6h was clearly forgotten: close it at the last logged set
   if(state.session&&Date.now()-state.session.start>6*3600000){
     var ses=state.session, limit=ses.start+6*3600000, lastTs=0;
@@ -1370,6 +1417,8 @@ function heroHTML(){
     (state.game?'<div style="display:flex;gap:8px;margin-top:8px">'+
       '<button class="btn" data-action="show-bag" style="flex:1"><img src="'+itemIcon('pokeball')+'" alt="" style="width:15px;height:15px;image-rendering:pixelated;vertical-align:-2px"> BAG</button>'+
       '<button class="btn" data-action="tab" data-tab="card" style="flex:1">CARD</button>'+
+      '<button class="btn" data-action="tab" data-tab="perks" style="flex:1;position:relative">PERKS'+
+        (perkPicksLeft()>0?'<span style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:#E8A010;border:2px solid var(--boxw)"></span>':'')+'</button>'+
       '<button class="btn" data-action="tab" data-tab="trophy" style="flex:1">TROPHY</button></div>':'')+
     '</div>';
 }
@@ -1483,6 +1532,201 @@ function cardRank(stars){
   if(stars>=12)return ['SILVER','#98A8B8'];
   if(stars>=6)return ['BRONZE','#C08050'];
   return ['NEW TRAINER','#C05028'];
+}
+/* ============================================================
+   v6.8 TRAINER CARDS — the Archero-style perk system.
+   TRAINER LEVEL derives LIVE from training days since the campaign started
+   (triangular curve: day 1 = LV2, then 3/6/10/15/21… days — retroactive, no
+   tracking). Every level banks ONE pick: three cards, choose one. The offer is
+   rolled STATE-FIRST and saved (no reroll-scumming); rarity COMMON/RARE/EPIC.
+   All effects are BONUS-ONLY (the no-punishment rule) and read live via perkN().
+   State: game.perks {used, taken{k:n}, offer:[k,k,k]|null, annLv} — per region,
+   so each campaign builds its own path. ============================================================ */
+var PERK_RAR_N=['COMMON','RARE','EPIC'],PERK_RAR_C=['#B08048','#4878D8','#A050C8'],PERK_RAR_W=[6,3,1];
+var PERKS=[
+  /* — commons (stack to 5): the bread and butter — */
+  {k:'powerbrace',n:'POWER BRACE',r:0,cap:5,icon:'sprites/items/protein.png',d:'Your sets deal +6% damage.',s:'+6% dmg'},
+  {k:'ironguard',n:'IRON GUARD',r:0,cap:5,icon:'sprites/items/iron.png',d:'Enemy counter-attacks hit 8% softer.',s:'-8% taken'},
+  {k:'swiftstep',n:'SWIFT STEP',r:0,cap:5,icon:'sprites/items/carbos.png',d:'Your POKEMON dodge enemy blows 4% of the time.',s:'+4% dodge'},
+  {k:'keeneye',n:'KEEN EYE',r:0,cap:5,icon:'sprites/items/scopelens.png',d:'+4% critical hit chance.',s:'+4% crit'},
+  {k:'scholar',n:'SCHOLAR',r:0,cap:5,icon:'sprites/items/luckyegg.png',d:'Sets grant +8% POKEMON EXP.',s:'+8% EXP'},
+  {k:'haggler',n:'HAGGLER',r:0,cap:5,icon:'sprites/npc/chef.png',d:'MART prices drop 6%.',s:'-6% prices'},
+  {k:'bounty',n:'BOUNTY HUNTER',r:0,cap:5,icon:'sprites/52.png',d:'Beaten trainers pay +10% prize money.',s:'+10% purses'},
+  {k:'deeppockets',n:'DEEP POCKETS',r:0,cap:5,icon:'sprites/items/hardstone.png',d:'Quest and daily rewards pay +8%.',s:'+8% rewards'},
+  /* — rares (stack to 3): build shapers — */
+  {k:'sharplens',n:'SHARP LENS',r:1,cap:3,icon:'sprites/items/scopelens.png',d:'Critical hits strike +15% harder.',s:'+15% crit dmg'},
+  {k:'goldrush',n:'GOLD RUSH',r:1,cap:3,icon:'sprites/items/shoalsalt.png',d:'The DIG SITE grants +2 free swings every day.',s:'+2 swings'},
+  {k:'ballmaestro',n:'BALL MAESTRO',r:1,cap:3,icon:'sprites/items/ultraball.png',d:'Thrown balls catch 10% more reliably.',s:'+10% catch'},
+  {k:'fieldmedic',n:'FIELD MEDIC',r:1,cap:3,icon:'sprites/items/hyperpotion.png',d:'CENTER rests finish 2h sooner and instant heal costs ₽100 less.',s:'-2h rest'},
+  {k:'mentor',n:'MENTOR',r:1,cap:1,icon:'sprites/items/expshare.png',d:'The EXP SHARE holder receives 75% instead of 50%.',s:'share 75%'},
+  {k:'highroller',n:'HIGH ROLLER',r:1,cap:3,icon:'sprites/items/rarecandy.png',d:'+1 free slot spin at the GAME CORNER daily.',s:'+1 spin'},
+  {k:'warmnest',n:'WARM NEST',r:1,cap:3,icon:'sprites/113.png',d:'Eggs hatch 25% faster per set.',s:'+25% hatch'},
+  /* — epics: run-defining — */
+  {k:'titanslayer',n:'TITAN SLAYER',r:2,cap:2,icon:'sprites/68.png',d:'+20% damage against GYM LEADERS, ELITE FOUR and FRONTIER BRAINS.',s:'+20% vs boss'},
+  {k:'guardian',n:'GUARDIAN ANGEL',r:2,cap:1,icon:'sprites/36.png',d:'Once per workout, a knockout blow leaves your fighter at 1 HP instead.',s:'survive KO'},
+  {k:'goldentouch',n:'GOLDEN TOUCH',r:2,cap:2,icon:'sprites/shiny/52.png',d:'Every finished workout pays a ₽250 stipend.',s:'+₽250/workout'},
+  {k:'vitalspirit',n:'VITAL SPIRIT',r:2,cap:2,icon:'sprites/items/hpup.png',d:'Your whole team’s MAX HP grows 10%.',s:'+10% max HP'},
+  {k:'secondwind',n:'SECOND WIND',r:2,cap:1,icon:'sprites/items/leftovers.png',d:'Your fighter breathes back 3% MAX HP after every set.',s:'heal 3%/set'},
+  {k:'formmaster',n:'FORM MASTER',r:2,cap:1,icon:'sprites/items/blackbelt.png',d:'PERFECT FORM crits trigger from 90% of your best (instead of 95%).',s:'form at 90%'},
+  {k:'raremagnet',n:'RARE MAGNET',r:2,cap:1,icon:'sprites/147.png',d:'Rare wild POKEMON appear 50% more often.',s:'+50% rares'}
+];
+function perkDef(k){var o=null;PERKS.forEach(function(p){if(p.k===k)o=p;});return o;}
+function perksOf(){
+  var g=state.game;
+  if(!g.perks)g.perks={used:0,taken:{},offer:null,annLv:1};
+  return g.perks;
+}
+function perkN(k){
+  var g=state.game;
+  return (g&&g.perks&&g.perks.taken&&g.perks.taken[k])||0;
+}
+/* the perk-tuned knobs, read at their engine hooks */
+function pfT(){return perkN('formmaster')?0.90:0.95;} /* PERFECT FORM threshold */
+function eshRate(){return perkN('mentor')?0.75:0.5;}  /* EXP SHARE payout */
+function centerFee(){return Math.max(200,CENTER_FEE-100*perkN('fieldmedic'));}
+function restMsNow(){return REST_MS-perkN('fieldmedic')*2*3600000;}
+function restHrsTxt(){return (restMsNow()/3600000)+' hours';}
+/* SECOND WIND: the fighter breathes back 3% max HP after any set (battle step) */
+function perkWindStep(am){
+  if(!perkN('secondwind')||!am)return null;
+  var mx=maxHpOf(am),cur=Math.max(0,curHpOf(am));
+  if(cur<=0||cur>=mx)return null;
+  var heal=Math.max(1,Math.round(mx*0.03));
+  var from=Math.round(cur/mx*100);
+  state.session.phps[am.uid]=Math.min(mx,cur+heal);
+  return {msg:DEX[am.sp].n+' caught a SECOND WIND!',sfx:'save',
+    php:[from,Math.round(state.session.phps[am.uid]/mx*100)],hold:700};
+}
+function trainerLevel(){
+  if(!state.game)return 1;
+  var d=daysSinceGameStart();
+  return Math.floor((Math.sqrt(8*d+1)-1)/2)+1;
+}
+function trainerLvProg(){
+  var d=daysSinceGameStart(),lv=trainerLevel();
+  var base=(lv-1)*lv/2,next=lv*(lv+1)/2;
+  return {have:d-base,need:next-base};
+}
+function perkPicksLeft(){
+  if(!state.game)return 0;
+  return Math.max(0,(trainerLevel()-1)-(perksOf().used||0));
+}
+function perkEligible(){
+  return PERKS.filter(function(p){return perkN(p.k)<p.cap;});
+}
+/* roll the 3-card offer STATE-FIRST; stored until a pick is made */
+function perkRollOffer(){
+  var pool=perkEligible(),picks=[];
+  while(picks.length<3&&pool.length){
+    var tot=0;
+    pool.forEach(function(p){tot+=PERK_RAR_W[p.r];});
+    var roll=Math.random()*tot,hit=pool[0];
+    for(var i=0;i<pool.length;i++){roll-=PERK_RAR_W[pool[i].r];if(roll<0){hit=pool[i];break;}}
+    picks.push(hit.k);
+    pool=pool.filter(function(p){return p.k!==hit.k;});
+  }
+  return picks.length?picks:null;
+}
+var perkSel=null; /* the raised card in the open theatre */
+function openPerkChooser(){
+  if(!state.game||perkPicksLeft()<=0)return;
+  var pk=perksOf();
+  if(!pk.offer||!pk.offer.length){
+    pk.offer=perkRollOffer();
+    if(!pk.offer){toast('Every card is already mastered!');return;}
+    save();
+  }
+  perkSel=null;
+  fxHold=true;
+  var old=document.getElementById('perkfx');
+  if(old)old.parentNode.removeChild(old);
+  var cards='';
+  pk.offer.forEach(function(k,i){
+    var p=perkDef(k);if(!p)return;
+    var have=perkN(k);
+    cards+='<button class="pcard rar'+p.r+'" data-action="perk-pick" data-k="'+p.k+'" style="animation-delay:'+(i*0.13)+'s">'+
+      '<div class="pcrar" style="color:'+PERK_RAR_C[p.r]+'">'+PERK_RAR_N[p.r]+'</div>'+
+      '<img class="pcicon" src="'+p.icon+'" alt="">'+
+      '<div class="pcname">'+p.n+'</div>'+
+      '<div class="pcdesc">'+p.d+'</div>'+
+      '<div class="pcown">'+(have?('OWNED ×'+have+' → ×'+(have+1)):(p.cap>1?'stacks to ×'+p.cap:'unique'))+'</div>'+
+      '</button>';
+  });
+  var el=document.createElement('div');
+  el.id='perkfx';
+  el.innerHTML='<div class="pkveil"></div><div class="pkwrap">'+
+    '<div class="pktitle">TRAINER LEVEL '+trainerLevel()+'</div>'+
+    '<div class="pksub">'+perkPicksLeft()+' pick'+(perkPicksLeft()===1?'':'s')+' banked — choose a card</div>'+
+    '<div class="pkrow">'+cards+'</div>'+
+    '<button class="btn acc pkconfirm" data-action="perk-confirm" disabled style="opacity:.45">TAP A CARD FIRST</button>'+
+    '<button class="textbtn pkclose" data-action="perk-close">later</button>'+
+    '</div>';
+  document.body.appendChild(el);
+  sfx('ballopen');
+}
+function closePerkChooser(){
+  var el=document.getElementById('perkfx');
+  if(el)el.parentNode.removeChild(el);
+  fxHold=false;
+  perkSel=null;
+  if(modalQueue.length&&!$('#modalwrap').classList.contains('open')){
+    var f=modalQueue.shift();setTimeout(f,180);
+  }
+}
+function confirmPerk(){
+  var pk=perksOf();
+  if(!perkSel||!pk.offer||pk.offer.indexOf(perkSel)<0)return;
+  var p=perkDef(perkSel);
+  if(!p||perkN(p.k)>=p.cap||perkPicksLeft()<=0)return;
+  /* state first — the celebration is pure theatre */
+  pk.taken[p.k]=(pk.taken[p.k]||0)+1;
+  pk.used=(pk.used||0)+1;
+  pk.offer=null;
+  save();
+  sfx(p.r===2?'pr':'save');
+  var el=document.getElementById('perkfx');
+  if(el){
+    [].slice.call(el.querySelectorAll('.pcard')).forEach(function(c){
+      c.classList.add(c.dataset.k===p.k?'pwin':'pgone');
+      c.disabled=true;
+    });
+    var cf=el.querySelector('.pkconfirm');
+    if(cf){cf.textContent=p.n+' — YOURS!';cf.disabled=true;}
+  }
+  setTimeout(function(){
+    closePerkChooser();
+    render(true);
+    toast(p.n+' learned!'+(perkPicksLeft()>0?' '+perkPicksLeft()+' pick'+(perkPicksLeft()===1?'':'s')+' left.':''));
+    if(perkPicksLeft()>0)setTimeout(function(){openPerkChooser();},450);
+  },1250);
+}
+function perksHTML(){
+  if(!state.game)return summaryHTML();
+  var pk=perksOf(),lv=trainerLevel(),pg=trainerLvProg(),left=perkPicksLeft();
+  var h='<div class="titlebar"><h1>TRAINER CARDS</h1><button class="textbtn" data-action="tab" data-tab="summary">← BACK</button></div>'+
+    '<div class="subtitle">Real training levels YOU up — every level is a card</div>';
+  h+='<div class="panel"><h3>TRAINER LEVEL<span class="bestchip" style="border-color:#A050C8;color:#A050C8">LV '+lv+'</span></h3>'+
+    '<div style="display:flex;align-items:center;gap:6px;margin:6px 0 4px"><div class="gbar exp"><div style="width:'+Math.min(100,Math.round(pg.have/pg.need*100))+'%"></div></div><span class="barnum">'+pg.have+'/'+pg.need+'</span></div>'+
+    '<div class="plv" style="white-space:normal;line-height:1.3">'+(pg.need-pg.have)+' more training day'+(pg.need-pg.have===1?'':'s')+' to LV '+(lv+1)+'. Every level banks one card pick.</div>'+
+    (left>0?'<button class="savebtn" data-action="perk-open" style="margin-top:10px">PICK A CARD — '+left+' WAITING</button>'
+      :'<div class="plv" style="margin-top:8px">No picks banked — train to level up!</div>')+'</div>';
+  var rows='';
+  [2,1,0].forEach(function(r){
+    PERKS.forEach(function(p){
+      if(p.r!==r)return;
+      var n=perkN(p.k);
+      if(!n)return;
+      rows+='<div class="prow" style="padding:6px 10px;border-left:4px solid '+PERK_RAR_C[p.r]+'">'+
+        '<img src="'+p.icon+'" alt="" style="width:26px;height:26px;image-rendering:pixelated;flex:none">'+
+        '<div style="flex:1;min-width:0"><div class="pname" style="font-size:15px">'+p.n+(n>1?' ×'+n:'')+'</div>'+
+        '<div class="plv" style="font-size:13px;line-height:1.2;white-space:normal">'+p.d+'</div></div>'+
+        '<span class="bestchip" style="flex:none;border-color:'+PERK_RAR_C[p.r]+';color:'+PERK_RAR_C[p.r]+'">'+p.s+'</span></div>';
+    });
+  });
+  h+='<div class="panel"><h3>YOUR BUILD<span class="bestchip">'+(pk.used||0)+' card'+((pk.used||0)===1?'':'s')+'</span></h3>'+
+    (rows||'<div class="memo" style="color:var(--mut)">No cards yet — your first pick is waiting after your first training day.</div>')+'</div>';
+  h+='<div class="panel"><h3>HOW IT WORKS</h3><div class="plv" style="white-space:normal;line-height:1.4">Training days level you up (fast at first, slower later). Each level offers THREE cards — COMMON, <span style="color:#4878D8">RARE</span> or <span style="color:#A050C8">EPIC</span> — and you keep ONE. Cards stack, apply only in this region, and are never lost. No card ever punishes a rest day.</div></div>';
+  return h;
 }
 /* ===== v6.7 MUSCLE EMBLEMS: lifetime SETS per muscle group, bronze/silver/gold.
    Sets are the fair yardstick — every muscle earns at the same pace, big or small. */
@@ -2154,6 +2398,7 @@ function expYieldOf(id){id=id||1;return (id>151?XP_EXT[id]:XP_TBL[id-1])||64;}
 function catchCheck(w,ballMult){
   var M=Math.max(1,w.max),H=Math.max(1,w.hp);
   var a=Math.floor((3*M-2*H)*catchRateOf(w.sp)*ballMult/(3*M));
+  a=Math.floor(a*(1+0.10*perkN('ballmaestro'))); // v6.8 BALL MAESTRO
   if(a>=255)return {caught:true,shakes:4};
   var b=Math.floor(1048560/Math.sqrt(Math.sqrt(16711680/Math.max(1,a))));
   var shakes=0;
@@ -2164,6 +2409,7 @@ function catchCheck(w,ballMult){
 function catchOdds(w,ballMult){
   var M=Math.max(1,w.max),H=Math.max(1,w.hp);
   var a=Math.floor((3*M-2*H)*catchRateOf(w.sp)*ballMult/(3*M));
+  a=Math.floor(a*(1+0.10*perkN('ballmaestro'))); // v6.8 — the shown % matches the check
   if(a>=255)return 100;
   var b=Math.floor(1048560/Math.sqrt(Math.sqrt(16711680/Math.max(1,a))));
   return Math.max(1,Math.round(Math.pow(Math.min(1,b/65536),4)*100));
@@ -2527,6 +2773,8 @@ function statsAt(sp,l){
 function statsFor(m){
   var s=statsAt(m.sp,monLevel(m.xp));
   if(m.vits)for(var k in m.vits)if(s[k]!==undefined)s[k]+=5*m.vits[k];
+  var vs=perkN('vitalspirit'); // v6.8 — player mons only (wilds/bosses use raw tables)
+  if(vs)s.hp=Math.round(s.hp*(1+0.10*vs));
   return s;
 }
 function findMon(u){if(!state.game)return null;for(var i=0;i<state.game.mons.length;i++)if(state.game.mons[i].uid===u)return state.game.mons[i];return null;}
@@ -2894,6 +3142,24 @@ function checkGameEvents(){
         });
       })(rd.k,rsh,rd.lv);
     }
+  }
+  // v6.8: TRAINER CARDS announce once, then every level-up offers the pick
+  if(!g.flags.v68note){
+    g.flags.v68note=1;changed=true;
+    queueModal(function(){
+      sfx('badge');
+      showModal('<div class="vbanner" style="font-size:13px;line-height:1.6">TRAINER<br>CARDS!</div>'+
+        '<p>YOU level up now: every <b>training day</b> raises your TRAINER LEVEL, and every level banks a <b>card pick</b> — three cards, keep one.</p>'+
+        '<p>Dodge chance, gold bonuses, faster hatching, guardian saves… Find your build under <b>TRAINER → PERKS</b>. Your past training already counts!</p>'+
+        '<div class="mbtns"><button class="btn acc" data-action="modal-ok">SHOW ME</button></div>',true);
+      modalOk=function(){closeModal();tab='perks';render();};
+    });
+  }
+  var pkA=perksOf();
+  if(trainerLevel()>(pkA.annLv||1)){
+    pkA.annLv=trainerLevel();changed=true;
+    if(!state.session&&perkPicksLeft()>0)queueModal(function(){openPerkChooser();});
+    else if(state.session)toast('TRAINER LEVEL '+trainerLevel()+'! A card pick awaits after the workout.');
   }
   // v6.7: EFFORT SCALING announces itself once, in both regions
   if(!g.flags.v67note){
@@ -4019,10 +4285,18 @@ function applyBossCounter(bz,lead){
   var c=bossCounterDamage(bz,lead);
   var mx=maxHpOf(lead);
   var from=Math.round(Math.max(0,curHpOf(lead))/Math.max(1,mx)*100);
-  state.session.phps[lead.uid]=Math.max(0,curHpOf(lead)-c.dmg);
+  /* v6.8 perks: SWIFT STEP dodge, IRON GUARD cut, GUARDIAN ANGEL save */
+  var dodged=Math.random()<0.04*perkN('swiftstep');
+  var hitDmg=dodged?0:Math.max(dodged?0:1,Math.round(c.dmg*(1-Math.min(0.4,0.08*perkN('ironguard')))));
+  var saved=false;
+  if(!dodged&&curHpOf(lead)-hitDmg<=0&&perkN('guardian')&&!state.session.gaUsed&&curHpOf(lead)>1){
+    hitDmg=curHpOf(lead)-1;state.session.gaUsed=1;saved=true;
+  }
+  state.session.phps[lead.uid]=Math.max(0,curHpOf(lead)-hitDmg);
   var to=Math.round(state.session.phps[lead.uid]/Math.max(1,mx)*100);
   var ctxt=c.eff>=2?' A heavy blow!':(c.eff>1?' It hit hard!':(c.eff<1?' '+DEX[lead.sp].n+' shrugged it off.':''));
-  var res={dmg:c.dmg,php:[from,to],msg:bz.mon+' struck back — '+c.dmg+' dmg!'+ctxt,fainted:false,faintMsg:null,goMsg:null};
+  var res={dmg:hitDmg,php:[from,to],msg:dodged?(bz.mon+' struck back — but '+DEX[lead.sp].n+' DODGED it!')
+    :(bz.mon+' struck back — '+hitDmg+' dmg!'+ctxt+(saved?' GUARDIAN ANGEL — '+DEX[lead.sp].n+' hung on at 1 HP!':'')),fainted:false,faintMsg:null,goMsg:null};
   state.session.bmsg+=' '+res.msg;
   if(state.session.phps[lead.uid]<=0){
     res.fainted=true;
@@ -4042,9 +4316,18 @@ function applyWildCounter(wd,lead){
   var dmg=Math.max(1,Math.round(raw*45/(45+def)));
   var mx=maxHpOf(lead);
   var from=Math.round(Math.max(0,curHpOf(lead))/Math.max(1,mx)*100);
+  /* v6.8 perks: SWIFT STEP dodge, IRON GUARD cut, GUARDIAN ANGEL save */
+  var wdodge=Math.random()<0.04*perkN('swiftstep');
+  if(wdodge)dmg=0;
+  else dmg=Math.max(1,Math.round(dmg*(1-Math.min(0.4,0.08*perkN('ironguard')))));
+  var wsaved=false;
+  if(!wdodge&&curHpOf(lead)-dmg<=0&&perkN('guardian')&&!state.session.gaUsed&&curHpOf(lead)>1){
+    dmg=curHpOf(lead)-1;state.session.gaUsed=1;wsaved=true;
+  }
   state.session.phps[lead.uid]=Math.max(0,curHpOf(lead)-dmg);
   var to=Math.round(state.session.phps[lead.uid]/Math.max(1,mx)*100);
-  var res={dmg:dmg,php:[from,to],msg:(wd.tr?DEX[wd.sp].n:'Wild '+DEX[wd.sp].n)+' fought back — '+dmg+' dmg!',fainted:false,faintMsg:null,goMsg:null};
+  var res={dmg:dmg,php:[from,to],msg:wdodge?((wd.tr?DEX[wd.sp].n:'Wild '+DEX[wd.sp].n)+' fought back — but '+DEX[lead.sp].n+' DODGED it!')
+    :((wd.tr?DEX[wd.sp].n:'Wild '+DEX[wd.sp].n)+' fought back — '+dmg+' dmg!'+(wsaved?' GUARDIAN ANGEL — '+DEX[lead.sp].n+' hung on at 1 HP!':'')),fainted:false,faintMsg:null,goMsg:null};
   state.session.bmsg+=' '+res.msg;
   if(state.session.phps[lead.uid]<=0){
     res.fainted=true;
@@ -4147,16 +4430,16 @@ function resolveBossSet(am,entry,vol,id){
   var boosted=!!state.session.xatkArmed;
   if(boosted){state.session.xatkArmed=false;state.session.xatkUsed=true;}
   // speed = crit chance, the gen-1 way (capped at 25%); SCOPE LENS stacks on top
-  // v6.7: a set at ≥95% of your record always crits — PERFECT FORM
-  var crit=(entry.rel>=0.95)||Math.random()<Math.min(0.25,stA.spe/400)+heldCritBonus(am);
-  var dmg=Math.round(vol*eff*(1+Math.max(stA.atk,stA.spa)/250)*(boosted?1.5:1)*(crit?1.5:1)*heldBoostFor(am,mvType));
+  // v6.7: a set at ≥95% of your record always crits — PERFECT FORM (v6.8: FORM MASTER lowers to 90%)
+  var crit=(entry.rel>=pfT())||Math.random()<Math.min(0.25,stA.spe/400)+heldCritBonus(am)+0.04*perkN('keeneye');
+  var dmg=Math.round(vol*eff*(1+Math.max(stA.atk,stA.spa)/250)*(boosted?1.5:1)*(crit?(1.5+0.15*perkN('sharplens')):1)*heldBoostFor(am,mvType)*(1+0.06*perkN('powerbrace'))*(1+0.2*perkN('titanslayer')));
   var ehpFrom=Math.round(bz.memberHp/Math.max(1,bz.memberMax)*100);
   var hpBefore=state.game.boss.hp;
   state.game.boss.hp-=dmg;
   entry.dmg=dmg;entry.bidx=bz.idx;
   var effTxt=eff>=2?" It's super effective!":(eff<=0.3?' It barely affects it…':(eff<1?" It's not very effective…":''));
   var hitSfx=(crit||eff>=2)?'superhit':(eff<=0.3?'weakhit':'hit');
-  var atkMsg=DEX[am.sp].n+' used '+mvName+'!'+(crit?((entry.rel>=0.95)?' PERFECT FORM — critical hit!':' A critical hit!'):'')+(boosted?' X ATTACK boost!':'')+effTxt;
+  var atkMsg=DEX[am.sp].n+' used '+mvName+'!'+(crit?((entry.rel>=pfT())?' PERFECT FORM — critical hit!':' A critical hit!'):'')+(boosted?' X ATTACK boost!':'')+effTxt;
   state.session.bmsg=atkMsg+' '+dmg.toLocaleString()+' dmg.';
   var steps=[];
   if(state.game.boss.hp<=0){
@@ -4167,7 +4450,7 @@ function resolveBossSet(am,entry,vol,id){
     applyXP(am,koF);
     resBump(am.sp,'v'); // v6.7: boss takedowns count toward field research too
     var eshF=expShareHolder(am.uid);
-    if(eshF){var eshFK=Math.max(1,Math.round(koF*0.5));applyXP(eshF,eshFK);state.session.xpg=(state.session.xpg||0)+eshFK;}
+    if(eshF){var eshFK=Math.max(1,Math.round(koF*eshRate()));applyXP(eshF,eshFK);state.session.xpg=(state.session.xpg||0)+eshFK;}
     steps.push({msg:atkMsg,sfx:hitSfx,movesfx:mvName,lunge:'player',blink:'enemy',ehp:[ehpFrom,0],dmg:['enemy',dmg],fx:mvType});
     steps.push({msg:'Foe '+bz.mon+' is unable to battle! +'+koF+' EXP!',sfx:'faint',cryId:bz.monId,faint:'enemy',hold:1100});
     // the beaten leader steps back out to concede
@@ -4214,6 +4497,7 @@ function resolveBossSet(am,entry,vol,id){
   }
   insertBeforeRefresh(steps,leftoversStep(am));
   insertBeforeRefresh(steps,shellBellStep(am,dmg));
+  insertBeforeRefresh(steps,perkWindStep(am)); // v6.8 SECOND WIND
   pendingSteps={ov:{enemy:bz,lead:am},list:steps};
 }
 function badgeCount(){
@@ -4228,9 +4512,11 @@ function spawnWild(){
   if(safariOn())return safariSpawn();
   // strict biome spawns: weighted pick from THIS area's table only
   var list=areaSpawnList(curTown()),tot=0;
-  list.forEach(function(e){tot+=e[1];});
+  /* v6.8 RARE MAGNET: rare (3) and very-rare (1) weights climb 50% */
+  var wOf=function(e){return (e[1]<=3&&perkN('raremagnet'))?e[1]*1.5:e[1];};
+  list.forEach(function(e){tot+=wOf(e);});
   var roll=Math.random()*tot,sp=list[0][0];
-  for(var i=0;i<list.length;i++){roll-=list[i][1];if(roll<0){sp=list[i][0];break;}}
+  for(var i=0;i<list.length;i++){roll-=wOf(list[i]);if(roll<0){sp=list[i][0];break;}}
   // level comes from the AREA, not from your team (authentic routes)
   var band=WILD_BANDS[curTown()]||[2,6];
   var wlv=band[0]+Math.floor(Math.random()*(band[1]-band[0]+1));
@@ -8507,7 +8793,7 @@ function cornerOf(){
 }
 function cornerFreeLeft(p){
   ensureDaily();
-  var free=3+(((state.game.daily&&state.game.daily.streak)||0)>=7?1:0);
+  var free=3+(((state.game.daily&&state.game.daily.streak)||0)>=7?1:0)+perkN('highroller');
   return Math.max(0,free-(p.spins||0));
 }
 /* ===== v6.7 VOLTORB FLIP: the HGSS strategy table, free to play, all skill.
@@ -8794,7 +9080,7 @@ function mineOf(){
 function mineSwings(){
   if(!state.game)return 0;
   var p=mineOf();
-  return Math.max(0,(daySetsMap()[todayKey()]||0)-(p.u||0));
+  return Math.max(0,(daySetsMap()[todayKey()]||0)+2*perkN('goldrush')-(p.u||0));
 }
 function mineNear(p,i){
   var x=i%MINE_W,y=Math.floor(i/MINE_W),out=false;
@@ -9487,7 +9773,7 @@ function centerHTML(){
     '<img class="npc" src="sprites/npc/oldman.png" alt="" style="left:15%;top:70%;width:9%">'+
     '<img class="npc" src="sprites/npc/lass.png" alt="" style="left:79%;top:76%;width:9%">'+
     '</div>'+
-    '<div class="panel"><h3>NURSE</h3><div class="plv" style="line-height:1.35">Welcome! Leave a POKEMON with me and it will be fighting fit in <b>10 hours</b> — free, as always. In a hurry? For <b>₽'+CENTER_FEE.toLocaleString()+'</b> flat I’ll have your <b>whole team</b> dancing on the spot.</div></div>';
+    '<div class="panel"><h3>NURSE</h3><div class="plv" style="line-height:1.35">Welcome! Leave a POKEMON with me and it will be fighting fit in <b>'+restHrsTxt()+'</b> — free, as always. In a hurry? For <b>₽'+centerFee().toLocaleString()+'</b> flat I’ll have your <b>whole team</b> dancing on the spot.</div></div>';
   if(state.session){
     h+='<div class="panel"><div class="plv" style="color:#D03028">The nurse can’t treat a team mid-battle — finish your workout first!</div></div>';
   }
@@ -9519,10 +9805,10 @@ function centerHTML(){
       '</div></div>';
   });
   if(needy){
-    var canPay=money()>=CENTER_FEE;
+    var canPay=money()>=centerFee();
     h+='<div class="panel"><h3>SICK BAY<span class="bestchip">'+needy+'</span></h3>'+rows+
       (!state.session
-        ?'<button class="btn'+(canPay?' acc':'')+'" data-action="center-heal-all" style="width:100%;margin-top:8px"'+(canPay?'':' disabled')+'>🔔 INSTANT HEAL — ₽'+CENTER_FEE.toLocaleString()+(canPay?'':' (not enough ₽)')+'</button>'
+        ?'<button class="btn'+(canPay?' acc':'')+'" data-action="center-heal-all" style="width:100%;margin-top:8px"'+(canPay?'':' disabled')+'>🔔 INSTANT HEAL — ₽'+centerFee().toLocaleString()+(canPay?'':' (not enough ₽)')+'</button>'
         :'')+'</div>';
   }
   else h+='<div class="panel"><div class="plv">Your whole team is fighting fit! Come back after a rough battle.</div></div>';
@@ -9791,7 +10077,7 @@ function settingsHTML(){
     '<button class="btn danger" data-action="reset-game">Reset</button></div>'+
   '<div class="srow"><div><div class="lab" style="color:var(--red)">Reset everything</div><div class="sub">Deletes all history</div></div>'+
     '<button class="btn danger" data-action="reset">Reset</button></div>'+
-  '<div class="about">Gym Tracker v6.7 “Fair Fight” · '+kb+' KB stored locally<br>'+
+  '<div class="about">Gym Tracker v6.8 “Trainer’s Path” · '+kb+' KB stored locally<br>'+
   'Your data never leaves your phone. Export a backup once in a while —<br>if you delete the app icon, its data goes with it.</div>';
 }
 
@@ -9972,7 +10258,7 @@ function saveLogEntry(){
       entry.rel=Math.round(rel*100)/100;
       var vol=rel*powerBase()*entry.r*entry.s;
       var expFrom=expPctOf(am),expLv0=monLevel(am.xp);
-      var gain=Math.round(vol/10*(state.session?(state.session.mode==='boss'?1:1.5):1)*(state.session&&state.session.lucky?2:1)*(heldOf(am)==='machobrace'?1.25:1));
+      var gain=Math.round(vol/10*(state.session?(state.session.mode==='boss'?1:1.5):1)*(state.session&&state.session.lucky?2:1)*(heldOf(am)==='machobrace'?1.25:1)*(1+0.08*perkN('scholar')));
       if(gain>0){
         entry.xpg=gain;entry.mon=am.uid;
         if(state.session)state.session.xpg=(state.session.xpg||0)+gain;
@@ -9980,7 +10266,7 @@ function saveLogEntry(){
         // the EXP SHARE holder rides along at half rate
         var esh=expShareHolder(am.uid);
         if(esh){
-          var eshG=Math.max(1,Math.round(gain*0.5));
+          var eshG=Math.max(1,Math.round(gain*eshRate()));
           if(state.session)state.session.xpg=(state.session.xpg||0)+eshG;
           applyXP(esh,eshG);
         }
@@ -10023,8 +10309,8 @@ function saveLogEntry(){
         var stT=statsFor(fm);
         var wKm=knownMoves(fm);
         var wMv=wKm[Math.floor(Math.random()*wKm.length)];
-        var wCrit=(entry.rel>=0.95)||Math.random()<Math.min(0.25,stT.spe/400)+heldCritBonus(fm);
-        var dmgT=Math.round(vol*(1+Math.max(stT.atk,stT.spa)/250)*(wCrit?1.5:1)*heldBoostFor(fm,moveTypeOf(wMv))*(wd.tr&&wd.tr.mood?wd.tr.mood:1));
+        var wCrit=(entry.rel>=pfT())||Math.random()<Math.min(0.25,stT.spe/400)+heldCritBonus(fm)+0.04*perkN('keeneye');
+        var dmgT=Math.round(vol*(1+Math.max(stT.atk,stT.spa)/250)*(wCrit?(1.5+0.15*perkN('sharplens')):1)*heldBoostFor(fm,moveTypeOf(wMv))*(wd.tr&&wd.tr.mood?wd.tr.mood:1)*(1+0.06*perkN('powerbrace'))*(wd.tr&&wd.tr.brain?(1+0.2*perkN('titanslayer')):1));
         var wPre={sp:wd.sp,lv:wd.lv,hp:Math.max(0,wd.hp),max:wd.max,shiny:wd.shiny,tr:wd.tr};
         var wFrom=Math.round(wPre.hp/wd.max*100);
         wd.parts=wd.parts||{};wd.parts[fm.uid]=1; // everyone who lands a hit shares the EXP
@@ -10039,7 +10325,7 @@ function saveLogEntry(){
           }
         }
         var wTo=Math.round(Math.max(0,wd.hp)/wd.max*100);
-        var wAtk=DEX[fm.sp].n+' used '+wMv+'!'+(wCrit?((entry.rel>=0.95)?' PERFECT FORM — critical hit!':' A critical hit!'):'');
+        var wAtk=DEX[fm.sp].n+' used '+wMv+'!'+(wCrit?((entry.rel>=pfT())?' PERFECT FORM — critical hit!':' A critical hit!'):'');
         var wSteps=[{msg:wAtk,sfx:wCrit?'superhit':'hit',movesfx:wMv,lunge:'player',blink:'enemy',ehp:[wFrom,wTo],dmg:['enemy',dmgT],fx:moveTypeOf(wMv)}];
         if(judgeLoss){
           var arp=bfOf();
@@ -10064,7 +10350,7 @@ function saveLogEntry(){
           var wbonus=wShare*wParts.length;
           var eshW=expShareHolder(null);
           if(eshW&&wParts.indexOf(eshW.uid)<0){
-            var eshWS=Math.max(1,Math.round(wShare*0.5));
+            var eshWS=Math.max(1,Math.round(wShare*eshRate()));
             applyXP(eshW,eshWS);
             wbonus+=eshWS;
           }
@@ -10076,6 +10362,7 @@ function saveLogEntry(){
           if(wd.tr){
             // trainer beaten — payout, like the games (AMULET COIN pays half again)
             if(partyHolds('amuletcoin'))wd.tr.purse=Math.round(wd.tr.purse*1.5);
+            if(perkN('bounty'))wd.tr.purse=Math.round(wd.tr.purse*(1+0.10*perkN('bounty'))); // v6.8
             addMoney(wd.tr.purse);
             var isRival=!!wd.tr.rival;
             var mbWin=(wd.tr.mb!==undefined&&state.game.road)?(isRival?' RIVAL DEFEATED!':' ROADBLOCK CLEARED!'):'';
@@ -10143,6 +10430,7 @@ function saveLogEntry(){
         }
         insertBeforeRefresh(wSteps,leftoversStep(fm));
         insertBeforeRefresh(wSteps,shellBellStep(fm,dmgT));
+        insertBeforeRefresh(wSteps,perkWindStep(fm)); // v6.8 SECOND WIND
         pendingSteps={ov:{wild:wPre,lead:fm},list:wSteps};
       }
       // a new record feeds the lead a Rare Candy: jump to the next level (+PR bonus ₽)
@@ -10166,7 +10454,7 @@ function saveLogEntry(){
       }
       pendingLvCapture=null;
       if(state.game.egg){
-        state.game.egg.left-=entry.s;
+        state.game.egg.left-=Math.round(entry.s*(1+0.25*perkN('warmnest')));
         if(state.game.egg.left<=0){
           var HATCH=inHoenn()?HOENN_EGG_POOL:KANTO_EGG_POOL;
           var hsp=HATCH[Math.floor(Math.random()*HATCH.length)];
@@ -10615,6 +10903,23 @@ function applyImport(txt){
         if(Object.keys(ro).length)gm.res[rsp3]=ro;
       });
     }
+    /* v6.8: TRAINER CARDS — picks spent, taken stacks (cap-clamped), the saved offer */
+    gm.perks={used:0,taken:{},offer:null,annLv:1};
+    if(dgame.perks&&typeof dgame.perks==='object'){
+      var pks=dgame.perks;
+      gm.perks.used=Math.max(0,parseInt(pks.used,10)||0);
+      gm.perks.annLv=Math.max(1,parseInt(pks.annLv,10)||1);
+      if(pks.taken&&typeof pks.taken==='object')Object.keys(pks.taken).forEach(function(tk2){
+        var pdf=perkDef(tk2);
+        if(!pdf)return;
+        var tn=parseInt(pks.taken[tk2],10);
+        if(tn>0)gm.perks.taken[tk2]=Math.min(pdf.cap,tn);
+      });
+      if(Array.isArray(pks.offer)){
+        var ofr=pks.offer.filter(function(ok2){return !!perkDef(ok2);}).slice(0,3);
+        if(ofr.length)gm.perks.offer=ofr;
+      }
+    }
     gm.bp=Math.max(0,Math.round(+dgame.bp)||0);
     gm.bestStreak=Math.max(0,parseInt(dgame.bestStreak,10)||0);
     gm.visit=(isFinite(dgame.visit)&&+dgame.visit>=0&&+dgame.visit<R_TOWNS.length)?+dgame.visit:null;
@@ -10781,6 +11086,18 @@ document.addEventListener('click',function(e){
   else if(a==='open-mon'){openMon(b.dataset.m);}
   /* ===== v6.7 actions ===== */
   else if(a==='emblem-info'){showEmblemInfo(b.dataset.k);}
+  /* ===== v6.8 trainer cards ===== */
+  else if(a==='perk-open'){openPerkChooser();}
+  else if(a==='perk-pick'){
+    if(document.querySelector('#perkfx .pcard.pwin'))return;
+    perkSel=b.dataset.k;
+    [].slice.call(document.querySelectorAll('#perkfx .pcard')).forEach(function(c){c.classList.toggle('sel',c.dataset.k===perkSel);});
+    var pcf=document.querySelector('#perkfx .pkconfirm');
+    var ppd=perkDef(perkSel);
+    if(pcf&&ppd){pcf.disabled=false;pcf.style.opacity='1';pcf.textContent='CHOOSE '+ppd.n;}
+  }
+  else if(a==='perk-confirm'){confirmPerk();}
+  else if(a==='perk-close'){closePerkChooser();}
   else if(a==='set-fx'){
     var fxm=findMon(b.dataset.m);
     if(!fxm)return;
@@ -11398,9 +11715,10 @@ document.addEventListener('click',function(e){
     var cq=questsFor(state.game.road.idx)[cqi];
     if(cq&&questReady(cq)&&!questClaimed(cqi)){
       state.game.road.qdone[cqi]=1;
-      addMoney(cq.reward);
+      var cqPay=Math.round(cq.reward*(1+0.08*perkN('deeppockets'))); // v6.8
+      addMoney(cqPay);
       save();sfx('badge');
-      toast('+₽'+cq.reward.toLocaleString()+' from '+cq.clsN+' '+cq.name+'!');
+      toast('+₽'+cqPay.toLocaleString()+' from '+cq.clsN+' '+cq.name+'!');
       checkGameEvents();
       render(true);
     }
@@ -11412,7 +11730,8 @@ document.addEventListener('click',function(e){
     var dq=dailyFor()[ddi];
     if(dq&&dailyProg(dq)>=dq.target&&!state.game.daily.claimed[ddi]){
       state.game.daily.claimed[ddi]=1;
-      addMoney(dq.reward);
+      var dqPay=Math.round(dq.reward*(1+0.08*perkN('deeppockets'))); // v6.8
+      addMoney(dqPay);
       // the flex streak: rest days (up to 3 calendar days between claims) never break it
       var dl=state.game.daily;
       if(dl.lastDone!==dl.date){
@@ -11421,7 +11740,7 @@ document.addEventListener('click',function(e){
       }
       if((dl.streak||0)>((state.game.bestStreak)||0))state.game.bestStreak=dl.streak; // TRAINER CARD rank
       save();sfx('badge');
-      toast('+₽'+dq.reward.toLocaleString()+' — daily done! 🔥'+dl.streak);
+      toast('+₽'+dqPay.toLocaleString()+' — daily done! 🔥'+dl.streak);
       render(true);
     }
   }
@@ -11457,22 +11776,22 @@ document.addEventListener('click',function(e){
     if(state.session){toast('Finish your workout first!');return;}
     var rmM=findMon(b.dataset.m);
     if(rmM&&curHpOf(rmM)<maxHpOf(rmM)&&!restOf()[rmM.uid]){
-      restOf()[rmM.uid]=Date.now()+REST_MS;
+      restOf()[rmM.uid]=Date.now()+restMsNow();
       save();sfx('save');render(true);
-      toast(DEX[rmM.sp].n+' is resting — back in 10h');
+      toast(DEX[rmM.sp].n+' is resting — back in '+(restMsNow()/3600000)+'h');
     }
   }
   /* v6.6.1: the nurse's express lane — ₽500 flat, whole team, every branch */
   else if(a==='center-heal-all'){
     if(!state.game||state.session)return;
-    if(money()<CENTER_FEE){toast('Not enough ₽ — the free 10h rest is always open.');return;}
+    if(money()<centerFee()){toast('Not enough ₽ — the free rest is always open.');return;}
     var healedList=[];
     state.game.mons.forEach(function(hm){
       var hmx=maxHpOf(hm),hcur=Math.max(0,Math.min(hmx,curHpOf(hm)));
       if(hcur<hmx||restOf()[hm.uid])healedList.push(hm);
     });
     if(!healedList.length)return;
-    state.game.money-=CENTER_FEE;
+    state.game.money-=centerFee();
     healedList.forEach(function(hm){
       if(state.game.hurt)delete state.game.hurt[hm.uid];
       delete restOf()[hm.uid];

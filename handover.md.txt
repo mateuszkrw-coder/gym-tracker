@@ -1,4 +1,4 @@
-Gym Tracker — Handover Document (current as of app v6.7 / sw v54 / schema v18, 2026-07-20)
+Gym Tracker — Handover Document (current as of app v6.8 / sw v55 / schema v19, 2026-07-20)
 
 ============================================================
 1. WHAT THIS IS
@@ -21,7 +21,7 @@ installed home-screen app isolated storage — a separate app couldn't read the 
 
 Live URL:  https://mateuszkrw-coder.github.io/gym-tracker/
 Repo:      https://github.com/mateuszkrw-coder/gym-tracker  (GitHub Pages from main branch root)
-Current:   app v6.7 “Fair Fight”, service-worker cache v54, data schema v18.
+Current:   app v6.8 “Trainer’s Path”, service-worker cache v55, data schema v19.
 
 ============================================================
 2. THE TWO-LAPTOP WORKFLOW (read this FIRST on any machine)
@@ -147,6 +147,9 @@ docs/poi-blueprints.md — older design notes
    and flip{lv,best}; mons carry fx? (entry particle key); every LOG ENTRY now
    stores rel (effort vs the exercise best at log time); flags gains v67note,
    resm1..resm4, shinycharm (all wholesale).
+   v6.8 adds: game.perks {used, taken{k:n}, offer:[k,k,k]|null, annLv} (lazily via
+   perksOf; TRAINER LEVEL itself derives from logs, never stored); session gains
+   gaUsed (GUARDIAN ANGEL, transient); flags gains v68note.
 ============================================================
 {
   version:14, unit, theme:'night'|'day', sound, gamePlayed, dev,
@@ -306,6 +309,9 @@ feebasTown() (the day's lucky pier), trickOf(). migrateState() runs at INIT.
   (5 tasks/species, any 4 = researched, ₽400 each, milestones up to the SHINY
   CHARM); ENTRY PARTICLES (8 earned cosmetic send-out bursts, m.fx); MUSCLE
   EMBLEMS (per-group lifetime-set medals on the CARD).
+• v6.8 TRAINER CARDS (see §13): Archero-style pick-1-of-3 perk cards, banked by
+  the TRAINER LEVEL that grows from real training days. 22 perks, 3 rarities,
+  16 engine hooks, the #perkfx card theatre, the PERKS page off TRAINER.
 • Nav: 6 docked tabs — TRAINER · MAP · TEAM · LAB · QUEST · OPTION. Routed pages:
   TRAVEL, MART, CENTER, GYMHALL, WORKOUT, TROPHY, CARD, poi-* (all 23 buildings).
 
@@ -458,7 +464,58 @@ Johto/Gen-2 content pack (a 3rd campaign — the region model supports it cleanl
 ============================================================
 13. IMMEDIATE STATE
 ============================================================
-v6.7 “Fair Fight” SHIPPED 2026-07-20 from machine C (Desktop) — six features, all
+v6.8 “Trainer’s Path” SHIPPED 2026-07-20 from machine C (Desktop) — the Archero-
+style TRAINER CARDS perk system, requested as “3 cards appear, pick one”:
+• TRAINER LEVEL: derives LIVE from training days since the campaign started
+  (daysSinceGameStart, triangular curve — trainerLevel() = floor((sqrt(8d+1)-1)/2)+1:
+  day 1 = LV2, then 3/6/10/15/21/28… days; retroactive, nothing tracked). Every
+  level BANKS one pick (perkPicksLeft = level-1 − perks.used). Veteran saves get
+  their whole backlog on update — the announce modal (flags.v68note) plays, then
+  the chooser auto-opens from the modal queue.
+• THE CARDS: 22 perks in PERKS[] — 8 COMMON (cap 5: +6% dmg, −8% taken, +4% dodge,
+  +4% crit, +8% EXP, −6% mart, +10% purses, +8% quest ₽), 7 RARE (cap 3 mostly:
+  +15% crit dmg, +2 mine swings, +10% catch, −2h rest & −₽100 fee, EXP SHARE 75%
+  [cap 1], +1 free spin, +25% hatch), 7 EPIC (caps 1-2: +20% vs bosses/brains,
+  GUARDIAN ANGEL once-per-workout 1-HP save [session.gaUsed], ₽250 stipend at
+  workout end [joins the recap purse row], +10% team max HP, SECOND WIND 3%-max-HP
+  heal step after every set, PERFECT FORM at 90% [pfT()], rare spawn weights ×1.5).
+  All BONUS-ONLY per the no-punishment rule. Icons = existing sprites; card art =
+  pure CSS (rarity frames bronze/blue/purple, epic shimmer ::before).
+• THE THEATRE (#perkfx overlay, .pcard): three cards fly in with a staggered
+  rotateY flip + idle float; tap RAISES the card (.sel) and arms the CHOOSE
+  button; confirm plays .pwin glow while the others .pgone fly out. STATE-FIRST:
+  the 3-card offer is rolled once and SAVED (perks.offer — no reroll by reopening),
+  and the pick is applied+saved before the celebration. Auto-chains to the next
+  pick while picks remain; “later” closes (offer stays). Rarity weights 6/3/1,
+  no duplicate cards in one offer, capped-out perks leave the pool.
+• WIRING: perkN(k) reads stacks at 16 engine hooks — wild/boss damage + crit
+  chance/multiplier (both formulas), pfT() at all 4 perfect-form sites, dodge/
+  reduction/guardian inside applyWildCounter AND applyBossCounter, XP gain +
+  eshRate() at all 3 EXP SHARE sites, statsFor hp (player mons only — wilds use
+  raw tables), catchCheck+catchOdds (the shown % stays honest), trainer purse,
+  quest/daily claim payouts (cqPay/dqPay), mineSwings, egg.left bite, corner
+  free spins, centerFee()/restMsNow() (all Center texts now dynamic), spawnWild
+  weight fn (wOf), perkWindStep beside both shellBellStep call sites, GOLDEN
+  TOUCH + auto-chooser queue in endWorkout, level-up announce in checkGameEvents
+  (annLv; toasts instead of opening mid-session).
+• UI: PERKS page (tab 'perks', hero button row TRAINER → PERKS with a gold dot
+  when picks wait): level bar (days into level), PICK button, the build list
+  grouped by rarity with stack chips, how-it-works. Per-region builds (each
+  campaign its own path; parked altGame perks are dormant).
+• Schema v19 (stamp only). sanitizeGame whitelists game.perks {used, annLv,
+  taken cap-clamped vs PERKS, offer validated}. sw v55, ZERO new assets.
+• Tested in the 8377 preview: parse gate; fresh boot v19; planted 11-day save →
+  LV 5 exactly, “4 picks banked”, announce → auto-chooser from the queue; offer
+  state-first in perks.offer; tap→raise→CHOOSE SHARP LENS→win anim→taken/used/
+  offer-null→auto-reopen “3 picks banked”; planted 21-stack build renders the
+  page grouped by rarity; numeric hooks EXACT (mine chip 4 SWINGS from goldrush 2
+  with 0 sets, nurse “4 hours / ₽200” from fieldmedic 3, MAX. HP 248 with +41
+  green from vitalspirit 2); live set one-shot an Onix through the ×1.3 stack;
+  import roundtrip perks 100%; picksLeft=0 correctly offers nothing; zero console
+  errors. NOT battle-tested (code-reviewed): dodge/guardian RNG branches, brain
+  titanslayer path, SECOND WIND step visuals.
+
+Previous: v6.7 “Fair Fight” SHIPPED 2026-07-20 from machine C (Desktop) — six features, all
 by request (he asked for the effort fix + picked 5 from a research brainstorm):
 • EFFORT SCALING (the flagship fix — “side delts feel useless”): battle damage AND
   set-XP no longer scale with raw kg. In saveLogEntry, vol = rel × powerBase() ×
